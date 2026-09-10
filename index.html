@@ -163,74 +163,81 @@
   <!-- TOP NAVIGATION / HEADER                    -->
   <!-- ========================================== -->
   <header class="sticky top-0 z-40 w-full border-b border-slate-200/80 dark:border-slate-800/80 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md transition-colors">
-    <div class="max-w-[1000px] w-full mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+    <div class="max-w-[1000px] w-full mx-auto px-3 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-2">
       
       <!-- LOGO -->
-      <div class="flex items-center space-x-3 cursor-pointer select-none" id="nav-logo">
-        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-600 to-indigo-500 text-white flex items-center justify-center font-extrabold text-lg shadow-md shadow-brand-500/20">
+      <div class="flex items-center space-x-2.5 cursor-pointer select-none shrink-0" id="nav-logo" title="WL Wordly Kezdőlap" aria-label="WL Wordly Kezdőlap">
+        <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-tr from-brand-600 to-indigo-500 text-white flex items-center justify-center font-extrabold text-base sm:text-lg shadow-md shadow-brand-500/20 shrink-0">
           WL
         </div>
-        <div>
-          <span class="text-xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-1.5">
-            WL Wordly <span class="text-xs px-2 py-0.5 rounded-full bg-brand-100 dark:bg-brand-950 text-brand-700 dark:text-brand-300 font-semibold border border-brand-200 dark:border-brand-800/60">Excel Szótanuló</span>
-          </span>
-        </div>
+        <span class="text-lg sm:text-xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-1.5">
+          WL Wordly <span class="hidden sm:inline-flex text-[11px] px-2 py-0.5 rounded-full bg-brand-100 dark:bg-brand-950 text-brand-700 dark:text-brand-300 font-semibold border border-brand-200 dark:border-brand-800/60">Excel Szótanuló</span>
+        </span>
       </div>
 
       <!-- PUBLIC NAV LINKS (Visible when on landing / logged out) -->
-      <nav id="public-nav-links" class="hidden md:flex items-center space-x-6 text-sm font-medium text-slate-600 dark:text-slate-300">
-        <a href="#landing" class="hover:text-brand-600 dark:hover:text-brand-400 transition-colors">Kezdőlap</a>
-        <a href="#how-it-works" class="hover:text-brand-600 dark:hover:text-brand-400 transition-colors">Hogyan működik?</a>
-        <a href="#features" class="hover:text-brand-600 dark:hover:text-brand-400 transition-colors">Funkciók</a>
-        <a href="#faq" class="hover:text-brand-600 dark:hover:text-brand-400 transition-colors">GYIK</a>
+      <nav id="public-nav-links" class="hidden md:flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
+        <a href="#landing" class="w-10 h-10 min-w-[40px] min-h-[40px] flex items-center justify-center rounded-xl hover:text-brand-600 dark:hover:text-brand-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" title="Kezdőlap" aria-label="Kezdőlap">
+          <i data-lucide="home" class="w-5 h-5"></i>
+        </a>
+        <a href="#how-it-works" class="w-10 h-10 min-w-[40px] min-h-[40px] flex items-center justify-center rounded-xl hover:text-brand-600 dark:hover:text-brand-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" title="Hogyan működik?" aria-label="Hogyan működik?">
+          <i data-lucide="help-circle" class="w-5 h-5"></i>
+        </a>
+        <a href="#features" class="w-10 h-10 min-w-[40px] min-h-[40px] flex items-center justify-center rounded-xl hover:text-brand-600 dark:hover:text-brand-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" title="Funkciók" aria-label="Funkciók">
+          <i data-lucide="sparkles" class="w-5 h-5"></i>
+        </a>
+        <a href="#faq" class="w-10 h-10 min-w-[40px] min-h-[40px] flex items-center justify-center rounded-xl hover:text-brand-600 dark:hover:text-brand-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" title="Gyakran Ismételt Kérdések (GYIK)" aria-label="Gyakran Ismételt Kérdések">
+          <i data-lucide="message-square" class="w-5 h-5"></i>
+        </a>
       </nav>
 
       <!-- RIGHT NAV ACTIONS -->
-      <div class="flex items-center space-x-2 sm:space-x-3">
+      <div class="flex items-center gap-1.5 sm:gap-2 shrink-0">
         
         <!-- PWA Install Button -->
-        <button class="btn-install-pwa hidden items-center gap-1.5 min-h-[44px] px-3.5 py-2 text-xs font-semibold rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm shadow-emerald-500/20 transition-all" title="Alkalmazás telepítése">
-          <i data-lucide="download" class="w-3.5 h-3.5"></i>
-          <span class="hidden sm:inline">Telepítés</span>
+        <button class="btn-install-pwa hidden w-10 h-10 min-w-[40px] min-h-[40px] items-center justify-center rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm shadow-emerald-500/20 transition-all" title="Alkalmazás telepítése (PWA)" aria-label="Alkalmazás telepítése">
+          <i data-lucide="download" class="w-5 h-5"></i>
         </button>
 
         <!-- Public Auth Buttons (when logged out) -->
-        <div id="public-auth-buttons" class="flex items-center space-x-2">
-          <a href="#auth" id="nav-btn-login" class="min-h-[44px] inline-flex items-center justify-center px-3.5 py-2 text-xs font-semibold rounded-xl text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
-            Bejelentkezés
+        <div id="public-auth-buttons" class="flex items-center gap-1.5 sm:gap-2">
+          <a href="#auth" id="nav-btn-login" class="w-10 h-10 min-w-[40px] min-h-[40px] flex items-center justify-center rounded-xl text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 transition-colors" title="Bejelentkezés" aria-label="Bejelentkezés">
+            <i data-lucide="log-in" class="w-5 h-5"></i>
           </a>
-          <a href="#auth" id="nav-btn-register" class="min-h-[44px] inline-flex items-center justify-center px-3.5 py-2 text-xs font-semibold rounded-xl bg-brand-600 hover:bg-brand-700 text-white shadow-sm shadow-brand-500/20 transition-all">
-            Fiók
+          <a href="#auth" id="nav-btn-register" class="w-10 h-10 min-w-[40px] min-h-[40px] flex items-center justify-center rounded-xl bg-brand-600 hover:bg-brand-700 text-white shadow-sm shadow-brand-500/20 transition-all" title="Fiók / Regisztráció" aria-label="Fiók">
+            <i data-lucide="user-plus" class="w-5 h-5"></i>
           </a>
+        </div>
+
+        <!-- Logged In User Menu -->
+        <div id="user-profile-menu" class="hidden items-center gap-1.5 sm:gap-2">
+          <button id="nav-btn-dashboard" class="w-10 h-10 min-w-[40px] min-h-[40px] flex items-center justify-center rounded-xl bg-brand-50 dark:bg-brand-950 text-brand-600 dark:text-brand-300 hover:bg-brand-100 dark:hover:bg-brand-900/60 border border-brand-200/60 dark:border-brand-800/60 transition-colors" title="Szólistáim és Gyakorlás" aria-label="Szólistáim és Gyakorlás">
+            <i data-lucide="book-open" class="w-5 h-5"></i>
+          </button>
+          
+          <div id="user-profile-badge-btn" class="w-10 h-10 min-w-[40px] min-h-[40px] flex items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 select-none" title="Bejelentkezett profil" aria-label="Profil">
+            <i data-lucide="user" class="w-5 h-5 text-brand-600 dark:text-brand-400"></i>
+            <span id="user-email-display" class="hidden"></span>
+            <span id="user-badge" class="hidden">Felhasználó</span>
+          </div>
+
+          <button id="btn-logout" class="w-10 h-10 min-w-[40px] min-h-[40px] flex items-center justify-center text-slate-500 hover:text-rose-600 dark:text-slate-400 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-xl transition-colors border border-transparent hover:border-rose-200 dark:hover:border-rose-900/50" title="Kijelentkezés" aria-label="Kijelentkezés">
+            <i data-lucide="log-out" class="w-5 h-5"></i>
+          </button>
         </div>
 
         <!-- Firebase Status Indicator / Setup Button (in-app) -->
-        <button id="btn-open-firebase-settings" class="inline-flex items-center gap-1.5 min-h-[44px] px-3 py-2 text-xs font-medium rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors border border-slate-200 dark:border-slate-700" title="Firebase felhő kapcsolat beállítása">
-          <span id="firebase-status-dot" class="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>
-          <span id="firebase-status-text" class="hidden md:inline">Helyi mód</span>
-          <i data-lucide="settings" class="w-3.5 h-3.5"></i>
+        <button id="btn-open-firebase-settings" class="relative w-10 h-10 min-w-[40px] min-h-[40px] flex items-center justify-center rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors border border-slate-200 dark:border-slate-700" title="Beállítások (Firebase felhő kapcsolat)" aria-label="Beállítások">
+          <i data-lucide="settings" class="w-5 h-5"></i>
+          <span id="firebase-status-dot" class="w-2.5 h-2.5 rounded-full bg-emerald-500 absolute top-1.5 right-1.5 ring-2 ring-white dark:ring-slate-900 inline-block"></span>
+          <span id="firebase-status-text" class="hidden">Helyi mód</span>
         </button>
 
         <!-- Dark / Light mode toggle -->
-        <button id="btn-theme-toggle" class="min-h-[44px] min-w-[44px] p-2.5 inline-flex items-center justify-center rounded-xl text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" title="Téma váltása">
+        <button id="btn-theme-toggle" class="w-10 h-10 min-w-[40px] min-h-[40px] flex items-center justify-center rounded-xl text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors border border-slate-200/60 dark:border-slate-800" title="Téma váltása (Sötét / Világos)" aria-label="Téma váltása">
           <i data-lucide="moon" id="icon-theme-moon" class="w-5 h-5 hidden"></i>
           <i data-lucide="sun" id="icon-theme-sun" class="w-5 h-5"></i>
         </button>
-
-        <!-- Logged In User Menu -->
-        <div id="user-profile-menu" class="hidden items-center space-x-2 pl-2 border-l border-slate-200 dark:border-slate-800">
-          <button id="nav-btn-dashboard" class="hidden sm:inline-flex items-center gap-1.5 min-h-[44px] px-3.5 py-2 text-xs font-semibold rounded-xl bg-brand-50 dark:bg-brand-950 text-brand-600 dark:text-brand-300 hover:bg-brand-100 transition-colors">
-            <i data-lucide="layout-dashboard" class="w-3.5 h-3.5"></i>
-            <span>Szólistáim</span>
-          </button>
-          <div class="text-right hidden sm:block">
-            <div id="user-email-display" class="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate max-w-[140px]"></div>
-            <div id="user-badge" class="text-[10px] text-slate-500 dark:text-slate-400">Felhasználó</div>
-          </div>
-          <button id="btn-logout" class="min-h-[44px] min-w-[44px] p-2.5 inline-flex items-center justify-center text-slate-500 hover:text-rose-600 dark:text-slate-400 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-xl transition-colors" title="Kijelentkezés">
-            <i data-lucide="log-out" class="w-4 h-4"></i>
-          </button>
-        </div>
 
       </div>
 

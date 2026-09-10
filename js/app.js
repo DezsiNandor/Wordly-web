@@ -236,11 +236,17 @@ function refreshIcons() {
 
 function updateFirebaseStatusUI(isFirebase) {
   if (isFirebase) {
-    dom.firebaseStatusDot.className = 'w-2 h-2 rounded-full bg-emerald-500 inline-block ring-2 ring-emerald-500/30';
+    dom.firebaseStatusDot.className = 'w-2.5 h-2.5 rounded-full bg-emerald-500 absolute top-1.5 right-1.5 ring-2 ring-white dark:ring-slate-900 inline-block';
     dom.firebaseStatusText.textContent = 'Firebase Felhő';
+    if (dom.btnOpenFirebaseSettings) {
+      dom.btnOpenFirebaseSettings.title = 'Firebase Felhő csatlakoztatva (Kattints a beállításokhoz)';
+    }
   } else {
-    dom.firebaseStatusDot.className = 'w-2 h-2 rounded-full bg-amber-500 inline-block ring-2 ring-amber-500/30';
+    dom.firebaseStatusDot.className = 'w-2.5 h-2.5 rounded-full bg-amber-500 absolute top-1.5 right-1.5 ring-2 ring-white dark:ring-slate-900 inline-block';
     dom.firebaseStatusText.textContent = 'Helyi tároló';
+    if (dom.btnOpenFirebaseSettings) {
+      dom.btnOpenFirebaseSettings.title = 'Helyi tárolási mód (Kattints a Firebase beállításához)';
+    }
   }
 }
 
@@ -251,6 +257,10 @@ function updateNavForUser(user) {
     dom.userProfileMenu.classList.add('flex');
     dom.userEmailDisplay.textContent = user.email || 'Vendég';
     dom.userBadge.textContent = user.isGuest ? 'Vendég mód' : (user.isFirebase ? 'Firebase fiók' : 'Helyi profil');
+    const badgeBtn = document.getElementById('user-profile-badge-btn');
+    if (badgeBtn) {
+      badgeBtn.title = `${user.email || 'Vendég'} (${user.isGuest ? 'Vendég mód' : (user.isFirebase ? 'Firebase fiók' : 'Helyi profil')})`;
+    }
   } else {
     dom.publicAuthButtons.classList.remove('hidden');
     dom.publicAuthButtons.classList.add('flex');

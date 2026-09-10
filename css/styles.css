@@ -123,14 +123,23 @@ select,
     touch-action: manipulation;
   }
 
-  /* Header vezérlők mobilon kényelmesen nyomhatók legyenek */
+  /* Header vezérlők mobilon kényelmesen nyomhatók legyenek (40–44px) */
   header button,
   header a {
-    min-height: 44px;
-    min-width: 44px;
+    min-height: 40px;
+    min-width: 40px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    padding: 0;
+  }
+
+  @media (min-width: 640px) {
+    header button,
+    header a {
+      min-height: 44px;
+      min-width: 44px;
+    }
   }
 
   /* Mobil alsó menü érintési felületei (legalább 48px) */
