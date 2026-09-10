@@ -385,8 +385,8 @@ function setupEventListeners() {
   let isRegisterMode = false;
   dom.tabLogin.addEventListener('click', () => {
     isRegisterMode = false;
-    dom.tabLogin.className = 'flex-1 py-2 text-sm font-semibold rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm transition-all';
-    dom.tabRegister.className = 'flex-1 py-2 text-sm font-medium rounded-lg text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all';
+    dom.tabLogin.className = 'flex-1 min-h-[44px] py-2.5 px-3 text-sm sm:text-sm font-semibold rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm transition-all';
+    dom.tabRegister.className = 'flex-1 min-h-[44px] py-2.5 px-3 text-sm sm:text-sm font-medium rounded-lg text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all';
     dom.authConfirmPasswordContainer.classList.add('hidden');
     dom.btnAuthText.textContent = 'Bejelentkezés';
     hideAuthError();
@@ -394,8 +394,8 @@ function setupEventListeners() {
 
   dom.tabRegister.addEventListener('click', () => {
     isRegisterMode = true;
-    dom.tabRegister.className = 'flex-1 py-2 text-sm font-semibold rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm transition-all';
-    dom.tabLogin.className = 'flex-1 py-2 text-sm font-medium rounded-lg text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all';
+    dom.tabRegister.className = 'flex-1 min-h-[44px] py-2.5 px-3 text-sm sm:text-sm font-semibold rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm transition-all';
+    dom.tabLogin.className = 'flex-1 min-h-[44px] py-2.5 px-3 text-sm sm:text-sm font-medium rounded-lg text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all';
     dom.authConfirmPasswordContainer.classList.remove('hidden');
     dom.btnAuthText.textContent = 'Fiók létrehozása';
     hideAuthError();
@@ -696,11 +696,11 @@ async function renderDashboard() {
 
           <!-- Kártya menü gombok -->
           <div class="flex items-center gap-1">
-            <button class="btn-rename-list p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" title="Átnevezés">
-              <i data-lucide="pencil" class="w-3.5 h-3.5"></i>
+            <button class="btn-rename-list p-2 min-w-[44px] min-h-[44px] inline-flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" title="Átnevezés">
+              <i data-lucide="pencil" class="w-4 h-4"></i>
             </button>
-            <button class="btn-delete-list p-1.5 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors" title="Lista törlése">
-              <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+            <button class="btn-delete-list p-2 min-w-[44px] min-h-[44px] inline-flex items-center justify-center text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 rounded-xl hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors" title="Lista törlése">
+              <i data-lucide="trash-2" class="w-4 h-4"></i>
             </button>
           </div>
         </div>
@@ -719,16 +719,16 @@ async function renderDashboard() {
 
       <!-- Kártya alsó gombok -->
       <div class="pt-3 border-t border-slate-100 dark:border-slate-800/80 flex items-center gap-2">
-        <button class="btn-start-practice flex-1 py-2.5 px-3 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-semibold text-xs transition-all flex items-center justify-center gap-1.5 shadow-sm active:scale-[0.98]">
+        <button class="btn-start-practice flex-1 min-h-[44px] py-2.5 px-3 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-semibold text-xs sm:text-sm transition-all flex items-center justify-center gap-1.5 shadow-sm active:scale-[0.98]">
           <i data-lucide="play" class="w-3.5 h-3.5 fill-current"></i>
           <span>Gyakorlás</span>
         </button>
 
-        <button class="btn-view-words p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs transition-colors" title="Szavak megtekintése és szerkesztése">
+        <button class="btn-view-words min-w-[44px] min-h-[44px] inline-flex items-center justify-center p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs transition-colors" title="Szavak megtekintése és szerkesztése">
           <i data-lucide="list" class="w-4 h-4"></i>
         </button>
 
-        <button class="btn-export-list p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs transition-colors" title="Exportálás Excelbe">
+        <button class="btn-export-list min-w-[44px] min-h-[44px] inline-flex items-center justify-center p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs transition-colors" title="Exportálás Excelbe">
           <i data-lucide="download" class="w-4 h-4"></i>
         </button>
       </div>
@@ -859,7 +859,7 @@ function renderWordsListRows(words) {
 
   words.forEach(word => {
     const item = document.createElement('div');
-    item.className = 'group flex items-center justify-between p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200/60 dark:border-slate-700/60 text-xs transition-colors';
+    item.className = 'group flex items-center justify-between p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200/60 dark:border-slate-700/60 text-sm sm:text-xs transition-colors';
     item.dataset.english = word.english.toLowerCase();
     item.dataset.hungarian = word.hungarian.toLowerCase();
 
@@ -869,11 +869,11 @@ function renderWordsListRows(words) {
         <span class="text-slate-600 dark:text-slate-300 truncate">${escapeHtml(word.hungarian)}</span>
       </div>
       <div class="flex items-center gap-1 shrink-0">
-        <button class="btn-edit-word p-1 text-slate-400 hover:text-brand-600 rounded" title="Szerkesztés">
-          <i data-lucide="pencil" class="w-3.5 h-3.5"></i>
+        <button class="btn-edit-word p-2 min-w-[44px] min-h-[44px] inline-flex items-center justify-center text-slate-400 hover:text-brand-600 rounded-xl transition-colors" title="Szerkesztés">
+          <i data-lucide="pencil" class="w-4 h-4"></i>
         </button>
-        <button class="btn-delete-word p-1 text-slate-400 hover:text-rose-600 rounded" title="Törlés">
-          <i data-lucide="trash" class="w-3.5 h-3.5"></i>
+        <button class="btn-delete-word p-2 min-w-[44px] min-h-[44px] inline-flex items-center justify-center text-slate-400 hover:text-rose-600 rounded-xl transition-colors" title="Törlés">
+          <i data-lucide="trash" class="w-4 h-4"></i>
         </button>
       </div>
     `;

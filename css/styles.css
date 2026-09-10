@@ -1,16 +1,241 @@
-/* WL (Word Learning) - Stylesheet */
+/* WL (Word Learning) - Responsive & Modern Stylesheet */
 
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
 
 :root {
   --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  --max-content-width: 1000px;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  overflow-x: hidden;
+  width: 100%;
+  max-width: 100%;
 }
 
 body {
   font-family: var(--font-sans);
   -webkit-tap-highlight-color: transparent;
   transition: background-color 0.25s ease, color 0.25s ease;
+  overflow-x: hidden;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
+
+/* ======================================================== */
+/* 1. ASZTALI NÉZET OPTIMALIZÁLÁSA (DESKTOP: MAX-WIDTH & HOVER) */
+/* ======================================================== */
+
+/* Középre zárt, 1000px-ben maximált asztali elrendezés */
+.app-container,
+.desktop-constrained {
+  max-width: var(--max-content-width) !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+  width: 100%;
+}
+
+/* Kattinthatóság és egérkurzor */
+button,
+a,
+summary,
+[role="button"],
+input[type="button"],
+input[type="submit"],
+input[type="reset"],
+input[type="checkbox"],
+select,
+.cursor-pointer {
+  cursor: pointer;
+}
+
+/* Finom asztali hover visszajelzések (csak valódi egérmutatóval) */
+@media (hover: hover) and (pointer: fine) {
+  button,
+  a,
+  [role="button"] {
+    transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1),
+                box-shadow 0.15s cubic-bezier(0.16, 1, 0.3, 1),
+                background-color 0.15s ease,
+                border-color 0.15s ease,
+                color 0.15s ease;
+  }
+
+  button:hover:not(:disabled),
+  a:hover:not(:disabled) {
+    opacity: 0.96;
+  }
+
+  /* Kártya finom lebegtetési hatás asztali nézetben */
+  .group:hover {
+    transform: translateY(-2px);
+  }
+
+  .quiz-card:hover {
+    box-shadow: 0 20px 35px -10px rgba(0, 0, 0, 0.08);
+  }
+
+  .dark .quiz-card:hover {
+    box-shadow: 0 20px 35px -10px rgba(0, 0, 0, 0.4);
+  }
+}
+
+/* ======================================================== */
+/* 2. MOBILBARÁT KIALAKÍTÁS (MOBILE-FIRST ÉS ÉRINTŐKÉPERNYŐ) */
+/* ======================================================== */
+
+/* Safe area padding iPhone és modern mobilok esetén */
+.safe-area-bottom {
+  padding-bottom: max(0.5rem, env(safe-area-inset-bottom, 0px));
+}
+
+@media (max-width: 768px) {
+  /* Hibás mobilos nagyítás (iOS Safari auto-zoom) elkerülése: 16px min beviteli mezők */
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+    line-height: 1.4;
+  }
+
+  /* Jó olvashatóság: a bázis szövegek ne essenek 16px alá mobilon */
+  body {
+    font-size: 16px;
+  }
+
+  /* Gombok és érintési célméretek: legalább 44-48px magas és széles érintési felület */
+  button,
+  input[type="button"],
+  input[type="submit"],
+  [role="button"] {
+    min-height: 44px;
+    touch-action: manipulation;
+  }
+
+  /* Header vezérlők mobilon kényelmesen nyomhatók legyenek */
+  header button,
+  header a {
+    min-height: 44px;
+    min-width: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Mobil alsó menü érintési felületei (legalább 48px) */
+  nav.md\:hidden {
+    min-height: 60px;
+  }
+
+  nav.md\:hidden a,
+  nav.md\:hidden button {
+    min-height: 48px;
+    min-width: 48px;
+    padding: 6px 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+
+  nav.md\:hidden a span,
+  nav.md\:hidden button span {
+    font-size: 12px !important;
+  }
+
+  /* Kártyák és listaelemek ikon gombjai mobilon ne legyenek parányiak (min 44px érintési méret) */
+  .btn-rename-list,
+  .btn-delete-list,
+  .btn-edit-word,
+  .btn-delete-word {
+    min-height: 44px !important;
+    min-width: 44px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 10px !important;
+  }
+
+  .btn-start-practice {
+    min-height: 48px !important;
+    font-size: 14px !important;
+  }
+
+  .btn-view-words,
+  .btn-export-list {
+    min-height: 48px !important;
+    min-width: 48px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  /* Gyakorló felület mobilon */
+  #quiz-card {
+    padding: 1.5rem 1rem !important;
+    border-radius: 1.5rem !important;
+  }
+
+  #practice-answer-input {
+    min-height: 52px !important;
+    font-size: 18px !important;
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+  }
+
+  #btn-practice-submit {
+    min-height: 50px !important;
+    font-size: 16px !important;
+  }
+
+  #btn-speak-word {
+    min-height: 48px !important;
+    min-width: 48px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  #btn-exit-practice,
+  #btn-toggle-direction,
+  #btn-toggle-sound {
+    min-height: 44px !important;
+  }
+
+  /* Modális ablakok mobilos illesztése */
+  .fixed.inset-0 > div {
+    max-height: 94vh !important;
+    margin: auto !important;
+    width: 95% !important;
+    padding: 1.25rem !important;
+    border-radius: 1.5rem !important;
+  }
+
+  #btn-close-upload-modal,
+  #btn-close-manage-modal,
+  #btn-close-firebase-modal {
+    min-height: 44px !important;
+    min-width: 44px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+}
+
+/* ======================================================== */
+/* 3. SCROLLBAR ÉS ÁLTALÁNOS FELÜLETI ELEMEK               */
+/* ======================================================== */
 
 /* Custom Scrollbar */
 ::-webkit-scrollbar {
@@ -39,7 +264,10 @@ body {
   background: rgba(107, 114, 128, 0.8);
 }
 
-/* Animations */
+/* ======================================================== */
+/* 4. ANIMÁCIÓK ÉS INTERAKTÍV EFFEKTEK                     */
+/* ======================================================== */
+
 @keyframes fadeIn {
   from {
     opacity: 0;

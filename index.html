@@ -2,7 +2,7 @@
 <html lang="hu" class="h-full scroll-smooth">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   
   <!-- Primary SEO Meta Tags for "WL Wordly" -->
   <title>WL Wordly – Excel Alapú Szótanuló és Angol Szókincs Gyakorló</title>
@@ -163,7 +163,7 @@
   <!-- TOP NAVIGATION / HEADER                    -->
   <!-- ========================================== -->
   <header class="sticky top-0 z-40 w-full border-b border-slate-200/80 dark:border-slate-800/80 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md transition-colors">
-    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+    <div class="max-w-[1000px] w-full mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
       
       <!-- LOGO -->
       <div class="flex items-center space-x-3 cursor-pointer select-none" id="nav-logo">
@@ -189,37 +189,37 @@
       <div class="flex items-center space-x-2 sm:space-x-3">
         
         <!-- PWA Install Button -->
-        <button class="btn-install-pwa hidden items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm shadow-emerald-500/20 transition-all" title="Alkalmazás telepítése">
+        <button class="btn-install-pwa hidden items-center gap-1.5 min-h-[44px] px-3.5 py-2 text-xs font-semibold rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm shadow-emerald-500/20 transition-all" title="Alkalmazás telepítése">
           <i data-lucide="download" class="w-3.5 h-3.5"></i>
           <span class="hidden sm:inline">Telepítés</span>
         </button>
 
         <!-- Public Auth Buttons (when logged out) -->
         <div id="public-auth-buttons" class="flex items-center space-x-2">
-          <a href="#auth" id="nav-btn-login" class="px-3.5 py-1.5 text-xs font-semibold rounded-xl text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+          <a href="#auth" id="nav-btn-login" class="min-h-[44px] inline-flex items-center justify-center px-3.5 py-2 text-xs font-semibold rounded-xl text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
             Bejelentkezés
           </a>
-          <a href="#auth" id="nav-btn-register" class="px-3.5 py-1.5 text-xs font-semibold rounded-xl bg-brand-600 hover:bg-brand-700 text-white shadow-sm shadow-brand-500/20 transition-all">
+          <a href="#auth" id="nav-btn-register" class="min-h-[44px] inline-flex items-center justify-center px-3.5 py-2 text-xs font-semibold rounded-xl bg-brand-600 hover:bg-brand-700 text-white shadow-sm shadow-brand-500/20 transition-all">
             Fiók
           </a>
         </div>
 
         <!-- Firebase Status Indicator / Setup Button (in-app) -->
-        <button id="btn-open-firebase-settings" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors border border-slate-200 dark:border-slate-700" title="Firebase felhő kapcsolat beállítása">
+        <button id="btn-open-firebase-settings" class="inline-flex items-center gap-1.5 min-h-[44px] px-3 py-2 text-xs font-medium rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors border border-slate-200 dark:border-slate-700" title="Firebase felhő kapcsolat beállítása">
           <span id="firebase-status-dot" class="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>
           <span id="firebase-status-text" class="hidden md:inline">Helyi mód</span>
           <i data-lucide="settings" class="w-3.5 h-3.5"></i>
         </button>
 
         <!-- Dark / Light mode toggle -->
-        <button id="btn-theme-toggle" class="p-2 rounded-lg text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" title="Téma váltása">
+        <button id="btn-theme-toggle" class="min-h-[44px] min-w-[44px] p-2.5 inline-flex items-center justify-center rounded-xl text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" title="Téma váltása">
           <i data-lucide="moon" id="icon-theme-moon" class="w-5 h-5 hidden"></i>
           <i data-lucide="sun" id="icon-theme-sun" class="w-5 h-5"></i>
         </button>
 
         <!-- Logged In User Menu -->
         <div id="user-profile-menu" class="hidden items-center space-x-2 pl-2 border-l border-slate-200 dark:border-slate-800">
-          <button id="nav-btn-dashboard" class="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-brand-50 dark:bg-brand-950 text-brand-600 dark:text-brand-300 hover:bg-brand-100 transition-colors">
+          <button id="nav-btn-dashboard" class="hidden sm:inline-flex items-center gap-1.5 min-h-[44px] px-3.5 py-2 text-xs font-semibold rounded-xl bg-brand-50 dark:bg-brand-950 text-brand-600 dark:text-brand-300 hover:bg-brand-100 transition-colors">
             <i data-lucide="layout-dashboard" class="w-3.5 h-3.5"></i>
             <span>Szólistáim</span>
           </button>
@@ -227,7 +227,7 @@
             <div id="user-email-display" class="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate max-w-[140px]"></div>
             <div id="user-badge" class="text-[10px] text-slate-500 dark:text-slate-400">Felhasználó</div>
           </div>
-          <button id="btn-logout" class="p-2 text-slate-500 hover:text-rose-600 dark:text-slate-400 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-lg transition-colors" title="Kijelentkezés">
+          <button id="btn-logout" class="min-h-[44px] min-w-[44px] p-2.5 inline-flex items-center justify-center text-slate-500 hover:text-rose-600 dark:text-slate-400 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-xl transition-colors" title="Kijelentkezés">
             <i data-lucide="log-out" class="w-4 h-4"></i>
           </button>
         </div>
@@ -238,7 +238,7 @@
   </header>
 
   <!-- MAIN APPLICATION CONTAINER -->
-  <main class="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+  <main class="flex-1 max-w-[1000px] w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
 
     <!-- =================================================== -->
     <!-- VIEW 0: PUBLIC LANDING PAGE (Indexelhető kezdőlap)   -->
@@ -262,17 +262,17 @@
 
         <!-- CTA Buttons -->
         <div class="flex flex-wrap items-center justify-center gap-3 pt-2">
-          <a href="#auth" class="px-6 py-3.5 rounded-2xl bg-brand-600 hover:bg-brand-700 text-white font-bold text-sm shadow-lg shadow-brand-500/25 active:scale-[0.98] transition-all flex items-center gap-2">
+          <a href="#auth" class="min-h-[48px] px-6 py-3.5 rounded-2xl bg-brand-600 hover:bg-brand-700 text-white font-bold text-sm shadow-lg shadow-brand-500/25 active:scale-[0.98] transition-all flex items-center gap-2">
             <span>Kezdés</span>
             <i data-lucide="arrow-right" class="w-4 h-4"></i>
           </a>
 
-          <button id="btn-landing-sample-excel" class="px-5 py-3.5 rounded-2xl bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 font-semibold text-sm hover:bg-slate-50 dark:hover:bg-slate-700/80 transition-all flex items-center gap-2 shadow-sm">
+          <button id="btn-landing-sample-excel" class="min-h-[48px] px-5 py-3.5 rounded-2xl bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 font-semibold text-sm hover:bg-slate-50 dark:hover:bg-slate-700/80 transition-all flex items-center gap-2 shadow-sm">
             <i data-lucide="file-spreadsheet" class="w-4 h-4 text-emerald-500"></i>
             <span>Minta Excel Letöltése</span>
           </button>
 
-          <button id="btn-landing-guest-try" class="px-5 py-3.5 rounded-2xl bg-slate-100 dark:bg-slate-800/60 text-slate-700 dark:text-slate-300 font-medium text-sm hover:bg-slate-200 dark:hover:bg-slate-800 transition-all flex items-center gap-2">
+          <button id="btn-landing-guest-try" class="min-h-[48px] px-5 py-3.5 rounded-2xl bg-slate-100 dark:bg-slate-800/60 text-slate-700 dark:text-slate-300 font-medium text-sm hover:bg-slate-200 dark:hover:bg-slate-800 transition-all flex items-center gap-2">
             <i data-lucide="play-circle" class="w-4 h-4 text-brand-500"></i>
             <span>Azonnali Próba Vendégként</span>
           </button>
@@ -486,7 +486,7 @@
         <h3 class="text-2xl sm:text-3xl font-extrabold tracking-tight">Készen állsz a hatékony WL szó tanulásra?</h3>
         <p class="text-brand-100 text-sm max-w-lg mx-auto">Regisztrálj ingyen, végezz el egy Excel fájl feltöltést, és tapasztald meg a modern szótanulás élményét!</p>
         <div class="pt-2">
-          <a href="#auth" class="inline-flex items-center gap-2 px-6 py-3.5 rounded-2xl bg-white text-slate-900 hover:bg-slate-100 font-bold text-sm shadow-md transition-all">
+          <a href="#auth" class="inline-flex items-center gap-2 min-h-[48px] px-6 py-3.5 rounded-2xl bg-white text-slate-900 hover:bg-slate-100 font-bold text-sm shadow-md transition-all">
             <span>Fiók Létrehozása</span>
             <i data-lucide="arrow-right" class="w-4 h-4"></i>
           </a>
@@ -517,10 +517,10 @@
 
         <!-- Auth Tabs (Login / Register) -->
         <div class="flex rounded-xl bg-slate-100 dark:bg-slate-800 p-1 mb-6">
-          <button id="tab-login" class="flex-1 py-2 text-sm font-semibold rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm transition-all">
+          <button id="tab-login" class="flex-1 min-h-[44px] py-2.5 px-3 text-sm sm:text-sm font-semibold rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm transition-all">
             Bejelentkezés
           </button>
-          <button id="tab-register" class="flex-1 py-2 text-sm font-medium rounded-lg text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all">
+          <button id="tab-register" class="flex-1 min-h-[44px] py-2.5 px-3 text-sm sm:text-sm font-medium rounded-lg text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all">
             Új fiók létrehozása
           </button>
         </div>
@@ -534,30 +534,30 @@
         <!-- Form -->
         <form id="form-auth" class="space-y-4">
           <div>
-            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5" for="auth-email">Email cím</label>
+            <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5" for="auth-email">Email cím</label>
             <div class="relative">
-              <input id="auth-email" type="email" required placeholder="pelda@email.com" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/80 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 text-sm transition-all">
-              <i data-lucide="mail" class="w-4 h-4 text-slate-400 absolute right-3.5 top-3"></i>
+              <input id="auth-email" type="email" required placeholder="pelda@email.com" class="w-full min-h-[46px] px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/80 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 text-base sm:text-sm transition-all">
+              <i data-lucide="mail" class="w-4 h-4 text-slate-400 absolute right-3.5 top-3.5"></i>
             </div>
           </div>
 
           <div>
-            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5" for="auth-password">Jelszó</label>
+            <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5" for="auth-password">Jelszó</label>
             <div class="relative">
-              <input id="auth-password" type="password" required placeholder="Legalább 6 karakter" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/80 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 text-sm transition-all">
-              <i data-lucide="lock" class="w-4 h-4 text-slate-400 absolute right-3.5 top-3"></i>
+              <input id="auth-password" type="password" required placeholder="Legalább 6 karakter" class="w-full min-h-[46px] px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/80 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 text-base sm:text-sm transition-all">
+              <i data-lucide="lock" class="w-4 h-4 text-slate-400 absolute right-3.5 top-3.5"></i>
             </div>
           </div>
 
           <div id="auth-confirm-password-container" class="hidden">
-            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5" for="auth-password-confirm">Jelszó megerősítése</label>
+            <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5" for="auth-password-confirm">Jelszó megerősítése</label>
             <div class="relative">
-              <input id="auth-password-confirm" type="password" placeholder="Jelszó ismét" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/80 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 text-sm transition-all">
-              <i data-lucide="shield-check" class="w-4 h-4 text-slate-400 absolute right-3.5 top-3"></i>
+              <input id="auth-password-confirm" type="password" placeholder="Jelszó ismét" class="w-full min-h-[46px] px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/80 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 text-base sm:text-sm transition-all">
+              <i data-lucide="shield-check" class="w-4 h-4 text-slate-400 absolute right-3.5 top-3.5"></i>
             </div>
           </div>
 
-          <button type="submit" id="btn-auth-submit" class="w-full py-2.5 px-4 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-semibold text-sm shadow-md shadow-brand-500/20 active:scale-[0.99] transition-all flex items-center justify-center gap-2">
+          <button type="submit" id="btn-auth-submit" class="w-full min-h-[48px] py-3 px-4 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-semibold text-base shadow-md shadow-brand-500/20 active:scale-[0.99] transition-all flex items-center justify-center gap-2">
             <span id="btn-auth-text">Bejelentkezés</span>
             <i data-lucide="arrow-right" class="w-4 h-4"></i>
           </button>
@@ -570,7 +570,7 @@
         </div>
 
         <!-- Guest / Instant Demo Button -->
-        <button id="btn-guest-login" class="w-full py-2.5 px-4 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 font-medium text-sm transition-colors flex items-center justify-center gap-2">
+        <button id="btn-guest-login" class="w-full min-h-[48px] py-3 px-4 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 font-medium text-sm transition-colors flex items-center justify-center gap-2">
           <i data-lucide="user-check" class="w-4 h-4 text-brand-500"></i>
           <span>Gyors belépés vendégként (Helyi mód)</span>
         </button>
@@ -598,12 +598,12 @@
         </div>
 
         <div class="flex flex-wrap items-center gap-3">
-          <button id="btn-open-upload-modal" class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-semibold text-sm shadow-md shadow-brand-500/25 active:scale-[0.98] transition-all">
+          <button id="btn-open-upload-modal" class="inline-flex items-center gap-2 min-h-[44px] px-5 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-semibold text-sm shadow-md shadow-brand-500/25 active:scale-[0.98] transition-all">
             <i data-lucide="file-up" class="w-4 h-4"></i>
             <span>Excel feltöltése</span>
           </button>
           
-          <button id="btn-download-sample-excel" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 font-medium text-sm transition-all" title="Minta Excel sablon letöltése">
+          <button id="btn-download-sample-excel" class="inline-flex items-center gap-2 min-h-[44px] px-4 py-2.5 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 font-medium text-sm transition-all" title="Minta Excel sablon letöltése">
             <i data-lucide="file-spreadsheet" class="w-4 h-4 text-emerald-500"></i>
             <span>Minta Excel</span>
           </button>
@@ -651,7 +651,7 @@
             <span id="list-count-badge" class="px-2 py-0.5 rounded-full text-xs bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-semibold">0</span>
           </h3>
 
-          <button id="btn-create-empty-list" class="inline-flex items-center gap-1.5 text-xs font-semibold text-brand-600 dark:text-brand-400 hover:text-brand-700 transition-colors">
+          <button id="btn-create-empty-list" class="inline-flex items-center gap-1.5 min-h-[44px] px-3 py-2 text-xs font-semibold text-brand-600 dark:text-brand-400 hover:text-brand-700 transition-colors">
             <i data-lucide="plus" class="w-3.5 h-3.5"></i>
             <span>Új üres lista készítése</span>
           </button>
@@ -672,10 +672,10 @@
             Tölts fel egy Excel fájlt (.xlsx, .xls vagy .csv), vagy töltsd le az előre elkészített minta sablonunkat a kezdéshez!
           </p>
           <div class="flex flex-wrap items-center justify-center gap-3">
-            <button id="btn-empty-upload" class="px-4 py-2 rounded-xl bg-brand-600 text-white font-medium text-sm hover:bg-brand-700 transition-all flex items-center gap-2 shadow-sm">
+            <button id="btn-empty-upload" class="min-h-[44px] px-5 py-2.5 rounded-xl bg-brand-600 text-white font-medium text-sm hover:bg-brand-700 transition-all flex items-center gap-2 shadow-sm">
               <i data-lucide="upload" class="w-4 h-4"></i> Excel feltöltése
             </button>
-            <button id="btn-empty-sample" class="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-medium text-sm hover:bg-slate-200 dark:hover:bg-slate-700 transition-all flex items-center gap-2">
+            <button id="btn-empty-sample" class="min-h-[44px] px-5 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-medium text-sm hover:bg-slate-200 dark:hover:bg-slate-700 transition-all flex items-center gap-2">
               <i data-lucide="download" class="w-4 h-4"></i> Minta letöltése
             </button>
           </div>
@@ -691,20 +691,20 @@
       
       <!-- Top control bar -->
       <div class="flex items-center justify-between mb-6">
-        <button id="btn-exit-practice" class="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white text-sm font-medium transition-colors shadow-sm">
+        <button id="btn-exit-practice" class="inline-flex items-center gap-2 min-h-[44px] px-3.5 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white text-sm font-medium transition-colors shadow-sm">
           <i data-lucide="arrow-left" class="w-4 h-4"></i>
           <span>Vissza a listákhoz</span>
         </button>
 
         <div class="flex items-center gap-3">
           <!-- Practice direction toggle -->
-          <button id="btn-toggle-direction" class="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300 transition-colors" title="Irány váltása">
+          <button id="btn-toggle-direction" class="inline-flex items-center gap-2 min-h-[44px] px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-300 transition-colors" title="Irány váltása">
             <span id="direction-label">🇬🇧 Angol → 🇭🇺 Magyar</span>
             <i data-lucide="repeat" class="w-3.5 h-3.5"></i>
           </button>
 
           <!-- TTS audio toggle -->
-          <button id="btn-toggle-sound" class="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400 transition-colors" title="Hang be/ki">
+          <button id="btn-toggle-sound" class="min-w-[44px] min-h-[44px] p-2.5 inline-flex items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400 transition-colors" title="Hang be/ki">
             <i data-lucide="volume-2" id="icon-sound-on" class="w-4 h-4"></i>
             <i data-lucide="volume-x" id="icon-sound-off" class="w-4 h-4 hidden"></i>
           </button>
@@ -735,7 +735,7 @@
         </div>
 
         <!-- THE MAIN QUIZ CARD -->
-        <div id="quiz-card" class="quiz-card bg-white dark:bg-slate-900 rounded-3xl border-2 border-slate-200 dark:border-slate-800 p-8 sm:p-12 shadow-xl shadow-slate-200/40 dark:shadow-none text-center relative overflow-hidden transition-all duration-300">
+        <div id="quiz-card" class="quiz-card bg-white dark:bg-slate-900 rounded-3xl border-2 border-slate-200 dark:border-slate-800 p-6 sm:p-12 shadow-xl shadow-slate-200/40 dark:shadow-none text-center relative overflow-hidden transition-all duration-300">
           
           <!-- Subtle list title badge -->
           <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 mb-6">
@@ -751,17 +751,17 @@
               </h2>
               
               <!-- Speak Button -->
-              <button id="btn-speak-word" class="p-2.5 rounded-full bg-brand-50 hover:bg-brand-100 dark:bg-slate-800 dark:hover:bg-slate-700 text-brand-600 dark:text-brand-400 transition-transform active:scale-95" title="Kiejtés meghallgatása">
+              <button id="btn-speak-word" class="p-3 min-w-[48px] min-h-[48px] inline-flex items-center justify-center rounded-full bg-brand-50 hover:bg-brand-100 dark:bg-slate-800 dark:hover:bg-slate-700 text-brand-600 dark:text-brand-400 transition-transform active:scale-95" title="Kiejtés meghallgatása">
                 <i data-lucide="volume-2" class="w-5 h-5"></i>
               </button>
             </div>
-            <p id="practice-prompt-hint" class="text-xs text-slate-400 mt-2">Írd be a megfelelő magyar jelentést:</p>
+            <p id="practice-prompt-hint" class="text-sm text-slate-400 mt-2">Írd be a megfelelő magyar jelentést:</p>
           </div>
 
           <!-- Input & Action Area -->
           <div class="max-w-md mx-auto space-y-4">
             <div class="relative">
-              <input id="practice-answer-input" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" inputmode="text" enterkeyhint="go" placeholder="Magyar jelentés..." class="w-full text-center text-lg sm:text-xl font-semibold px-4 py-3.5 rounded-2xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-brand-500 focus:bg-white dark:focus:bg-slate-800 transition-all">
+              <input id="practice-answer-input" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" inputmode="text" enterkeyhint="go" placeholder="Magyar jelentés..." class="w-full text-center text-lg sm:text-xl font-semibold px-4 py-3.5 min-h-[52px] rounded-2xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-brand-500 focus:bg-white dark:focus:bg-slate-800 transition-all">
             </div>
 
             <!-- FEEDBACK AREA (CORRECT / INCORRECT) -->
@@ -770,7 +770,7 @@
             </div>
 
             <!-- ACTION BUTTON -->
-            <button id="btn-practice-submit" class="w-full py-3.5 px-6 rounded-2xl bg-brand-600 hover:bg-brand-700 text-white font-bold text-base shadow-lg shadow-brand-500/25 active:scale-[0.98] transition-all flex items-center justify-center gap-2">
+            <button id="btn-practice-submit" class="w-full min-h-[50px] py-3.5 px-6 rounded-2xl bg-brand-600 hover:bg-brand-700 text-white font-bold text-base shadow-lg shadow-brand-500/25 active:scale-[0.98] transition-all flex items-center justify-center gap-2">
               <span id="practice-btn-text">Ellenőrzés</span>
               <kbd class="hidden sm:inline-block px-2 py-0.5 text-xs font-mono bg-white/20 rounded-md">Enter</kbd>
             </button>
@@ -800,7 +800,7 @@
             <p class="text-xs text-slate-500 dark:text-slate-400">1. oszlop: Angol szó, 2. oszlop: Magyar jelentés</p>
           </div>
         </div>
-        <button id="btn-close-upload-modal" class="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+        <button id="btn-close-upload-modal" class="p-2.5 min-w-[44px] min-h-[44px] inline-flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
           <i data-lucide="x" class="w-5 h-5"></i>
         </button>
       </div>
@@ -820,8 +820,8 @@
       <!-- Parsed Preview & Confirm Form (hidden initially) -->
       <div id="upload-preview-section" class="hidden space-y-4 pt-2 border-t border-slate-200 dark:border-slate-800">
         <div>
-          <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5" for="upload-list-name">Szólista elnevezése</label>
-          <input type="text" id="upload-list-name" class="w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-brand-500 outline-none">
+          <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5" for="upload-list-name">Szólista elnevezése</label>
+          <input type="text" id="upload-list-name" class="w-full min-h-[44px] px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-base sm:text-sm focus:ring-2 focus:ring-brand-500 outline-none">
         </div>
 
         <div class="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700 text-xs">
@@ -835,8 +835,8 @@
         </div>
 
         <div class="flex items-center justify-end gap-3 pt-2">
-          <button id="btn-cancel-upload" class="px-4 py-2 rounded-xl text-sm font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">Mégse</button>
-          <button id="btn-save-uploaded-list" class="px-5 py-2 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-semibold text-sm shadow-md shadow-brand-500/20 transition-all flex items-center gap-1.5">
+          <button id="btn-cancel-upload" class="min-h-[44px] px-4 py-2.5 rounded-xl text-sm font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">Mégse</button>
+          <button id="btn-save-uploaded-list" class="min-h-[44px] px-5 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-semibold text-sm shadow-md shadow-brand-500/20 transition-all flex items-center gap-1.5">
             <i data-lucide="check" class="w-4 h-4"></i>
             <span>Lista mentése</span>
           </button>
@@ -857,16 +857,16 @@
           <h3 id="manage-modal-title" class="text-lg font-bold text-slate-900 dark:text-white">Szólista szerkesztése</h3>
           <p id="manage-modal-subtitle" class="text-xs text-slate-500 dark:text-slate-400">Szavak hozzáadása, törlése és áttekintése</p>
         </div>
-        <button id="btn-close-manage-modal" class="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+        <button id="btn-close-manage-modal" class="p-2.5 min-w-[44px] min-h-[44px] inline-flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
           <i data-lucide="x" class="w-5 h-5"></i>
         </button>
       </div>
 
       <!-- Add New Word Form -->
       <form id="form-add-word" class="shrink-0 bg-slate-50 dark:bg-slate-800/40 p-4 rounded-2xl border border-slate-200 dark:border-slate-700/80 flex flex-col sm:flex-row gap-2">
-        <input id="add-word-english" type="text" placeholder="Angol szó vagy kifejezés" required class="flex-1 px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm outline-none focus:border-brand-500">
-        <input id="add-word-hungarian" type="text" placeholder="Magyar jelentés" required class="flex-1 px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm outline-none focus:border-brand-500">
-        <button type="submit" class="px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-semibold text-sm transition-all flex items-center justify-center gap-1.5 shrink-0">
+        <input id="add-word-english" type="text" placeholder="Angol szó vagy kifejezés" required class="flex-1 min-h-[44px] px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-base sm:text-sm outline-none focus:border-brand-500">
+        <input id="add-word-hungarian" type="text" placeholder="Magyar jelentés" required class="flex-1 min-h-[44px] px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-base sm:text-sm outline-none focus:border-brand-500">
+        <button type="submit" class="min-h-[44px] px-5 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-semibold text-sm transition-all flex items-center justify-center gap-1.5 shrink-0">
           <i data-lucide="plus" class="w-4 h-4"></i>
           <span>Hozzáadás</span>
         </button>
@@ -875,8 +875,8 @@
       <!-- Search & Word Counter Bar -->
       <div class="flex items-center justify-between gap-3 shrink-0">
         <div class="relative flex-1">
-          <input id="manage-search-input" type="text" placeholder="Keresés a szavak között..." class="w-full pl-9 pr-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 text-xs outline-none focus:border-brand-500">
-          <i data-lucide="search" class="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5"></i>
+          <input id="manage-search-input" type="text" placeholder="Keresés a szavak között..." class="w-full min-h-[44px] pl-9 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 text-base sm:text-xs outline-none focus:border-brand-500">
+          <i data-lucide="search" class="w-3.5 h-3.5 text-slate-400 absolute left-3 top-3.5"></i>
         </div>
         <span id="manage-word-counter" class="text-xs font-semibold text-slate-500 dark:text-slate-400 whitespace-nowrap">0 szó</span>
       </div>
@@ -888,11 +888,11 @@
 
       <!-- Footer Buttons -->
       <div class="shrink-0 flex items-center justify-between pt-3 border-t border-slate-200 dark:border-slate-800">
-        <button id="btn-export-current-list" class="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:text-emerald-600 transition-colors">
+        <button id="btn-export-current-list" class="min-h-[44px] inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-slate-600 dark:text-slate-300 hover:text-emerald-600 transition-colors">
           <i data-lucide="download" class="w-3.5 h-3.5"></i>
           <span>Exportálás Excelbe</span>
         </button>
-        <button id="btn-done-manage-modal" class="px-5 py-2 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 font-semibold text-sm hover:opacity-90 transition-all">
+        <button id="btn-done-manage-modal" class="min-h-[44px] px-6 py-2 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 font-semibold text-sm hover:opacity-90 transition-all">
           Kész
         </button>
       </div>
@@ -916,7 +916,7 @@
             <p class="text-xs text-slate-500 dark:text-slate-400">Opcionális: Csatlakoztasd saját Firebase projekted</p>
           </div>
         </div>
-        <button id="btn-close-firebase-modal" class="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+        <button id="btn-close-firebase-modal" class="p-2.5 min-w-[44px] min-h-[44px] inline-flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
           <i data-lucide="x" class="w-5 h-5"></i>
         </button>
       </div>
@@ -931,36 +931,36 @@
 
       <form id="form-firebase-config" class="space-y-3">
         <div>
-          <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1" for="cfg-api-key">API Key</label>
-          <input id="cfg-api-key" type="text" placeholder="AIzaSy..." class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs outline-none focus:border-brand-500 font-mono">
+          <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1" for="cfg-api-key">API Key</label>
+          <input id="cfg-api-key" type="text" placeholder="AIzaSy..." class="w-full min-h-[44px] px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-base sm:text-xs outline-none focus:border-brand-500 font-mono">
         </div>
 
         <div>
-          <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1" for="cfg-auth-domain">Auth Domain</label>
-          <input id="cfg-auth-domain" type="text" placeholder="projekt-id.firebaseapp.com" class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs outline-none focus:border-brand-500 font-mono">
+          <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1" for="cfg-auth-domain">Auth Domain</label>
+          <input id="cfg-auth-domain" type="text" placeholder="projekt-id.firebaseapp.com" class="w-full min-h-[44px] px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-base sm:text-xs outline-none focus:border-brand-500 font-mono">
         </div>
 
         <div>
-          <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1" for="cfg-project-id">Project ID</label>
-          <input id="cfg-project-id" type="text" placeholder="projekt-id" class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs outline-none focus:border-brand-500 font-mono">
+          <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1" for="cfg-project-id">Project ID</label>
+          <input id="cfg-project-id" type="text" placeholder="projekt-id" class="w-full min-h-[44px] px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-base sm:text-xs outline-none focus:border-brand-500 font-mono">
         </div>
 
         <div>
-          <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1" for="cfg-storage-bucket">Storage Bucket</label>
-          <input id="cfg-storage-bucket" type="text" placeholder="projekt-id.appspot.com" class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs outline-none focus:border-brand-500 font-mono">
+          <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1" for="cfg-storage-bucket">Storage Bucket</label>
+          <input id="cfg-storage-bucket" type="text" placeholder="projekt-id.appspot.com" class="w-full min-h-[44px] px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-base sm:text-xs outline-none focus:border-brand-500 font-mono">
         </div>
 
         <div>
-          <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1" for="cfg-app-id">App ID</label>
-          <input id="cfg-app-id" type="text" placeholder="1:123456789:web:abcdef..." class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs outline-none focus:border-brand-500 font-mono">
+          <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1" for="cfg-app-id">App ID</label>
+          <input id="cfg-app-id" type="text" placeholder="1:123456789:web:abcdef..." class="w-full min-h-[44px] px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-base sm:text-xs outline-none focus:border-brand-500 font-mono">
         </div>
 
         <div class="flex items-center justify-between pt-3 gap-2">
-          <button type="button" id="btn-reset-to-local" class="text-xs text-rose-600 hover:underline">
+          <button type="button" id="btn-reset-to-local" class="min-h-[44px] inline-flex items-center text-sm text-rose-600 hover:underline">
             Visszaállítás helyi tárolóra
           </button>
           
-          <button type="submit" class="px-5 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-semibold text-xs shadow-md shadow-brand-500/20 transition-all flex items-center gap-1.5">
+          <button type="submit" class="min-h-[44px] px-5 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-semibold text-sm shadow-md shadow-brand-500/20 transition-all flex items-center gap-1.5">
             <i data-lucide="save" class="w-3.5 h-3.5"></i>
             <span>Beállítások mentése</span>
           </button>
@@ -972,7 +972,7 @@
 
   <!-- FOOTER -->
   <footer class="mt-auto py-8 pb-24 md:pb-8 border-t border-slate-200/80 dark:border-slate-800 text-xs text-slate-500 dark:text-slate-400 bg-white/40 dark:bg-slate-900/40">
-    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 space-y-4">
+    <div class="max-w-[1000px] w-full mx-auto px-4 sm:px-6 lg:px-8 space-y-4">
       <div class="flex flex-col sm:flex-row items-center justify-between gap-3">
         <div class="flex items-center gap-2">
           <div class="w-6 h-6 rounded-lg bg-brand-600 text-white font-bold flex items-center justify-center text-xs">WL</div>
@@ -994,22 +994,22 @@
   </footer>
 
   <!-- MOBILE BOTTOM NAVIGATION (Phone only) -->
-  <nav class="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-lg border-t border-slate-200 dark:border-slate-800 flex items-center justify-around px-2 py-2 safe-area-bottom shadow-lg">
-    <a href="#landing" class="flex flex-col items-center justify-center p-1.5 text-slate-600 dark:text-slate-400 hover:text-brand-600 dark:hover:text-brand-400">
+  <nav class="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-lg border-t border-slate-200 dark:border-slate-800 flex items-center justify-around px-2 py-1.5 safe-area-bottom shadow-lg">
+    <a href="#landing" class="flex flex-col items-center justify-center min-w-[48px] min-h-[48px] p-1.5 text-slate-600 dark:text-slate-400 hover:text-brand-600 dark:hover:text-brand-400 transition-colors">
       <i data-lucide="home" class="w-5 h-5"></i>
-      <span class="text-[10px] font-medium mt-0.5">Kezdőlap</span>
+      <span class="text-xs font-semibold mt-0.5">Kezdőlap</span>
     </a>
-    <a href="#dashboard" class="flex flex-col items-center justify-center p-1.5 text-slate-600 dark:text-slate-400 hover:text-brand-600 dark:hover:text-brand-400">
+    <a href="#dashboard" class="flex flex-col items-center justify-center min-w-[48px] min-h-[48px] p-1.5 text-slate-600 dark:text-slate-400 hover:text-brand-600 dark:hover:text-brand-400 transition-colors">
       <i data-lucide="book-open" class="w-5 h-5"></i>
-      <span class="text-[10px] font-medium mt-0.5">Szólisták</span>
+      <span class="text-xs font-semibold mt-0.5">Szólisták</span>
     </a>
-    <button class="btn-install-pwa hidden flex flex-col items-center justify-center p-1.5 text-emerald-600 dark:text-emerald-400 font-semibold">
+    <button class="btn-install-pwa hidden flex flex-col items-center justify-center min-w-[48px] min-h-[48px] p-1.5 text-emerald-600 dark:text-emerald-400 font-semibold transition-colors">
       <i data-lucide="download" class="w-5 h-5"></i>
-      <span class="text-[10px] mt-0.5">Telepítés</span>
+      <span class="text-xs font-semibold mt-0.5">Telepítés</span>
     </button>
-    <a href="#auth" class="flex flex-col items-center justify-center p-1.5 text-slate-600 dark:text-slate-400 hover:text-brand-600 dark:hover:text-brand-400">
+    <a href="#auth" class="flex flex-col items-center justify-center min-w-[48px] min-h-[48px] p-1.5 text-slate-600 dark:text-slate-400 hover:text-brand-600 dark:hover:text-brand-400 transition-colors">
       <i data-lucide="user" class="w-5 h-5"></i>
-      <span class="text-[10px] font-medium mt-0.5">Fiók</span>
+      <span class="text-xs font-semibold mt-0.5">Fiók</span>
     </a>
   </nav>
 
