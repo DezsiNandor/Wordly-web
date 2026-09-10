@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /dashboard
+Disallow: /practice
+Disallow: /*?uid=*
+
+Sitemap: https://wlwordly.com/sitemap.xml

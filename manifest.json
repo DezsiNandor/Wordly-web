@@ -1,0 +1,46 @@
+{
+  "name": "WL Wordly – Excel Alapú Szótanuló és Angol Szókincs Gyakorló",
+  "short_name": "WL Wordly",
+  "description": "A WL Wordly segítségével egyszerűen és hatékonyan tanulhatsz angol szavakat a saját Excel fájljaidból bármilyen eszközön. Töltsd fel a szójegyzékedet és gyakorolj ingyen!",
+  "start_url": "/#landing",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0f172a",
+  "theme_color": "#4f46e5",
+  "categories": ["education", "productivity"],
+  "lang": "hu",
+  "dir": "ltr",
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}
