@@ -66,10 +66,14 @@ export async function getUserLists() {
   const user = getCurrentUser();
   if (!user) return [];
 
+  const key = `wl_lists_${user.uid}`;
+  const initializedKey = `wl_initialized_${user.uid}`;
+  const starterDeletedKey = `wl_starter_deleted_${user.uid}`;
+
   if (isFirebaseActive()) {
     try {
       const db = getFirestoreInstance();
-      const { collection, getDocs, query, orderBy } = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js');
+      const { collection, getDocs, query, orderBy, doc, getDoc } = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js');
       const listsRef = collection(db, `users/${user.uid}/wordLists`);
       const q = query(listsRef, orderBy('createdAt', 'desc'));
       const snapshot = await getDocs(q);
@@ -81,7 +85,24 @@ export async function getUserLists() {
       });
 
       if (lists.length === 0) {
-        // Inicializálunk egy minta listát 2 munkalappal a Firebase-en is
+        // Ellenőrizzük, hogy a felhasználó korábban törölte-e már a kezdő mintát vagy inicializálva van-e
+        const isLocallyDeleted = localStorage.getItem(starterDeletedKey) === 'true' || localStorage.getItem(initializedKey) === 'true';
+        let isCloudDeleted = false;
+        try {
+          const userSnap = await getDoc(doc(db, `users/${user.uid}`));
+          if (userSnap.exists() && (userSnap.data()?.starterDeleted || userSnap.data()?.initialized)) {
+            isCloudDeleted = true;
+          }
+        } catch (e) {
+          // ignore
+        }
+
+        if (isLocallyDeleted || isCloudDeleted) {
+          // Véglegesen törölve van, nem generáljuk újra!
+          return [];
+        }
+
+        // Első belépés: inicializálunk egy minta listát 2 munkalappal a Firebase-en is
         const starter = await saveNewList("Kezdő minta szókincs (Starter)", STARTER_WORDS, [
           {
             id: 'sheet_starter_1',
@@ -108,6 +129,7 @@ export async function getUserLists() {
             words: STARTER_WORDS.slice(5)
           }
         ]);
+        localStorage.setItem(initializedKey, 'true');
         return [starter];
       }
 
@@ -118,13 +140,17 @@ export async function getUserLists() {
   }
 
   // Helyi LocalStorage tároló
-  const key = `wl_lists_${user.uid}`;
   try {
-    let lists = JSON.parse(localStorage.getItem(key) || '[]');
-    if (!lists || lists.length === 0) {
+    const rawData = localStorage.getItem(key);
+    const isStarterDeleted = localStorage.getItem(starterDeletedKey) === 'true';
+    const isInitialized = localStorage.getItem(initializedKey) === 'true';
+
+    // Csak és kizárólag a legelső megnyitáskor generálunk kezdő mintát, ha még semmi sem létezik:
+    if (rawData === null && !isStarterDeleted && !isInitialized) {
       const starterList = {
         id: 'starter_pack_' + Date.now(),
         name: 'Kezdő minta szókincs (Starter)',
+        isStarter: true,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         wordCount: STARTER_WORDS.length,
@@ -156,12 +182,15 @@ export async function getUserLists() {
           }
         ]
       };
-      lists = [starterList];
+      const lists = [starterList];
       localStorage.setItem(key, JSON.stringify(lists));
-    } else {
-      lists = lists.map(l => ensureListSheets(l));
+      localStorage.setItem(initializedKey, 'true');
+      return lists;
     }
-    return lists;
+
+    let lists = JSON.parse(rawData || '[]');
+    if (!Array.isArray(lists)) lists = [];
+    return lists.map(l => ensureListSheets(l));
   } catch (e) {
     console.error("Hiba a helyi listák betöltésekor:", e);
     return [];
@@ -299,28 +328,37 @@ export async function updateListName(listId, newName) {
 }
 
 /**
- * Lista törlése
+ * Lista és minden hozzá tartozó statisztika végleges, visszafordíthatatlan törlése
  */
 export async function deleteList(listId) {
   const user = getCurrentUser();
   if (!user) return false;
 
+  // 1. Megjelöljük a kezdő feladat törlését és a fiók inicializáltságát, hogy a minta soha ne generálódjon újra
+  localStorage.setItem(`wl_starter_deleted_${user.uid}`, 'true');
+  localStorage.setItem(`wl_initialized_${user.uid}`, 'true');
+
+  // 2. Felhő tároló (Firebase Firestore) törlés
   if (isFirebaseActive()) {
     try {
       const db = getFirestoreInstance();
-      const { doc, deleteDoc } = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js');
+      const { doc, deleteDoc, setDoc } = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js');
       const docRef = doc(db, `users/${user.uid}/wordLists`, listId);
       await deleteDoc(docRef);
-      return true;
+
+      const userMetaRef = doc(db, `users/${user.uid}`);
+      await setDoc(userMetaRef, { starterDeleted: true, initialized: true }, { merge: true });
     } catch (err) {
       console.warn("Hiba a lista törlésekor Firestore-ban:", err);
     }
   }
 
+  // 3. Helyi perzisztens tároló (LocalStorage) törlés és szinkronizálás
   const key = `wl_lists_${user.uid}`;
   let lists = JSON.parse(localStorage.getItem(key) || '[]');
   lists = lists.filter(l => l.id !== listId);
   localStorage.setItem(key, JSON.stringify(lists));
+
   return true;
 }
 

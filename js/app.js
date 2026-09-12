@@ -53,6 +53,7 @@ let isReversePractice = false;
 let isSoundEnabled = true;
 let currentActivePracticeConfig = { listId: null, sheetId: null, isMix: false };
 let nextUnlockedSheetData = null;
+let pendingDeleteTarget = null;
 
 // DOM Elemek gyors elérése
 const dom = {
@@ -209,7 +210,18 @@ const dom = {
   cfgProjectId: document.getElementById('cfg-project-id'),
   cfgStorageBucket: document.getElementById('cfg-storage-bucket'),
   cfgAppId: document.getElementById('cfg-app-id'),
-  btnResetToLocal: document.getElementById('btn-reset-to-local')
+  btnResetToLocal: document.getElementById('btn-reset-to-local'),
+
+  // Delete Confirmation Modal & Toast
+  modalDeleteConfirm: document.getElementById('modal-delete-confirm'),
+  deleteConfirmTitle: document.getElementById('delete-confirm-title'),
+  deleteConfirmMessage: document.getElementById('delete-confirm-message'),
+  btnCancelDelete: document.getElementById('btn-cancel-delete'),
+  btnCloseDeleteModal: document.getElementById('btn-close-delete-modal'),
+  btnConfirmDelete: document.getElementById('btn-confirm-delete'),
+  appToast: document.getElementById('app-toast'),
+  appToastMessage: document.getElementById('app-toast-message'),
+  appToastIcon: document.getElementById('app-toast-icon')
 };
 
 // ==========================================
@@ -861,12 +873,130 @@ function setupEventListeners() {
     window.location.reload();
   });
 
-  dom.btnResetToLocal.addEventListener('click', () => {
+    dom.btnResetToLocal.addEventListener('click', () => {
     if (confirm("Biztosan visszaállítod az alkalmazást a Helyi tárolási módra?")) {
       clearFirebaseConfig();
       window.location.reload();
     }
   });
+
+  // Delete Confirmation Modal Event Listeners
+  if (dom.btnCancelDelete) {
+    dom.btnCancelDelete.addEventListener('click', closeDeleteModal);
+  }
+  if (dom.btnCloseDeleteModal) {
+    dom.btnCloseDeleteModal.addEventListener('click', closeDeleteModal);
+  }
+  if (dom.modalDeleteConfirm) {
+    dom.modalDeleteConfirm.addEventListener('click', (e) => {
+      if (e.target === dom.modalDeleteConfirm) {
+        closeDeleteModal();
+      }
+    });
+  }
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && dom.modalDeleteConfirm && !dom.modalDeleteConfirm.classList.contains('hidden')) {
+      closeDeleteModal();
+    }
+  });
+
+  if (dom.btnConfirmDelete) {
+    dom.btnConfirmDelete.addEventListener('click', async () => {
+      if (!pendingDeleteTarget) return;
+
+      const targetListId = pendingDeleteTarget.id;
+      const targetListName = pendingDeleteTarget.name;
+      const isStarter = pendingDeleteTarget.id?.startsWith('starter_') || 
+                        pendingDeleteTarget.name?.includes('Starter') || 
+                        pendingDeleteTarget.name?.includes('Kezdő minta') ||
+                        pendingDeleteTarget.isStarter;
+
+      // 1. Törlési modál azonnali bezárása
+      closeDeleteModal();
+
+      // 2. Végleges törlés a perzisztens tárolóból és adatbázisból (LocalStorage, Firestore)
+      await deleteList(targetListId);
+
+      // 3. Globális állapot azonnali tisztítása (ha épp ezt a feladatot gyakorolják vagy szerkesztik)
+      if (currentPracticeSession && currentPracticeSession.list && currentPracticeSession.list.id === targetListId) {
+        currentPracticeSession = null;
+        if (!dom.viewPractice.classList.contains('hidden')) {
+          navigateTo('#dashboard');
+        }
+      }
+
+      if (activeManageListId === targetListId) {
+        activeManageListId = null;
+        closeManageModal();
+      }
+
+      // 4. Azonnali UI és Statisztika frissítés oldalújratöltés nélkül
+      await renderDashboard();
+      await renderStatsView();
+
+      // 5. Megerősítő toast visszajelzés
+      showToast(
+        isStarter 
+          ? "A kezdő minta feladat és minden kapcsolódó statisztika véglegesen törölve!" 
+          : `A(z) "${targetListName}" feladat és minden statisztikája sikeresen törölve!`,
+        'danger'
+      );
+    });
+  }
+}
+
+let toastTimeout = null;
+function showToast(message, type = 'success') {
+  if (!dom.appToast) return;
+  clearTimeout(toastTimeout);
+
+  dom.appToastMessage.textContent = message;
+  if (type === 'success') {
+    dom.appToast.className = 'fixed top-20 right-4 sm:right-6 z-50 flex items-center gap-2.5 px-4 py-3 rounded-2xl shadow-xl text-xs sm:text-sm font-semibold bg-emerald-600 text-white border border-emerald-500 shadow-emerald-600/20 transition-all pointer-events-none animate-pop-in';
+    dom.appToastIcon.innerHTML = '✓';
+  } else if (type === 'danger') {
+    dom.appToast.className = 'fixed top-20 right-4 sm:right-6 z-50 flex items-center gap-2.5 px-4 py-3 rounded-2xl shadow-xl text-xs sm:text-sm font-semibold bg-rose-600 text-white border border-rose-500 shadow-rose-600/20 transition-all pointer-events-none animate-pop-in';
+    dom.appToastIcon.innerHTML = '🗑️';
+  } else {
+    dom.appToast.className = 'fixed top-20 right-4 sm:right-6 z-50 flex items-center gap-2.5 px-4 py-3 rounded-2xl shadow-xl text-xs sm:text-sm font-semibold bg-slate-900 text-white border border-slate-700 shadow-slate-900/20 transition-all pointer-events-none animate-pop-in';
+    dom.appToastIcon.innerHTML = 'ℹ️';
+  }
+
+  dom.appToast.classList.remove('hidden');
+
+  toastTimeout = setTimeout(() => {
+    if (dom.appToast) {
+      dom.appToast.classList.add('hidden');
+    }
+  }, 3500);
+}
+
+function openDeleteModal(list) {
+  pendingDeleteTarget = list;
+  const isStarter = list.id?.startsWith('starter_') || 
+                    list.name?.includes('Starter') || 
+                    list.name?.includes('Kezdő minta') || 
+                    list.isStarter;
+
+  if (isStarter) {
+    dom.deleteConfirmTitle.textContent = "Kezdő minta feladat törlése";
+    dom.deleteConfirmMessage.innerHTML = `Biztosan törölni szeretnéd a <strong>minta feladatot</strong>? Ezzel minden kapcsolódó statisztika és előzmény is végleg törlődik.`;
+  } else {
+    dom.deleteConfirmTitle.textContent = "Szólista végleges törlése";
+    dom.deleteConfirmMessage.innerHTML = `Biztosan törölni szeretnéd a(z) <strong>"${escapeHtml(list.name)}"</strong> feladatot? Ezzel minden kapcsolódó munkalap, statisztika és előzmény is végleg törlődik.`;
+  }
+
+  dom.modalDeleteConfirm.classList.remove('hidden');
+  dom.modalDeleteConfirm.classList.add('flex');
+  refreshIcons();
+}
+
+function closeDeleteModal() {
+  pendingDeleteTarget = null;
+  if (dom.modalDeleteConfirm) {
+    dom.modalDeleteConfirm.classList.add('hidden');
+    dom.modalDeleteConfirm.classList.remove('flex');
+  }
 }
 
 function showAuthError(msg) {
@@ -1045,11 +1175,8 @@ async function renderDashboard() {
       }
     });
 
-    card.querySelector('.btn-delete-list').addEventListener('click', async () => {
-      if (confirm(`Biztosan törölni szeretnéd a(z) "${list.name}" listát?`)) {
-        await deleteList(list.id);
-        await renderDashboard();
-      }
+    card.querySelector('.btn-delete-list').addEventListener('click', () => {
+      openDeleteModal(list);
     });
 
     dom.listsGrid.appendChild(card);
