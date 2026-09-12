@@ -3,6 +3,7 @@
  */
 
 import { getSavedFirebaseConfig } from './firebaseConfig.js';
+import { parseJwt, disableGoogleAutoSelect } from './googleAuth.js';
 
 let firebaseApp = null;
 let firebaseAuth = null;
@@ -34,11 +35,24 @@ export async function initAuth() {
           currentUser = {
             uid: user.uid,
             email: user.email,
+            displayName: user.displayName || (user.email ? user.email.split('@')[0] : 'Felhasználó'),
+            photoURL: user.photoURL || null,
             isFirebase: true,
-            isGuest: false
+            isGuest: false,
+            isGoogle: Boolean(user.providerData?.some(p => p.providerId === 'google.com'))
           };
         } else {
-          currentUser = null;
+          // Ha Firebase kijelentkezett, ellenőrizzük a helyi Google/Helyi munkamenetet
+          try {
+            const savedSession = localStorage.getItem(LOCAL_SESSION_KEY);
+            if (savedSession) {
+              currentUser = JSON.parse(savedSession);
+            } else {
+              currentUser = null;
+            }
+          } catch (e) {
+            currentUser = null;
+          }
         }
         notifyListeners();
       });
@@ -190,12 +204,105 @@ export function loginAsGuest() {
   currentUser = {
     uid: 'guest_user',
     email: 'vendeg@wordlearning.hu',
+    displayName: 'Vendég',
+    photoURL: null,
     isFirebase: false,
-    isGuest: true
+    isGuest: true,
+    isGoogle: false
   };
   localStorage.setItem(LOCAL_SESSION_KEY, JSON.stringify(currentUser));
   notifyListeners();
   return currentUser;
+}
+
+/**
+ * Bejelentkezés Google Hitelesítéssel (GIS Id_Token / Credential vagy profil adatok)
+ */
+export async function loginWithGoogleCredential(credentialToken, profilePayload = null) {
+  if (!credentialToken && !profilePayload) {
+    throw new Error("Nem érkezett érvényes Google token!");
+  }
+
+  // 1. Ha Firebase Auth aktív, a hivatalos Google hitelesítési providerrel lépünk be
+  if (firebaseAuth && credentialToken) {
+    try {
+      const { GoogleAuthProvider, signInWithCredential } = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js');
+      const credential = GoogleAuthProvider.credential(credentialToken);
+      const userCredential = await signInWithCredential(firebaseAuth, credential);
+      currentUser = {
+        uid: userCredential.user.uid,
+        email: userCredential.user.email,
+        displayName: userCredential.user.displayName || userCredential.user.email?.split('@')[0] || 'Google Felhasználó',
+        photoURL: userCredential.user.photoURL || null,
+        isFirebase: true,
+        isGuest: false,
+        isGoogle: true
+      };
+      localStorage.setItem(LOCAL_SESSION_KEY, JSON.stringify(currentUser));
+      notifyListeners();
+      return currentUser;
+    } catch (err) {
+      console.warn("Firebase Google Credential belépési hiba, próbálkozás közvetlen token értelmezéssel:", err);
+    }
+  }
+
+  // 2. Közvetlen Google Identity Services token (JWT) értelmezés (Firebase nélkül vagy fallback)
+  const payload = profilePayload || parseJwt(credentialToken);
+  if (!payload || !payload.sub) {
+    throw new Error("A Google profil adatok nem érvényesek!");
+  }
+
+  currentUser = {
+    uid: 'google_' + payload.sub,
+    googleSub: payload.sub,
+    email: payload.email,
+    displayName: payload.name || payload.email?.split('@')[0] || 'Google Felhasználó',
+    givenName: payload.given_name || '',
+    familyName: payload.family_name || '',
+    photoURL: payload.picture || null,
+    isFirebase: false,
+    isGuest: false,
+    isGoogle: true
+  };
+
+  localStorage.setItem(LOCAL_SESSION_KEY, JSON.stringify(currentUser));
+  notifyListeners();
+  return currentUser;
+}
+
+/**
+ * Interaktív felugró ablakos Google bejelentkezés (Firebase módban)
+ */
+export async function loginWithGooglePopup() {
+  if (firebaseAuth) {
+    try {
+      const { GoogleAuthProvider, signInWithPopup } = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js');
+      const provider = new GoogleAuthProvider();
+      provider.addScope('profile');
+      provider.addScope('email');
+      const result = await signInWithPopup(firebaseAuth, provider);
+      currentUser = {
+        uid: result.user.uid,
+        email: result.user.email,
+        displayName: result.user.displayName || result.user.email?.split('@')[0] || 'Google Felhasználó',
+        photoURL: result.user.photoURL || null,
+        isFirebase: true,
+        isGuest: false,
+        isGoogle: true
+      };
+      localStorage.setItem(LOCAL_SESSION_KEY, JSON.stringify(currentUser));
+      notifyListeners();
+      return currentUser;
+    } catch (err) {
+      let msg = "A Google bejelentkezés megszakadt vagy sikertelen.";
+      if (err.code === 'auth/popup-closed-by-user') msg = "A bejelentkező ablak be lett zárva.";
+      if (err.code === 'auth/cancelled-popup-request') msg = "A bejelentkezési kérés megszakadt.";
+      if (err.code === 'auth/network-request-failed') msg = "Hálózati hiba a Google szerver elérésekor!";
+      throw new Error(msg);
+    }
+  }
+
+  throw new Error("A felugró ablakos Google belépéshez Firebase kapcsolat vagy Google Client ID szükséges!");
 }
 
 /**
@@ -210,6 +317,7 @@ export async function logout() {
       console.warn("Hiba a Firebase kijelentkezéskor:", e);
     }
   }
+  disableGoogleAutoSelect();
   currentUser = null;
   localStorage.removeItem(LOCAL_SESSION_KEY);
   notifyListeners();

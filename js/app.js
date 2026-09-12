@@ -7,6 +7,8 @@ import {
   register, 
   login, 
   loginAsGuest, 
+  loginWithGoogleCredential,
+  loginWithGooglePopup,
   logout, 
   getCurrentUser, 
   onAuthStateChangedCustom,
@@ -22,8 +24,12 @@ import {
   addWordToList, 
   deleteWordFromList, 
   updateWordInList,
-  updateSheetProgress
+  updateSheetProgress,
+  syncMultiDeviceCloud,
+  setupRealtimeCloudListener
 } from './storage.js';
+
+import { initGoogleIdentityServices } from './googleAuth.js';
 
 import { 
   parseExcelFile, 
@@ -86,6 +92,9 @@ const dom = {
   iconThemeMoon: document.getElementById('icon-theme-moon'),
   iconThemeSun: document.getElementById('icon-theme-sun'),
   userProfileMenu: document.getElementById('user-profile-menu'),
+  userProfileBadgeBtn: document.getElementById('user-profile-badge-btn'),
+  userProfileAvatar: document.getElementById('user-profile-avatar'),
+  userProfileIcon: document.getElementById('user-profile-icon'),
   userEmailDisplay: document.getElementById('user-email-display'),
   userBadge: document.getElementById('user-badge'),
   btnLogout: document.getElementById('btn-logout'),
@@ -104,6 +113,9 @@ const dom = {
   authProtectedNotice: document.getElementById('auth-protected-notice'),
   tabLogin: document.getElementById('tab-login'),
   tabRegister: document.getElementById('tab-register'),
+  googleBtnContainer: document.getElementById('google-btn-container'),
+  btnGoogleSignin: document.getElementById('btn-google-signin'),
+  btnGoogleText: document.getElementById('btn-google-text'),
   formAuth: document.getElementById('form-auth'),
   authEmail: document.getElementById('auth-email'),
   authPassword: document.getElementById('auth-password'),
@@ -116,6 +128,8 @@ const dom = {
   btnGuestLogin: document.getElementById('btn-guest-login'),
 
   // Dashboard View
+  cloudSyncStatusBadge: document.getElementById('cloud-sync-status-badge'),
+  cloudSyncStatusText: document.getElementById('cloud-sync-status-text'),
   statTotalLists: document.getElementById('stat-total-lists'),
   statTotalWords: document.getElementById('stat-total-words'),
   statTotalPracticed: document.getElementById('stat-total-practiced'),
@@ -266,6 +280,24 @@ document.addEventListener('DOMContentLoaded', async () => {
   const authStatus = await initAuth();
   updateFirebaseStatusUI(authStatus.isFirebase);
 
+  // Google Identity Services (GIS - One Tap és Hivatalos Sign-In gomb) inicializálása
+  initGoogleIdentityServices({
+    buttonContainer: dom.googleBtnContainer,
+    enableOneTap: true,
+    onSuccess: async (authResult) => {
+      try {
+        showToast("Sikeres Google azonosítás! Szótárak betöltése...", "info");
+        await loginWithGoogleCredential(authResult.credential, authResult);
+        navigateTo('#dashboard');
+      } catch (err) {
+        showAuthError(err.message || "Hiba a Google bejelentkezés során.");
+      }
+    },
+    onError: (err) => {
+      console.warn("Google Identity Services hiba:", err);
+    }
+  });
+
   // Hash-alapú router figyelése
   window.addEventListener('hashchange', handleRouting);
 
@@ -290,12 +322,34 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
       await renderDashboard();
 
+      // Többeszközös felhőszinkronizáció (Multi-device Cloud Sync)
+      syncMultiDeviceCloud(user).then(async (syncedLists) => {
+        if (syncedLists && syncedLists.length > 0) {
+          await renderDashboard();
+        }
+      }).catch(err => console.warn("Többeszközös szinkronizáció háttérbeli figyelmeztetés:", err));
+
+      // Valós idejű szinkronizációs figyelő feliratkozás
+      if (window._realtimeCloudUnsubscribe) {
+        window._realtimeCloudUnsubscribe();
+        window._realtimeCloudUnsubscribe = null;
+      }
+      window._realtimeCloudUnsubscribe = setupRealtimeCloudListener(user, async (updatedLists) => {
+        console.log("Valós idejű felhő szinkronizációs frissítés érkezett egy másik eszközről!");
+        await renderDashboard();
+        showToast("Szótáraid szinkronizálva lettek egy másik eszközödről!", "info");
+      });
+
       // Google Drive / Sheets háttérbeli szinkronizáció indításkor a kapcsolt listákhoz
       checkAllGoogleDriveListsOnStartup(async (syncResult) => {
         await renderDashboard();
         showToast(`Google Táblázat: ${syncResult.newWordsCount} új szó szinkronizálva!`, 'info');
       });
     } else {
+      if (window._realtimeCloudUnsubscribe) {
+        window._realtimeCloudUnsubscribe();
+        window._realtimeCloudUnsubscribe = null;
+      }
       handleRouting();
     }
     refreshIcons();
@@ -381,11 +435,25 @@ function updateNavForUser(user) {
 
     dom.userProfileMenu.classList.remove('hidden');
     dom.userProfileMenu.classList.add('flex');
-    dom.userEmailDisplay.textContent = user.email || 'Vendég';
-    dom.userBadge.textContent = user.isGuest ? 'Vendég mód' : (user.isFirebase ? 'Firebase fiók' : 'Helyi profil');
+    dom.userEmailDisplay.textContent = user.displayName || user.email || 'Vendég';
+    dom.userBadge.textContent = user.isGoogle ? 'Google fiók' : (user.isGuest ? 'Vendég mód' : (user.isFirebase ? 'Firebase fiók' : 'Helyi profil'));
+    
+    // Profilkép (Google avatar kép) frissítése
+    if (dom.userProfileAvatar && dom.userProfileIcon) {
+      if (user.photoURL) {
+        dom.userProfileAvatar.src = user.photoURL;
+        dom.userProfileAvatar.classList.remove('hidden');
+        dom.userProfileIcon.classList.add('hidden');
+      } else {
+        dom.userProfileAvatar.classList.add('hidden');
+        dom.userProfileAvatar.src = '';
+        dom.userProfileIcon.classList.remove('hidden');
+      }
+    }
+
     const badgeBtn = document.getElementById('user-profile-badge-btn');
     if (badgeBtn) {
-      badgeBtn.title = `${user.email || 'Vendég'} (${user.isGuest ? 'Vendég mód' : (user.isFirebase ? 'Firebase fiók' : 'Helyi profil')})`;
+      badgeBtn.title = `${user.displayName || user.email || 'Vendég'} (${user.isGoogle ? 'Google fiók' : (user.isGuest ? 'Vendég mód' : (user.isFirebase ? 'Firebase fiók' : 'Helyi profil'))})`;
     }
 
     // Alsó navigációs sáv véglegesen kikapcsolva / eltávolítva a DOM-ból
@@ -401,6 +469,13 @@ function updateNavForUser(user) {
   } else {
     document.body.classList.remove('logged-in');
     document.body.classList.add('logged-out');
+
+    // Profilkép és ikon visszaállítása
+    if (dom.userProfileAvatar && dom.userProfileIcon) {
+      dom.userProfileAvatar.classList.add('hidden');
+      dom.userProfileAvatar.src = '';
+      dom.userProfileIcon.classList.remove('hidden');
+    }
 
     // Bejelentkezés előtt a logó mobilon rejtve, asztali gépen megjelenítve
     if (dom.navLogo) {
@@ -691,6 +766,48 @@ function setupEventListeners() {
     loginAsGuest();
     navigateTo('#dashboard');
   });
+
+  // Google Sign-In gomb
+  if (dom.btnGoogleSignin) {
+    dom.btnGoogleSignin.addEventListener('click', async () => {
+      hideAuthError();
+      try {
+        dom.btnGoogleSignin.disabled = true;
+        if (dom.btnGoogleText) dom.btnGoogleText.textContent = "Kapcsolódás a Google-hoz...";
+
+        // 1. Ha a Firebase aktív vagy be van állítva, megpróbáljuk a hivatalos popup ablakot
+        const isFb = isFirebaseActive();
+        const fbConfig = getSavedFirebaseConfig();
+        if (isFb || (fbConfig && fbConfig.apiKey)) {
+          try {
+            await loginWithGooglePopup();
+            navigateTo('#dashboard');
+            return;
+          } catch (popupErr) {
+            console.warn("Firebase popup kísérlet:", popupErr);
+            if (popupErr.message && (popupErr.message.includes('bezárva') || popupErr.message.includes('megszakadt'))) {
+              throw popupErr;
+            }
+          }
+        }
+
+        // 2. Ha a Google GIS beágyazott gomb kész, közvetlenül aktiváljuk
+        const renderedBtn = dom.googleBtnContainer?.querySelector('div[role="button"]') || dom.googleBtnContainer?.querySelector('iframe');
+        if (renderedBtn) {
+          renderedBtn.click();
+        } else if (window.google?.accounts?.id) {
+          window.google.accounts.id.prompt();
+        } else {
+          showAuthError("A Google bejelentkezési szolgáltatás nem érhető el. Kérjük, engedélyezze a harmadik féltől származó sütiket, vagy lépjen be email címmel!");
+        }
+      } catch (err) {
+        showAuthError(err.message || "A Google bejelentkezés megszakadt.");
+      } finally {
+        dom.btnGoogleSignin.disabled = false;
+        if (dom.btnGoogleText) dom.btnGoogleText.textContent = "Folytatás Google-fiókkal";
+      }
+    });
+  }
 
   // Excel Upload Modal trigger
   dom.btnOpenUploadModal.addEventListener('click', () => openUploadModal());

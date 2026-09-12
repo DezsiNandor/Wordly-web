@@ -696,3 +696,259 @@ export async function mergeListWithNewExcelData(existingList, parsedData, syncMe
     syncedAt: nowIso
   };
 }
+
+/**
+ * Intelligens kétirányú összefésülés (Multi-Device Two-Way Conflict-Free Merge):
+ * - Ha egy lista csak a felhőben vagy csak helyben létezik: megőrizzük.
+ * - Ha mindkét helyen létezik:
+ *   1. Tanulási számlálók monoton összevonása: max(local.timesPracticed, cloud.timesPracticed), max(timesCorrect).
+ *   2. Szintfeloldások uniója: ha telefonon feloldódott a 2. szint, asztali gépen is azonnal elérhető.
+ *   3. Új szavak uniója és rendezése: semmilyen hozzáadott szó nem vész el.
+ *   4. Legfrissebb szinkronizációs metaadatok érvényesítése.
+ */
+export function mergeCloudAndLocalLists(cloudLists = [], localLists = []) {
+  const mergedMap = new Map();
+  let hasChangesToUpload = false;
+  let hasChangesToDownload = false;
+
+  const nowIso = new Date().toISOString();
+
+  // 1. Felhőbeli listák indexelése
+  (cloudLists || []).forEach(cList => {
+    if (cList && cList.id) {
+      mergedMap.set(cList.id, { ...ensureListSheets(cList), _source: 'cloud' });
+    }
+  });
+
+  // 2. Helyi listák összevetése a felhőbeliekkel
+  (localLists || []).forEach(lList => {
+    if (!lList || !lList.id) return;
+    ensureListSheets(lList);
+
+    if (!mergedMap.has(lList.id)) {
+      // Csak helyben létezik -> fel kell tölteni a felhőbe
+      mergedMap.set(lList.id, { ...lList, _source: 'local' });
+      hasChangesToUpload = true;
+    } else {
+      // Mindkét helyen létezik -> intelligens összefésülés!
+      const cList = mergedMap.get(lList.id);
+      const cloudUpdated = new Date(cList.updatedAt || 0).getTime();
+      const localUpdated = new Date(lList.updatedAt || 0).getTime();
+
+      // Szavak összefésülése:
+      const wordMap = new Map();
+      (cList.words || []).forEach(w => {
+        if (w) wordMap.set(w.id || (w.english || '').toLowerCase().trim(), { ...w });
+      });
+
+      (lList.words || []).forEach(w => {
+        if (!w) return;
+        const key = w.id || (w.english || '').toLowerCase().trim();
+        if (!wordMap.has(key)) {
+          wordMap.set(key, { ...w });
+          hasChangesToUpload = true;
+        } else {
+          const existing = wordMap.get(key);
+          const maxPracticed = Math.max(existing.timesPracticed || 0, w.timesPracticed || 0);
+          const maxCorrect = Math.max(existing.timesCorrect || 0, w.timesCorrect || 0);
+          const isStillNew = (existing.isNew === true) && (w.isNew === true);
+
+          if (maxPracticed !== existing.timesPracticed || maxCorrect !== existing.timesCorrect) {
+            hasChangesToUpload = true;
+            hasChangesToDownload = true;
+          }
+
+          wordMap.set(key, {
+            ...existing,
+            hungarian: localUpdated >= cloudUpdated ? (w.hungarian || existing.hungarian) : (existing.hungarian || w.hungarian),
+            timesPracticed: maxPracticed,
+            timesCorrect: maxCorrect,
+            isNew: isStillNew,
+            addedAt: existing.addedAt || w.addedAt || nowIso
+          });
+        }
+      });
+
+      const mergedWords = Array.from(wordMap.values());
+
+      // Munkalapok összefésülése:
+      const sheetMap = new Map();
+      (cList.sheets || []).forEach(s => {
+        if (s) sheetMap.set(s.id || s.order, { ...s });
+      });
+
+      (lList.sheets || []).forEach(s => {
+        if (!s) return;
+        const sKey = s.id || s.order;
+        if (!sheetMap.has(sKey)) {
+          sheetMap.set(sKey, { ...s });
+          hasChangesToUpload = true;
+        } else {
+          const cSheet = sheetMap.get(sKey);
+          const isUnlocked = Boolean(cSheet.isUnlocked || s.isUnlocked);
+          const maxPerfect = Math.max(cSheet.consecutivePerfectScores || 0, s.consecutivePerfectScores || 0);
+          const maxPracticed = Math.max(cSheet.timesPracticed || 0, s.timesPracticed || 0);
+          const maxPassed = Math.max(cSheet.timesPassed || 0, s.timesPassed || 0);
+
+          if (isUnlocked !== cSheet.isUnlocked || maxPracticed !== cSheet.timesPracticed) {
+            hasChangesToUpload = true;
+            hasChangesToDownload = true;
+          }
+
+          sheetMap.set(sKey, {
+            ...cSheet,
+            name: localUpdated >= cloudUpdated ? (s.name || cSheet.name) : (cSheet.name || s.name),
+            isUnlocked,
+            consecutivePerfectScores: maxPerfect,
+            timesPracticed: maxPracticed,
+            timesPassed: maxPassed,
+            words: s.words && s.words.length > 0 ? s.words : cSheet.words
+          });
+        }
+      });
+
+      const mergedSheets = Array.from(sheetMap.values()).sort((a, b) => (a.order || 0) - (b.order || 0));
+
+      const mergedList = {
+        ...cList,
+        name: localUpdated >= cloudUpdated ? (lList.name || cList.name) : (cList.name || lList.name),
+        wordCount: mergedWords.length,
+        words: mergedWords,
+        sheets: mergedSheets,
+        updatedAt: new Date(Math.max(cloudUpdated, localUpdated, Date.now())).toISOString(),
+        _source: 'merged'
+      };
+
+      mergedMap.set(lList.id, mergedList);
+    }
+  });
+
+  const mergedLists = Array.from(mergedMap.values()).map(l => {
+    const clean = { ...l };
+    delete clean._source;
+    return clean;
+  });
+
+  return {
+    mergedLists,
+    hasChangesToUpload,
+    hasChangesToDownload: hasChangesToDownload || (cloudLists.length !== localLists.length)
+  };
+}
+
+/**
+ * Teljes többeszközös felhőszinkronizáció végrehajtása
+ */
+export async function syncMultiDeviceCloud(user) {
+  if (!user || !user.uid) return [];
+  const key = `wl_lists_${user.uid}`;
+  const rawLocal = localStorage.getItem(key);
+  let localLists = [];
+  try {
+    localLists = JSON.parse(rawLocal || '[]');
+  } catch (e) {
+    localLists = [];
+  }
+
+  if (isFirebaseActive()) {
+    try {
+      const db = getFirestoreInstance();
+      const { collection, getDocs, doc, setDoc } = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js');
+      
+      // 1. Felhőbeli listák letöltése
+      const listsRef = collection(db, `users/${user.uid}/wordLists`);
+      const snapshot = await getDocs(listsRef);
+      const cloudLists = [];
+      snapshot.forEach(docSnap => {
+        cloudLists.push({ id: docSnap.id, ...docSnap.data() });
+      });
+
+      // 2. Kétirányú összefésülés
+      const { mergedLists, hasChangesToUpload } = mergeCloudAndLocalLists(cloudLists, localLists);
+
+      // 3. Mentés a helyi tárolóba
+      localStorage.setItem(key, JSON.stringify(mergedLists));
+
+      // 4. Frissítések feltöltése a felhőbe, ha szükséges
+      if (hasChangesToUpload || cloudLists.length === 0) {
+        for (const list of mergedLists) {
+          const docRef = doc(db, `users/${user.uid}/wordLists`, list.id);
+          await setDoc(docRef, list, { merge: true });
+        }
+      }
+
+      // 5. Felhasználói metaadatok frissítése a felhőben
+      try {
+        const userRef = doc(db, `users/${user.uid}`);
+        await setDoc(userRef, {
+          email: user.email,
+          displayName: user.displayName || '',
+          photoURL: user.photoURL || null,
+          lastDeviceSync: new Date().toISOString(),
+          isGoogle: Boolean(user.isGoogle)
+        }, { merge: true });
+      } catch (err) {
+        console.warn("Nem sikerült a felhasználói metaadatokat frissíteni:", err);
+      }
+
+      return mergedLists;
+    } catch (err) {
+      console.warn("Hiba a többeszközös szinkronizáció során:", err);
+    }
+  }
+
+  return localLists;
+}
+
+/**
+ * Valós idejű felhőfigyelő beállítása (Realtime Multi-device Sync)
+ * Ha egy másik eszközön (pl. telefonon) módosul egy lista, az asztali nézet azonnal frissül!
+ */
+export function setupRealtimeCloudListener(user, onRemoteChange) {
+  if (!user || !user.uid || !isFirebaseActive()) {
+    return () => {};
+  }
+
+  let unsubscribe = () => {};
+
+  (async () => {
+    try {
+      const db = getFirestoreInstance();
+      const { collection, onSnapshot } = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js');
+      const listsRef = collection(db, `users/${user.uid}/wordLists`);
+
+      unsubscribe = onSnapshot(listsRef, (snapshot) => {
+        if (snapshot.metadata.hasPendingWrites) {
+          // Saját helyi írás, nem kell újra összefésülni
+          return;
+        }
+
+        const cloudLists = [];
+        snapshot.forEach(docSnap => {
+          cloudLists.push({ id: docSnap.id, ...docSnap.data() });
+        });
+
+        const key = `wl_lists_${user.uid}`;
+        const localLists = JSON.parse(localStorage.getItem(key) || '[]');
+        const { mergedLists } = mergeCloudAndLocalLists(cloudLists, localLists);
+
+        localStorage.setItem(key, JSON.stringify(mergedLists));
+        if (typeof onRemoteChange === 'function') {
+          onRemoteChange(mergedLists);
+        }
+      }, (error) => {
+        console.warn("Valós idejű felhő figyelési hiba:", error);
+      });
+    } catch (err) {
+      console.warn("Nem sikerült elindítani a valós idejű figyelőt:", err);
+    }
+  })();
+
+  return () => {
+    try {
+      unsubscribe();
+    } catch (e) {
+      // ignore
+    }
+  };
+}
