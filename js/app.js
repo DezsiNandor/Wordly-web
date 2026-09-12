@@ -658,31 +658,51 @@ function updateActiveBottomNav(hash) {
 }
 
 function showView(viewName) {
-  // Bejelentkezett állapotban a Kezdőlap (landing) semmilyen körülmények között nem renderelődhet:
-  if (viewName === 'landing' && activeUser) {
-    navigateTo('#dashboard');
-    return;
+  const user = activeUser || getCurrentUser();
+  const isAuthenticated = Boolean(user && user.uid);
+
+  // ========================================================
+  // STRICT CONDITIONAL RENDERING (Feltételes Nézetvezérlő):
+  // isAuthenticated ? <Dashboard /> : <LandingPage />
+  // ========================================================
+  // 1. Ha a felhasználó NINCS bejelentkezve (!isAuthenticated):
+  //    - Kizárólag a bemutató felület (landing) vagy a bejelentkező felület (auth) jelenhet meg.
+  //    - A belső dashboard, gyakorlás vagy statisztika teljesen el van zárva.
+  // 2. Ha a felhasználó BE VAN JELENTKEZVE (isAuthenticated):
+  //    - A kezdőlap és a lila CTA banner ("Fiók Létrehozása") azonnal és véglegesen elrejtődik.
+  //    - Kizárólag a belső munkafelület (dashboard, stats, practice) jelenhet meg.
+  let targetView = viewName;
+  if (!isAuthenticated) {
+    if (targetView !== 'auth') {
+      targetView = 'landing';
+    }
+  } else {
+    if (targetView === 'landing' || targetView === 'auth') {
+      targetView = 'dashboard';
+    }
   }
 
+  // Minden nézet szigorú alaphelyzetbe állítása (hidden)
   dom.viewLanding.classList.add('hidden');
   dom.viewAuth.classList.add('hidden');
   dom.viewDashboard.classList.add('hidden');
   dom.viewPractice.classList.add('hidden');
   if (dom.viewStats) dom.viewStats.classList.add('hidden');
 
-  if (viewName === 'landing') {
+  // Kizárólag az engedélyezett nézet renderelése
+  if (targetView === 'landing') {
     dom.viewLanding.classList.remove('hidden');
-  } else if (viewName === 'auth') {
+  } else if (targetView === 'auth') {
     dom.viewAuth.classList.remove('hidden');
-  } else if (viewName === 'dashboard') {
+  } else if (targetView === 'dashboard') {
     dom.viewDashboard.classList.remove('hidden');
     renderDashboard();
-  } else if (viewName === 'stats') {
+  } else if (targetView === 'stats') {
     if (dom.viewStats) {
       dom.viewStats.classList.remove('hidden');
       renderStatsView();
     }
-  } else if (viewName === 'practice') {
+  } else if (targetView === 'practice') {
     dom.viewPractice.classList.remove('hidden');
   }
 

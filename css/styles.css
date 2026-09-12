@@ -522,16 +522,11 @@ nav.md\:hidden a[href="#auth"] span {
   }
 }
 
-/* Ha a PWA telepítés/letöltés gomb eltűnik a fejlécből, a maradék gombok azonnal hézag nélkül a helyükre csúsznak */
-.btn-install-pwa.hidden,
-.pwa-standalone .btn-install-pwa {
+/* Globális és szigorú rejtés (Strict Conditional Rendering) */
+.hidden {
   display: none !important;
-  margin: 0 !important;
-  padding: 0 !important;
-  width: 0 !important;
-  height: 0 !important;
-  border: none !important;
 }
+
 
 /* PWA / Telepített állapot mind CSS Media Query (@media display-mode: standalone), mind JS .pwa-standalone esetén */
 @media (display-mode: standalone) {
