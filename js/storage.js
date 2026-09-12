@@ -216,12 +216,15 @@ export async function saveNewList(name, words, sheets = null) {
   const cleanName = (name || "Névtelen lista").trim();
   const listId = 'list_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
 
+  const nowIso = new Date().toISOString();
   const formattedWords = (words || []).map((w, idx) => ({
     id: w.id || `w_${idx + 1}_${Date.now()}`,
     english: String(w.english || '').trim(),
     hungarian: String(w.hungarian || '').trim(),
     timesPracticed: w.timesPracticed || 0,
-    timesCorrect: w.timesCorrect || 0
+    timesCorrect: w.timesCorrect || 0,
+    isNew: typeof w.isNew === 'boolean' ? w.isNew : false,
+    addedAt: w.addedAt || nowIso
   })).filter(w => w.english.length > 0 && w.hungarian.length > 0);
 
   let formattedSheets;
@@ -241,7 +244,9 @@ export async function saveNewList(name, words, sheets = null) {
         english: String(w.english || '').trim(),
         hungarian: String(w.hungarian || '').trim(),
         timesPracticed: w.timesPracticed || 0,
-        timesCorrect: w.timesCorrect || 0
+        timesCorrect: w.timesCorrect || 0,
+        isNew: typeof w.isNew === 'boolean' ? w.isNew : false,
+        addedAt: w.addedAt || nowIso
       })).filter(w => w.english.length > 0 && w.hungarian.length > 0)
     }));
   } else {
@@ -377,7 +382,9 @@ export async function addWordToList(listId, english, hungarian) {
     english: english.trim(),
     hungarian: hungarian.trim(),
     timesPracticed: 0,
-    timesCorrect: 0
+    timesCorrect: 0,
+    isNew: true,
+    addedAt: new Date().toISOString()
   };
 
   targetList.words.push(newWord);

@@ -239,6 +239,7 @@ const dom = {
   gdriveCustomName: document.getElementById('gdrive-custom-name'),
   gdriveTargetListId: document.getElementById('gdrive-target-list-id'),
   gdriveNameGroup: document.getElementById('gdrive-name-group'),
+  gdriveSheetNames: document.getElementById('gdrive-sheet-names'),
   btnSubmitGDrive: document.getElementById('btn-submit-gdrive'),
   iconGDriveSubmit: document.getElementById('icon-gdrive-submit'),
   textGDriveSubmit: document.getElementById('text-gdrive-submit'),
@@ -1377,6 +1378,15 @@ function openGDriveModal(listId = null, defaultUrl = '') {
     if (modalTitle) modalTitle.textContent = 'Google Táblázat Szinkronizálás';
     if (dom.textGDriveSubmit) dom.textGDriveSubmit.textContent = 'Szinkronizálás';
     if (dom.gdriveLinkInput) dom.gdriveLinkInput.value = defaultUrl || '';
+    if (dom.gdriveSheetNames) {
+      dom.gdriveSheetNames.value = '';
+      getListById(listId).then(target => {
+        if (target && target.googleDriveSheetNames && dom.gdriveSheetNames) {
+          const sNames = target.googleDriveSheetNames;
+          dom.gdriveSheetNames.value = Array.isArray(sNames) ? sNames.join(', ') : (sNames || '');
+        }
+      }).catch(() => {});
+    }
   } else {
     dom.gdriveTargetListId.value = '';
     if (dom.gdriveNameGroup) dom.gdriveNameGroup.classList.remove('hidden');
@@ -1385,6 +1395,7 @@ function openGDriveModal(listId = null, defaultUrl = '') {
     if (dom.textGDriveSubmit) dom.textGDriveSubmit.textContent = 'Csatlakozás és Szinkronizáció';
     if (dom.gdriveLinkInput) dom.gdriveLinkInput.value = defaultUrl || '';
     if (dom.gdriveCustomName) dom.gdriveCustomName.value = '';
+    if (dom.gdriveSheetNames) dom.gdriveSheetNames.value = '';
   }
 
   dom.modalGDriveConnect.classList.remove('hidden');
@@ -1428,6 +1439,7 @@ async function handleGDriveSubmit(e) {
   const url = dom.gdriveLinkInput ? dom.gdriveLinkInput.value.trim() : '';
   const targetListId = dom.gdriveTargetListId ? dom.gdriveTargetListId.value : '';
   const customName = dom.gdriveCustomName ? dom.gdriveCustomName.value.trim() : null;
+  const sheetNames = dom.gdriveSheetNames ? dom.gdriveSheetNames.value.trim() : '';
 
   if (!url) {
     showGDriveAlert("Kérlek, adj meg egy érvényes Google Drive vagy Google Sheets hivatkozást!", "error");
@@ -1442,20 +1454,21 @@ async function handleGDriveSubmit(e) {
   try {
     if (targetListId) {
       // Meglévő lista összekapcsolása / frissítése
-      const result = await linkExistingListToGoogleDrive(targetListId, url);
+      const result = await linkExistingListToGoogleDrive(targetListId, url, sheetNames);
       if (result.success) {
         closeGDriveModal();
         await renderDashboard();
-        showToast(result.message || 'A szólista sikeresen szinkronizálva!', 'success');
+        showToast(result.message || `Sikeres frissítés: ${result.newWordsCount} új szó hozzáadva!`, 'success');
       } else {
         showGDriveAlert(result.message || 'Hiba történt a szinkronizálás során.', 'error');
       }
     } else {
       // Új lista csatlakoztatása Google Drive-ról
-      const newList = await connectGoogleDriveList(url, customName);
+      const newList = await connectGoogleDriveList(url, customName, sheetNames);
       closeGDriveModal();
       await renderDashboard();
-      showToast(`A(z) "${newList.name}" sikeresen importálva a Google Drive-ról! (${newList.wordCount} szó, ${newList.sheets?.length || 1} munkalap)`, 'success');
+      const count = newList.words?.length || 0;
+      showToast(`Sikeres frissítés: ${count} új szó hozzáadva!`, 'success');
     }
   } catch (err) {
     console.error("Google Drive szinkron hiba:", err);
