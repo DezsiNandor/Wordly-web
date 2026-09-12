@@ -195,7 +195,7 @@
       </nav>
 
       <!-- RIGHT NAV ACTIONS -->
-      <div class="header-right-actions flex items-center justify-end gap-1 sm:gap-2 shrink-0">
+      <div class="header-right-actions flex items-center justify-end gap-2 shrink-0">
         
         <!-- PWA Install Button -->
         <button class="btn-install-pwa hidden w-9 h-9 sm:w-10 sm:h-10 min-w-[36px] min-h-[36px] sm:min-w-[40px] sm:min-h-[40px] items-center justify-center rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm shadow-emerald-500/20 transition-all shrink-0" title="Alkalmazás telepítése (PWA)" aria-label="Alkalmazás telepítése">
@@ -203,48 +203,48 @@
         </button>
 
         <!-- Public Auth Buttons (when logged out) -->
-        <div id="public-auth-buttons" class="flex items-center gap-1.5 sm:gap-2 shrink-0">
-          <a href="#auth" id="nav-btn-login" class="btn-login h-9 sm:h-10 w-[108px] sm:w-[130px] min-w-[108px] sm:min-w-[130px] px-2 py-1.5 sm:px-3 sm:py-2 inline-flex items-center justify-center gap-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs sm:text-sm shadow-sm shadow-blue-500/20 transition-all shrink-0 select-none whitespace-nowrap" style="writing-mode: horizontal-tb; white-space: nowrap; background-color: #2563eb; color: #ffffff;" title="Bejelentkezés" aria-label="Bejelentkezés">
+        <div id="public-auth-buttons" class="flex items-center gap-2 shrink-0">
+          <a href="#auth" id="nav-btn-login" class="btn-login h-10 sm:h-[42px] w-[108px] sm:w-[130px] min-w-[108px] sm:min-w-[130px] px-2.5 py-2 inline-flex items-center justify-center gap-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs sm:text-sm shadow-sm shadow-blue-500/20 transition-all shrink-0 select-none whitespace-nowrap" style="writing-mode: horizontal-tb; white-space: nowrap; background-color: #2563eb; color: #ffffff;" title="Bejelentkezés" aria-label="Bejelentkezés">
             <i data-lucide="log-in" class="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 text-white"></i>
             <span class="text-white" style="writing-mode: horizontal-tb; white-space: nowrap; color: #ffffff;">Bejelentkezés</span>
           </a>
-          <a href="#auth" id="nav-btn-register" class="btn-account h-9 sm:h-10 w-[108px] sm:w-[130px] min-w-[108px] sm:min-w-[130px] px-2 py-1.5 sm:px-3 sm:py-2 inline-flex items-center justify-center gap-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-semibold text-xs sm:text-sm shadow-sm shadow-emerald-500/20 transition-all shrink-0 select-none whitespace-nowrap" style="writing-mode: horizontal-tb; white-space: nowrap; background-color: #10b981; color: #ffffff;" title="Fiók" aria-label="Fiók">
+          <a href="#auth" id="nav-btn-register" class="btn-account h-10 sm:h-[42px] w-[108px] sm:w-[130px] min-w-[108px] sm:min-w-[130px] px-2.5 py-2 inline-flex items-center justify-center gap-1.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-semibold text-xs sm:text-sm shadow-sm shadow-orange-500/20 transition-all shrink-0 select-none whitespace-nowrap" style="writing-mode: horizontal-tb; white-space: nowrap; background-color: #f97316; color: #ffffff;" title="Fiók" aria-label="Fiók">
             <i data-lucide="user" class="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 text-white"></i>
             <span class="text-white" style="writing-mode: horizontal-tb; white-space: nowrap; color: #ffffff;">Fiók</span>
           </a>
         </div>
 
         <!-- Logged In User Menu -->
-        <div id="user-profile-menu" class="hidden items-center gap-1 sm:gap-2 shrink-0">
-          <button id="nav-btn-dashboard" class="w-9 h-9 sm:w-10 sm:h-10 min-w-[36px] min-h-[36px] sm:min-w-[40px] sm:min-h-[40px] flex items-center justify-center rounded-xl bg-brand-50 dark:bg-brand-950 text-brand-600 dark:text-brand-300 hover:bg-brand-100 dark:hover:bg-brand-900/60 border border-brand-200/60 dark:border-brand-800/60 transition-colors shrink-0" title="Szólistáim és Gyakorlás" aria-label="Szólistáim és Gyakorlás">
+        <div id="user-profile-menu" class="hidden items-center gap-2 shrink-0">
+          <button id="nav-btn-dashboard" class="w-10 h-10 min-w-[40px] min-h-[40px] sm:w-[42px] sm:h-[42px] sm:min-w-[42px] sm:min-h-[42px] flex items-center justify-center rounded-xl bg-brand-50 dark:bg-brand-950 text-brand-600 dark:text-brand-300 hover:bg-brand-100 dark:hover:bg-brand-900/60 border border-brand-200/60 dark:border-brand-800/60 transition-colors shrink-0" title="Szólistáim és Gyakorlás" aria-label="Szólistáim és Gyakorlás">
             <i data-lucide="book-open" class="w-4 h-4 sm:w-5 sm:h-5"></i>
           </button>
 
-          <button id="nav-btn-stats" class="w-9 h-9 sm:w-10 sm:h-10 min-w-[36px] min-h-[36px] sm:min-w-[40px] sm:min-h-[40px] flex items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 transition-colors shrink-0" title="Statisztika és Haladás" aria-label="Statisztika és Haladás">
+          <button id="nav-btn-stats" class="w-10 h-10 min-w-[40px] min-h-[40px] sm:w-[42px] sm:h-[42px] sm:min-w-[42px] sm:min-h-[42px] flex items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 transition-colors shrink-0" title="Statisztika és Haladás" aria-label="Statisztika és Haladás">
             <i data-lucide="bar-chart-2" class="w-4 h-4 sm:w-5 sm:h-5"></i>
           </button>
 
           
-          <div id="user-profile-badge-btn" class="w-9 h-9 sm:w-10 sm:h-10 min-w-[36px] min-h-[36px] sm:min-w-[40px] sm:min-h-[40px] flex items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 select-none shrink-0" title="Bejelentkezett profil" aria-label="Profil">
+          <div id="user-profile-badge-btn" class="w-10 h-10 min-w-[40px] min-h-[40px] sm:w-[42px] sm:h-[42px] sm:min-w-[42px] sm:min-h-[42px] flex items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 select-none shrink-0" title="Bejelentkezett profil" aria-label="Profil">
             <i data-lucide="user" class="w-4 h-4 sm:w-5 sm:h-5 text-brand-600 dark:text-brand-400"></i>
             <span id="user-email-display" class="hidden"></span>
             <span id="user-badge" class="hidden">Felhasználó</span>
           </div>
 
-          <button id="btn-logout" class="w-9 h-9 sm:w-10 sm:h-10 min-w-[36px] min-h-[36px] sm:min-w-[40px] sm:min-h-[40px] flex items-center justify-center text-slate-500 hover:text-rose-600 dark:text-slate-400 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-xl transition-colors border border-transparent hover:border-rose-200 dark:hover:border-rose-900/50 shrink-0" title="Kijelentkezés" aria-label="Kijelentkezés">
+          <button id="btn-logout" class="w-10 h-10 min-w-[40px] min-h-[40px] sm:w-[42px] sm:h-[42px] sm:min-w-[42px] sm:min-h-[42px] flex items-center justify-center text-slate-500 hover:text-rose-600 dark:text-slate-400 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-xl transition-colors border border-transparent hover:border-rose-200 dark:hover:border-rose-900/50 shrink-0" title="Kijelentkezés" aria-label="Kijelentkezés">
             <i data-lucide="log-out" class="w-4 h-4 sm:w-5 sm:h-5"></i>
           </button>
         </div>
 
-        <!-- Firebase Status Indicator / Setup Button (in-app) -->
-        <button id="btn-open-firebase-settings" class="relative w-10 h-10 sm:w-11 sm:h-11 min-w-[40px] min-h-[40px] sm:min-w-[44px] sm:min-h-[44px] flex items-center justify-center rounded-xl bg-orange-50 hover:bg-orange-100 dark:bg-orange-950/40 dark:hover:bg-orange-900/50 text-orange-500 dark:text-orange-400 border border-orange-200 dark:border-orange-800/60 shadow-sm shadow-orange-500/10 transition-all shrink-0" title="Beállítások (Firebase felhő kapcsolat)" aria-label="Beállítások">
-          <i data-lucide="settings" class="w-5 h-5 sm:w-[22px] sm:h-[22px] text-orange-500 dark:text-orange-400"></i>
-          <span id="firebase-status-dot" class="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-emerald-500 absolute top-1 right-1 sm:top-1.5 sm:right-1.5 ring-2 ring-white dark:ring-slate-900 inline-block"></span>
+        <!-- Firebase Status Indicator / Setup Button (in-app) - Véglegesen eltávolítva a fejlécből -->
+        <button id="btn-open-firebase-settings" class="hidden" style="display: none !important;" title="Beállítások (Firebase felhő kapcsolat)" aria-label="Beállítások">
+          <i data-lucide="settings" class="w-5 h-5 text-orange-500 dark:text-orange-400"></i>
+          <span id="firebase-status-dot" class="w-2 h-2 rounded-full bg-emerald-500 absolute"></span>
           <span id="firebase-status-text" class="hidden">Helyi mód</span>
         </button>
 
         <!-- Dark / Light mode toggle -->
-        <button id="btn-theme-toggle" class="w-10 h-10 sm:w-11 sm:h-11 min-w-[40px] min-h-[40px] sm:min-w-[44px] sm:min-h-[44px] flex items-center justify-center rounded-xl bg-white dark:bg-slate-900 transition-all shrink-0 select-none" title="Téma váltása (Sötét / Világos)" aria-label="Téma váltása">
+        <button id="btn-theme-toggle" class="w-10 h-10 min-w-[40px] min-h-[40px] sm:w-[42px] sm:h-[42px] sm:min-w-[42px] sm:min-h-[42px] flex items-center justify-center rounded-xl bg-white dark:bg-slate-900 transition-all shrink-0 select-none" title="Téma váltása (Sötét / Világos)" aria-label="Téma váltása">
           <i data-lucide="moon" id="icon-theme-moon" class="w-5 h-5 sm:w-[22px] sm:h-[22px] hidden text-slate-100"></i>
           <i data-lucide="sun" id="icon-theme-sun" class="w-5 h-5 sm:w-[22px] sm:h-[22px] text-amber-500"></i>
         </button>

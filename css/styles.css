@@ -630,6 +630,20 @@ footer {
 /* 9. FEJLÉC GOMBOK MÉRETEZÉSE ÉS VIZUÁLIS STÍLUSAI         */
 /* ======================================================== */
 
+/* Fejléc funkciógombok konténerei és flexbox elrendezés egységes 8px térközzel */
+.header-right-actions {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  gap: 8px !important;
+}
+
+#public-auth-buttons,
+#user-profile-menu {
+  align-items: center !important;
+  gap: 8px !important;
+}
+
 /* 1. Szöveges gombok (Bejelentkezés & Fiók) teljesen azonos méretezése */
 #nav-btn-login,
 #nav-btn-register,
@@ -638,9 +652,9 @@ footer {
   width: 108px !important;
   min-width: 108px !important;
   max-width: 108px !important;
-  height: 38px !important;
-  min-height: 38px !important;
-  max-height: 38px !important;
+  height: 40px !important;
+  min-height: 40px !important;
+  max-height: 40px !important;
   padding: 0 8px !important;
   display: inline-flex !important;
   align-items: center !important;
@@ -653,7 +667,7 @@ footer {
   white-space: nowrap !important;
   box-sizing: border-box !important;
   transition: all 0.2s ease !important;
-  gap: 5px !important;
+  gap: 6px !important;
 }
 
 @media (min-width: 640px) {
@@ -688,18 +702,18 @@ footer {
   color: #ffffff !important;
 }
 
-/* Fiók gomb (Zöld szín - #10B981, fehér szöveg) */
+/* Fiók gomb (Narancssárga szín - #F97316 / #EA580C, fehér szöveg) */
 #nav-btn-register,
 .header-right-actions .btn-account {
-  background-color: #10b981 !important;
+  background-color: #f97316 !important;
   color: #ffffff !important;
-  border: 1px solid #059669 !important;
-  box-shadow: 0 2px 4px rgba(16, 185, 129, 0.2) !important;
+  border: 1px solid #ea580c !important;
+  box-shadow: 0 2px 4px rgba(249, 115, 22, 0.2) !important;
 }
 
 #nav-btn-register:hover,
 .header-right-actions .btn-account:hover {
-  background-color: #059669 !important;
+  background-color: #ea580c !important;
   color: #ffffff !important;
 }
 
@@ -714,9 +728,27 @@ footer {
   stroke: #ffffff !important;
 }
 
-/* 2. Ikonos gombok (Beállítások / Fogaskerék & Téma) egységesített, megnövelt mérete */
-#btn-open-firebase-settings,
-#btn-theme-toggle {
+/* 2. Fogaskerék (Beállítások) gomb végleges eltávolítása minden nézetben */
+#btn-open-firebase-settings {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  max-width: 0 !important;
+  max-height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: none !important;
+  opacity: 0 !important;
+}
+
+/* 3. Téma kapcsoló és bejelentkezett funkciógombok egységes méretezése */
+#btn-theme-toggle,
+#user-profile-menu button,
+#user-profile-badge-btn {
   width: 40px !important;
   height: 40px !important;
   min-width: 40px !important;
@@ -733,20 +765,19 @@ footer {
 }
 
 @media (min-width: 640px) {
-  #btn-open-firebase-settings,
-  #btn-theme-toggle {
-    width: 44px !important;
-    height: 44px !important;
-    min-width: 44px !important;
-    min-height: 44px !important;
-    max-width: 44px !important;
-    max-height: 44px !important;
+  #btn-theme-toggle,
+  #user-profile-menu button,
+  #user-profile-badge-btn {
+    width: 42px !important;
+    height: 42px !important;
+    min-width: 42px !important;
+    min-height: 42px !important;
+    max-width: 42px !important;
+    max-height: 42px !important;
   }
 }
 
-/* Ikonok megnövelt mérete az ikonos gombokban */
-#btn-open-firebase-settings i,
-#btn-open-firebase-settings svg,
+/* Ikonok mérete a téma váltóban */
 #btn-theme-toggle i,
 #btn-theme-toggle svg {
   width: 20px !important;
@@ -756,56 +787,13 @@ footer {
 }
 
 @media (min-width: 640px) {
-  #btn-open-firebase-settings i,
-  #btn-open-firebase-settings svg,
   #btn-theme-toggle i,
   #btn-theme-toggle svg {
-    width: 22px !important;
-    height: 22px !important;
-    min-width: 22px !important;
-    min-height: 22px !important;
+    width: 21px !important;
+    height: 21px !important;
+    min-width: 21px !important;
+    min-height: 21px !important;
   }
-}
-
-/* Beállítások / Fogaskerék gomb & ikon: Narancssárga (#F97316) */
-#btn-open-firebase-settings {
-  background-color: #fff7ed !important;
-  border: 1.5px solid #fdba74 !important;
-  color: #f97316 !important;
-  box-shadow: 0 1px 3px rgba(249, 115, 22, 0.15) !important;
-}
-
-#btn-open-firebase-settings:hover {
-  background-color: #ffedd5 !important;
-  border-color: #f97316 !important;
-}
-
-#btn-open-firebase-settings i,
-#btn-open-firebase-settings svg {
-  color: #f97316 !important;
-  stroke: #f97316 !important;
-}
-
-html.dark #btn-open-firebase-settings,
-.dark #btn-open-firebase-settings {
-  background-color: rgba(124, 45, 18, 0.25) !important;
-  border: 1.5px solid rgba(249, 115, 22, 0.5) !important;
-  color: #fb923c !important;
-  box-shadow: 0 1px 3px rgba(249, 115, 22, 0.2) !important;
-}
-
-html.dark #btn-open-firebase-settings:hover,
-.dark #btn-open-firebase-settings:hover {
-  background-color: rgba(124, 45, 18, 0.45) !important;
-  border-color: #f97316 !important;
-}
-
-html.dark #btn-open-firebase-settings i,
-html.dark #btn-open-firebase-settings svg,
-.dark #btn-open-firebase-settings i,
-.dark #btn-open-firebase-settings svg {
-  color: #fb923c !important;
-  stroke: #fb923c !important;
 }
 
 /* Sötét/világos mód gomb (Hold / Nap ikon):
