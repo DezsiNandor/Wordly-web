@@ -671,6 +671,8 @@ export async function mergeListWithNewExcelData(existingList, parsedData, syncMe
   existingList.updatedAt = nowIso;
   existingList.lastSyncAt = nowIso;
 
+  if (syncMeta.googleDriveUrl) existingList.googleDriveUrl = syncMeta.googleDriveUrl;
+  if (syncMeta.googleDriveFileId) existingList.googleDriveFileId = syncMeta.googleDriveFileId;
   if (syncMeta.oneDriveUrl) existingList.oneDriveUrl = syncMeta.oneDriveUrl;
   if (syncMeta.eTag) existingList.oneDriveETag = syncMeta.eTag;
   if (syncMeta.lastModified) existingList.oneDriveLastModified = syncMeta.lastModified;

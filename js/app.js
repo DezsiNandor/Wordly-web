@@ -43,11 +43,11 @@ import {
 
 import { initPWA } from './pwa.js';
 import { 
-  connectOneDriveList, 
-  syncOneDriveList, 
-  linkExistingListToOneDrive, 
-  checkAllOneDriveListsOnStartup 
-} from './oneDrive.js';
+  connectGoogleDriveList, 
+  syncGoogleDriveList, 
+  linkExistingListToGoogleDrive, 
+  checkAllGoogleDriveListsOnStartup 
+} from './googleDrive.js';
 
 // Alkalmazás állapot
 let activeUser = null;
@@ -229,22 +229,22 @@ const dom = {
   appToastMessage: document.getElementById('app-toast-message'),
   appToastIcon: document.getElementById('app-toast-icon'),
 
-  // OneDrive Modal & Badges
-  btnOpenOneDriveModal: document.getElementById('btn-open-onedrive-modal'),
-  modalOneDriveConnect: document.getElementById('modal-onedrive-connect'),
-  btnCloseOneDriveModal: document.getElementById('btn-close-onedrive-modal'),
-  btnCancelOneDrive: document.getElementById('btn-cancel-onedrive'),
-  formOneDriveConnect: document.getElementById('form-onedrive-connect'),
-  oneDriveLinkInput: document.getElementById('onedrive-link-input'),
-  oneDriveCustomName: document.getElementById('onedrive-custom-name'),
-  oneDriveTargetListId: document.getElementById('onedrive-target-list-id'),
-  oneDriveNameGroup: document.getElementById('onedrive-name-group'),
-  btnSubmitOneDrive: document.getElementById('btn-submit-onedrive'),
-  iconOneDriveSubmit: document.getElementById('icon-onedrive-submit'),
-  textOneDriveSubmit: document.getElementById('text-onedrive-submit'),
-  oneDriveModalAlert: document.getElementById('onedrive-modal-alert'),
-  oneDriveAlertIcon: document.getElementById('onedrive-alert-icon'),
-  oneDriveAlertMessage: document.getElementById('onedrive-alert-message'),
+  // Google Drive / Sheets Modal & Badges
+  btnOpenGDriveModal: document.getElementById('btn-open-gdrive-modal'),
+  modalGDriveConnect: document.getElementById('modal-gdrive-connect'),
+  btnCloseGDriveModal: document.getElementById('btn-close-gdrive-modal'),
+  btnCancelGDrive: document.getElementById('btn-cancel-gdrive'),
+  formGDriveConnect: document.getElementById('form-gdrive-connect'),
+  gdriveLinkInput: document.getElementById('gdrive-link-input'),
+  gdriveCustomName: document.getElementById('gdrive-custom-name'),
+  gdriveTargetListId: document.getElementById('gdrive-target-list-id'),
+  gdriveNameGroup: document.getElementById('gdrive-name-group'),
+  btnSubmitGDrive: document.getElementById('btn-submit-gdrive'),
+  iconGDriveSubmit: document.getElementById('icon-gdrive-submit'),
+  textGDriveSubmit: document.getElementById('text-gdrive-submit'),
+  gdriveModalAlert: document.getElementById('gdrive-modal-alert'),
+  gdriveAlertIcon: document.getElementById('gdrive-alert-icon'),
+  gdriveAlertMessage: document.getElementById('gdrive-alert-message'),
   practiceNewWordBadge: document.getElementById('practice-new-word-badge')
 };
 
@@ -289,10 +289,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
       await renderDashboard();
 
-      // OneDrive háttérbeli szinkronizáció indításkor a kapcsolt listákhoz
-      checkAllOneDriveListsOnStartup(async (syncResult) => {
+      // Google Drive / Sheets háttérbeli szinkronizáció indításkor a kapcsolt listákhoz
+      checkAllGoogleDriveListsOnStartup(async (syncResult) => {
         await renderDashboard();
-        showToast(`OneDrive: ${syncResult.newWordsCount} új szó szinkronizálva!`, 'info');
+        showToast(`Google Táblázat: ${syncResult.newWordsCount} új szó szinkronizálva!`, 'info');
       });
     } else {
       handleRouting();
@@ -301,7 +301,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   // Globális eseményfigyelő külső szinkronizációhoz
-  window.addEventListener('onedrive-synced', async () => {
+  window.addEventListener('gdrive-synced', async () => {
     if (!dom.viewDashboard.classList.contains('hidden')) {
       await renderDashboard();
     }
@@ -981,23 +981,23 @@ function setupEventListeners() {
     });
   }
 
-  // OneDrive Szinkronizációs Modál eseménykezelői
-  if (dom.btnOpenOneDriveModal) {
-    dom.btnOpenOneDriveModal.addEventListener('click', () => openOneDriveModal());
+  // Google Drive / Sheets Szinkronizációs Modál eseménykezelői
+  if (dom.btnOpenGDriveModal) {
+    dom.btnOpenGDriveModal.addEventListener('click', () => openGDriveModal());
   }
-  if (dom.btnCloseOneDriveModal) {
-    dom.btnCloseOneDriveModal.addEventListener('click', closeOneDriveModal);
+  if (dom.btnCloseGDriveModal) {
+    dom.btnCloseGDriveModal.addEventListener('click', closeGDriveModal);
   }
-  if (dom.btnCancelOneDrive) {
-    dom.btnCancelOneDrive.addEventListener('click', closeOneDriveModal);
+  if (dom.btnCancelGDrive) {
+    dom.btnCancelGDrive.addEventListener('click', closeGDriveModal);
   }
-  if (dom.modalOneDriveConnect) {
-    dom.modalOneDriveConnect.addEventListener('click', (e) => {
-      if (e.target === dom.modalOneDriveConnect) closeOneDriveModal();
+  if (dom.modalGDriveConnect) {
+    dom.modalGDriveConnect.addEventListener('click', (e) => {
+      if (e.target === dom.modalGDriveConnect) closeGDriveModal();
     });
   }
-  if (dom.formOneDriveConnect) {
-    dom.formOneDriveConnect.addEventListener('submit', handleOneDriveSubmit);
+  if (dom.formGDriveConnect) {
+    dom.formGDriveConnect.addEventListener('submit', handleGDriveSubmit);
   }
 }
 
@@ -1133,7 +1133,7 @@ async function renderDashboard() {
       return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium border ${badgeClass}" title="${escapeHtml(s.name)}">${icon} ${escapeHtml(s.name)}</span>`;
     }).join('');
 
-    const hasOneDrive = Boolean(list.oneDriveUrl);
+    const hasGDrive = Boolean(list.googleDriveUrl || list.oneDriveUrl);
     const hasNewWords = (list.words || []).some(w => w.isNew === true);
     const newWordsCount = (list.words || []).filter(w => w.isNew === true).length;
 
@@ -1154,13 +1154,13 @@ async function renderDashboard() {
 
           <!-- Kártya menü gombok -->
           <div class="flex items-center gap-1">
-            ${hasOneDrive ? `
-            <button class="btn-sync-onedrive p-2 min-w-[44px] min-h-[44px] inline-flex items-center justify-center text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 rounded-xl hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors" title="OneDrive azonnali frissítés">
+            ${hasGDrive ? `
+            <button class="btn-sync-gdrive p-2 min-w-[44px] min-h-[44px] inline-flex items-center justify-center text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300 rounded-xl hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition-colors" title="Google Táblázat azonnali frissítés">
               <i data-lucide="refresh-cw" class="w-4 h-4"></i>
             </button>
             ` : `
-            <button class="btn-link-onedrive p-2 min-w-[44px] min-h-[44px] inline-flex items-center justify-center text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" title="Összekapcsolás OneDrive fájllal">
-              <i data-lucide="cloud" class="w-4 h-4"></i>
+            <button class="btn-link-gdrive p-2 min-w-[44px] min-h-[44px] inline-flex items-center justify-center text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" title="Összekapcsolás Google Táblázattal">
+              <i data-lucide="file-spreadsheet" class="w-4 h-4"></i>
             </button>
             `}
             <button class="btn-rename-list p-2 min-w-[44px] min-h-[44px] inline-flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" title="Átnevezés">
@@ -1177,9 +1177,9 @@ async function renderDashboard() {
           <div class="flex items-center justify-between text-xs">
             <div class="flex items-center gap-1.5 flex-wrap">
               <span class="text-slate-500 dark:text-slate-400 font-medium">${wordCount} szó &bull; ${sheetsCount} munkalap</span>
-              ${hasOneDrive ? `
-              <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-semibold bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800" title="OneDrive felhővel szinkronizálva">
-                <i data-lucide="cloud" class="w-3 h-3"></i> OneDrive
+              ${hasGDrive ? `
+              <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-semibold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800" title="Google Drive szinkronizált lista">
+                <i data-lucide="file-spreadsheet" class="w-3 h-3 text-emerald-600 dark:text-emerald-400"></i> Google Sheets
               </span>
               ` : ''}
               ${hasNewWords ? `
@@ -1227,8 +1227,8 @@ async function renderDashboard() {
     `;
 
     // Eseménykezelők kártyán belül
-    if (hasOneDrive) {
-      const syncBtn = card.querySelector('.btn-sync-onedrive');
+    if (hasGDrive) {
+      const syncBtn = card.querySelector('.btn-sync-gdrive');
       if (syncBtn) {
         syncBtn.addEventListener('click', async (e) => {
           e.stopPropagation();
@@ -1236,10 +1236,10 @@ async function renderDashboard() {
           if (icon) icon.classList.add('animate-spin');
           syncBtn.disabled = true;
           try {
-            const res = await syncOneDriveList(list.id, { force: true });
+            const res = await syncGoogleDriveList(list.id, { force: true });
             if (res.success) {
               await renderDashboard();
-              showToast(res.message || 'A lista sikeresen szinkronizálva!', 'success');
+              showToast(res.message || 'A táblázat sikeresen szinkronizálva!', 'success');
             } else {
               showToast(res.message || 'Nem sikerült a szinkronizáció.', 'danger');
             }
@@ -1252,11 +1252,11 @@ async function renderDashboard() {
         });
       }
     } else {
-      const linkBtn = card.querySelector('.btn-link-onedrive');
+      const linkBtn = card.querySelector('.btn-link-gdrive');
       if (linkBtn) {
         linkBtn.addEventListener('click', (e) => {
           e.stopPropagation();
-          openOneDriveModal(list.id);
+          openGDriveModal(list.id, list.googleDriveUrl || '');
         });
       }
     }
@@ -1363,108 +1363,108 @@ async function handleSelectedExcelFile(file) {
 }
 
 // ==========================================
-// 5.2. ONEDRIVE EXCEL SZINKRONIZÁCIÓ KEZELÉSE
+// 5.2. GOOGLE DRIVE / SHEETS SZINKRONIZÁCIÓ KEZELÉSE
 // ==========================================
 
-function openOneDriveModal(listId = null, defaultUrl = '') {
-  if (!dom.modalOneDriveConnect) return;
-  hideOneDriveAlert();
+function openGDriveModal(listId = null, defaultUrl = '') {
+  if (!dom.modalGDriveConnect) return;
+  hideGDriveAlert();
 
   if (listId) {
-    dom.oneDriveTargetListId.value = listId;
-    if (dom.oneDriveNameGroup) dom.oneDriveNameGroup.classList.add('hidden');
-    const modalTitle = document.getElementById('onedrive-modal-title');
-    if (modalTitle) modalTitle.textContent = 'OneDrive Szinkronizálás';
-    if (dom.textOneDriveSubmit) dom.textOneDriveSubmit.textContent = 'Szinkronizálás';
-    if (dom.oneDriveLinkInput) dom.oneDriveLinkInput.value = defaultUrl || '';
+    dom.gdriveTargetListId.value = listId;
+    if (dom.gdriveNameGroup) dom.gdriveNameGroup.classList.add('hidden');
+    const modalTitle = document.getElementById('gdrive-modal-title');
+    if (modalTitle) modalTitle.textContent = 'Google Táblázat Szinkronizálás';
+    if (dom.textGDriveSubmit) dom.textGDriveSubmit.textContent = 'Szinkronizálás';
+    if (dom.gdriveLinkInput) dom.gdriveLinkInput.value = defaultUrl || '';
   } else {
-    dom.oneDriveTargetListId.value = '';
-    if (dom.oneDriveNameGroup) dom.oneDriveNameGroup.classList.remove('hidden');
-    const modalTitle = document.getElementById('onedrive-modal-title');
-    if (modalTitle) modalTitle.textContent = 'Microsoft OneDrive Szinkron';
-    if (dom.textOneDriveSubmit) dom.textOneDriveSubmit.textContent = 'Csatlakozás és Szinkronizáció';
-    if (dom.oneDriveLinkInput) dom.oneDriveLinkInput.value = defaultUrl || '';
-    if (dom.oneDriveCustomName) dom.oneDriveCustomName.value = '';
+    dom.gdriveTargetListId.value = '';
+    if (dom.gdriveNameGroup) dom.gdriveNameGroup.classList.remove('hidden');
+    const modalTitle = document.getElementById('gdrive-modal-title');
+    if (modalTitle) modalTitle.textContent = 'Google Drive / Sheets Szinkron';
+    if (dom.textGDriveSubmit) dom.textGDriveSubmit.textContent = 'Csatlakozás és Szinkronizáció';
+    if (dom.gdriveLinkInput) dom.gdriveLinkInput.value = defaultUrl || '';
+    if (dom.gdriveCustomName) dom.gdriveCustomName.value = '';
   }
 
-  dom.modalOneDriveConnect.classList.remove('hidden');
-  dom.modalOneDriveConnect.classList.add('flex');
-  setTimeout(() => dom.oneDriveLinkInput?.focus(), 50);
+  dom.modalGDriveConnect.classList.remove('hidden');
+  dom.modalGDriveConnect.classList.add('flex');
+  setTimeout(() => dom.gdriveLinkInput?.focus(), 50);
   refreshIcons();
 }
 
-function closeOneDriveModal() {
-  if (!dom.modalOneDriveConnect) return;
-  dom.modalOneDriveConnect.classList.add('hidden');
-  dom.modalOneDriveConnect.classList.remove('flex');
-  hideOneDriveAlert();
+function closeGDriveModal() {
+  if (!dom.modalGDriveConnect) return;
+  dom.modalGDriveConnect.classList.add('hidden');
+  dom.modalGDriveConnect.classList.remove('flex');
+  hideGDriveAlert();
 }
 
-function showOneDriveAlert(message, type = 'error') {
-  if (!dom.oneDriveModalAlert) return;
-  dom.oneDriveModalAlert.className = type === 'error'
+function showGDriveAlert(message, type = 'error') {
+  if (!dom.gdriveModalAlert) return;
+  dom.gdriveModalAlert.className = type === 'error'
     ? 'p-3 rounded-xl text-xs flex items-center gap-2 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 text-rose-700 dark:text-rose-300'
     : 'p-3 rounded-xl text-xs flex items-center gap-2 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900/60 text-emerald-700 dark:text-emerald-300';
-  if (dom.oneDriveAlertIcon) {
-    dom.oneDriveAlertIcon.innerHTML = type === 'error'
+  if (dom.gdriveAlertIcon) {
+    dom.gdriveAlertIcon.innerHTML = type === 'error'
       ? '<i data-lucide="alert-circle" class="w-4 h-4 text-rose-500 shrink-0"></i>'
       : '<i data-lucide="check-circle" class="w-4 h-4 text-emerald-500 shrink-0"></i>';
   }
-  if (dom.oneDriveAlertMessage) {
-    dom.oneDriveAlertMessage.textContent = message;
+  if (dom.gdriveAlertMessage) {
+    dom.gdriveAlertMessage.textContent = message;
   }
-  dom.oneDriveModalAlert.classList.remove('hidden');
+  dom.gdriveModalAlert.classList.remove('hidden');
   refreshIcons();
 }
 
-function hideOneDriveAlert() {
-  if (dom.oneDriveModalAlert) {
-    dom.oneDriveModalAlert.classList.add('hidden');
+function hideGDriveAlert() {
+  if (dom.gdriveModalAlert) {
+    dom.gdriveModalAlert.classList.add('hidden');
   }
 }
 
-async function handleOneDriveSubmit(e) {
+async function handleGDriveSubmit(e) {
   e.preventDefault();
-  const url = dom.oneDriveLinkInput ? dom.oneDriveLinkInput.value.trim() : '';
-  const targetListId = dom.oneDriveTargetListId ? dom.oneDriveTargetListId.value : '';
-  const customName = dom.oneDriveCustomName ? dom.oneDriveCustomName.value.trim() : null;
+  const url = dom.gdriveLinkInput ? dom.gdriveLinkInput.value.trim() : '';
+  const targetListId = dom.gdriveTargetListId ? dom.gdriveTargetListId.value : '';
+  const customName = dom.gdriveCustomName ? dom.gdriveCustomName.value.trim() : null;
 
   if (!url) {
-    showOneDriveAlert("Kérlek, adj meg egy érvényes OneDrive hivatkozást!", "error");
+    showGDriveAlert("Kérlek, adj meg egy érvényes Google Drive vagy Google Sheets hivatkozást!", "error");
     return;
   }
 
   // Gomb állapotának frissítése (loading)
-  if (dom.btnSubmitOneDrive) dom.btnSubmitOneDrive.disabled = true;
-  if (dom.iconOneDriveSubmit) dom.iconOneDriveSubmit.classList.add('animate-spin');
-  if (dom.textOneDriveSubmit) dom.textOneDriveSubmit.textContent = 'Szinkronizálás folyamatban...';
+  if (dom.btnSubmitGDrive) dom.btnSubmitGDrive.disabled = true;
+  if (dom.iconGDriveSubmit) dom.iconGDriveSubmit.classList.add('animate-spin');
+  if (dom.textGDriveSubmit) dom.textGDriveSubmit.textContent = 'Szinkronizálás folyamatban...';
 
   try {
     if (targetListId) {
       // Meglévő lista összekapcsolása / frissítése
-      const result = await linkExistingListToOneDrive(targetListId, url);
+      const result = await linkExistingListToGoogleDrive(targetListId, url);
       if (result.success) {
-        closeOneDriveModal();
+        closeGDriveModal();
         await renderDashboard();
         showToast(result.message || 'A szólista sikeresen szinkronizálva!', 'success');
       } else {
-        showOneDriveAlert(result.message || 'Hiba történt a szinkronizálás során.', 'error');
+        showGDriveAlert(result.message || 'Hiba történt a szinkronizálás során.', 'error');
       }
     } else {
-      // Új lista csatlakoztatása OneDrive-ról
-      const newList = await connectOneDriveList(url, customName);
-      closeOneDriveModal();
+      // Új lista csatlakoztatása Google Drive-ról
+      const newList = await connectGoogleDriveList(url, customName);
+      closeGDriveModal();
       await renderDashboard();
-      showToast(`A(z) "${newList.name}" sikeresen importálva a OneDrive-ról! (${newList.wordCount} szó)`, 'success');
+      showToast(`A(z) "${newList.name}" sikeresen importálva a Google Drive-ról! (${newList.wordCount} szó, ${newList.sheets?.length || 1} munkalap)`, 'success');
     }
   } catch (err) {
-    console.error("OneDrive szinkron hiba:", err);
-    showOneDriveAlert(err.message || 'Nem sikerült letölteni vagy feldolgozni a OneDrive fájlt.', 'error');
+    console.error("Google Drive szinkron hiba:", err);
+    showGDriveAlert(err.message || 'Nem sikerült letölteni vagy feldolgozni a Google Táblázatot.', 'error');
   } finally {
-    if (dom.btnSubmitOneDrive) dom.btnSubmitOneDrive.disabled = false;
-    if (dom.iconOneDriveSubmit) dom.iconOneDriveSubmit.classList.remove('animate-spin');
-    if (dom.textOneDriveSubmit) {
-      dom.textOneDriveSubmit.textContent = targetListId ? 'Szinkronizálás' : 'Csatlakozás és Szinkronizáció';
+    if (dom.btnSubmitGDrive) dom.btnSubmitGDrive.disabled = false;
+    if (dom.iconGDriveSubmit) dom.iconGDriveSubmit.classList.remove('animate-spin');
+    if (dom.textGDriveSubmit) {
+      dom.textGDriveSubmit.textContent = targetListId ? 'Szinkronizálás' : 'Csatlakozás és Szinkronizáció';
     }
   }
 }

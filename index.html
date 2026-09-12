@@ -620,9 +620,9 @@
             <span>Excel feltöltése</span>
           </button>
 
-          <button id="btn-open-onedrive-modal" class="inline-flex items-center gap-2 min-h-[44px] px-4 py-2.5 rounded-xl bg-blue-50 dark:bg-blue-950/50 hover:bg-blue-100 dark:hover:bg-blue-900/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 font-medium text-sm shadow-sm transition-all" title="OneDrive Excel fájl szinkronizálása">
-            <i data-lucide="cloud" class="w-4 h-4 text-blue-600 dark:text-blue-400"></i>
-            <span>OneDrive szinkron</span>
+          <button id="btn-open-gdrive-modal" class="inline-flex items-center gap-2 min-h-[44px] px-4 py-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 font-medium text-sm shadow-sm transition-all" title="Google Drive / Google Táblázat szinkronizálása">
+            <i data-lucide="file-spreadsheet" class="w-4 h-4 text-emerald-600 dark:text-emerald-400"></i>
+            <span>Google Táblázat szinkron</span>
           </button>
           
           <button id="btn-download-sample-excel" class="inline-flex items-center gap-2 min-h-[44px] px-4 py-2.5 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 font-medium text-sm transition-all" title="Minta Excel sablon letöltése">
@@ -1137,73 +1137,73 @@
   </div>
 
   <!-- ========================================== -->
-  <!-- MODAL: ONEDRIVE EXCEL SYNC                 -->
+  <!-- MODAL: GOOGLE DRIVE / SHEETS SYNC          -->
   <!-- ========================================== -->
-  <div id="modal-onedrive-connect" class="fixed inset-0 z-50 hidden items-center justify-center p-3 sm:p-4 bg-slate-950/60 backdrop-blur-sm animate-fade-in" role="dialog" aria-modal="true" aria-labelledby="onedrive-modal-title">
+  <div id="modal-gdrive-connect" class="fixed inset-0 z-50 hidden items-center justify-center p-3 sm:p-4 bg-slate-950/60 backdrop-blur-sm animate-fade-in" role="dialog" aria-modal="true" aria-labelledby="gdrive-modal-title">
     <div class="w-full max-w-lg bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl p-6 sm:p-8 space-y-5 max-h-[92vh] overflow-y-auto">
       
       <!-- Modal Header -->
       <div class="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
         <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-2xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 border border-blue-200/50 dark:border-blue-800/50">
-            <i data-lucide="cloud" class="w-5 h-5"></i>
+          <div class="w-10 h-10 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-200/50 dark:border-emerald-800/50">
+            <i data-lucide="file-spreadsheet" class="w-5 h-5"></i>
           </div>
           <div>
-            <h3 id="onedrive-modal-title" class="text-base sm:text-lg font-bold text-slate-900 dark:text-white">Microsoft OneDrive Szinkron</h3>
-            <p class="text-xs text-slate-500 dark:text-slate-400">Excel szótár felhőbeli összekapcsolása</p>
+            <h3 id="gdrive-modal-title" class="text-base sm:text-lg font-bold text-slate-900 dark:text-white">Google Drive / Sheets Szinkron</h3>
+            <p class="text-xs text-slate-500 dark:text-slate-400">Google Táblázat felhőbeli összekapcsolása</p>
           </div>
         </div>
-        <button id="btn-close-onedrive-modal" class="p-2 min-w-[36px] min-h-[36px] inline-flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" title="Bezárás" aria-label="Bezárás">
+        <button id="btn-close-gdrive-modal" class="p-2 min-w-[36px] min-h-[36px] inline-flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" title="Bezárás" aria-label="Bezárás">
           <i data-lucide="x" class="w-5 h-5"></i>
         </button>
       </div>
 
       <!-- Info Box -->
-      <div class="p-4 bg-blue-50/60 dark:bg-blue-950/30 rounded-2xl border border-blue-100 dark:border-blue-900/50 text-xs text-slate-600 dark:text-slate-300 space-y-2">
-        <p class="font-semibold text-blue-900 dark:text-blue-200 flex items-center gap-1.5">
-          <i data-lucide="info" class="w-4 h-4 text-blue-500"></i> Hogyan működik a szinkronizáció?
+      <div class="p-4 bg-emerald-50/60 dark:bg-emerald-950/30 rounded-2xl border border-emerald-100 dark:border-emerald-900/50 text-xs text-slate-600 dark:text-slate-300 space-y-2">
+        <p class="font-semibold text-emerald-900 dark:text-emerald-200 flex items-center gap-1.5">
+          <i data-lucide="info" class="w-4 h-4 text-emerald-500"></i> Hogyan működik a Google Táblázat szinkronizáció?
         </p>
         <p>
-          Oszd meg a OneDrive-on lévő Excel munkafüzetedet (<strong>"Bárki, akinél megvan a hivatkozás"</strong>), majd másold be ide a linket.
+          A Google Táblázatban kattints a <strong>Megosztás</strong> gombra, és állítsd az Általános hozzáférést: <strong>„Bárki, akinél megvan a link”</strong> (megtekintő) módra, majd másold be ide a linket.
         </p>
         <p>
-          Az újonnan hozzáadott szavak kiemelt gyakorlási prioritást kapnak (<strong>✨ Új szó</strong>), miközben a meglévő szavak statisztikái és munkalapjai megmaradnak!
+          A rendszer a táblázat <strong>összes munkalapját (sheet-jét)</strong> beolvassa. Az új szavak automatikusan kiemelt prioritást kapnak (<strong>✨ Új szó</strong>), miközben a meglévő szavak tanulási előzményei és statisztikái 100%-ban megmaradnak!
         </p>
       </div>
 
       <!-- Alert Banner -->
-      <div id="onedrive-modal-alert" class="hidden p-3 rounded-xl text-xs flex items-center gap-2">
-        <span id="onedrive-alert-icon"></span>
-        <span id="onedrive-alert-message"></span>
+      <div id="gdrive-modal-alert" class="hidden p-3 rounded-xl text-xs flex items-center gap-2">
+        <span id="gdrive-alert-icon"></span>
+        <span id="gdrive-alert-message"></span>
       </div>
 
-      <form id="form-onedrive-connect" class="space-y-4">
-        <input type="hidden" id="onedrive-target-list-id" value="">
+      <form id="form-gdrive-connect" class="space-y-4">
+        <input type="hidden" id="gdrive-target-list-id" value="">
 
         <div>
-          <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5" for="onedrive-link-input">
-            OneDrive megosztási link <span class="text-rose-500">*</span>
+          <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5" for="gdrive-link-input">
+            Google Drive / Sheets link <span class="text-rose-500">*</span>
           </label>
           <div class="relative">
-            <input id="onedrive-link-input" type="url" required placeholder="https://1drv.ms/x/s!... vagy onedrive.live.com link" class="w-full min-h-[46px] px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base sm:text-xs font-mono transition-all">
+            <input id="gdrive-link-input" type="url" required placeholder="https://docs.google.com/spreadsheets/d/... vagy Drive link" class="w-full min-h-[46px] px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-base sm:text-xs font-mono transition-all">
             <i data-lucide="link" class="w-4 h-4 text-slate-400 absolute right-3.5 top-3.5"></i>
           </div>
         </div>
 
-        <div id="onedrive-name-group">
-          <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5" for="onedrive-custom-name">
+        <div id="gdrive-name-group">
+          <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5" for="gdrive-custom-name">
             Szólista elnevezése (opcionális)
           </label>
-          <input id="onedrive-custom-name" type="text" placeholder="pl. OneDrive Angol Szótáram" class="w-full min-h-[46px] px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base sm:text-sm transition-all">
+          <input id="gdrive-custom-name" type="text" placeholder="pl. Angol Szókincsem (Google Sheets)" class="w-full min-h-[46px] px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-base sm:text-sm transition-all">
         </div>
 
         <div class="flex items-center justify-end gap-2.5 pt-2">
-          <button type="button" id="btn-cancel-onedrive" class="min-h-[44px] px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold text-xs sm:text-sm transition-colors">
+          <button type="button" id="btn-cancel-gdrive" class="min-h-[44px] px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold text-xs sm:text-sm transition-colors">
             Mégse
           </button>
-          <button type="submit" id="btn-submit-onedrive" class="min-h-[44px] px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs sm:text-sm transition-all shadow-md shadow-blue-600/25 flex items-center gap-2 active:scale-95">
-            <i data-lucide="refresh-cw" id="icon-onedrive-submit" class="w-4 h-4"></i>
-            <span id="text-onedrive-submit">Csatlakozás és Szinkronizáció</span>
+          <button type="submit" id="btn-submit-gdrive" class="min-h-[44px] px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs sm:text-sm transition-all shadow-md shadow-emerald-600/25 flex items-center gap-2 active:scale-95">
+            <i data-lucide="refresh-cw" id="icon-gdrive-submit" class="w-4 h-4"></i>
+            <span id="text-gdrive-submit">Csatlakozás és Szinkronizáció</span>
           </button>
         </div>
       </form>
