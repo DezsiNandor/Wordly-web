@@ -142,85 +142,7 @@ select,
     display: none !important;
   }
 
-  /* Kisebb Bejelentkezés gomb mobilon, hogy kényelmesen elférjen */
-  #nav-btn-login,
-  .btn-login {
-    height: 36px !important;
-    min-height: 36px !important;
-    padding: 4px 9px !important;
-    font-size: 12px !important;
-    gap: 4px !important;
-    display: inline-flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-  }
-
-  #nav-btn-login span,
-  .btn-login span {
-    font-size: 12px !important;
-    line-height: 1 !important;
-  }
-
-  #nav-btn-login i,
-  #nav-btn-login svg,
-  .btn-login i,
-  .btn-login svg {
-    width: 14px !important;
-    height: 14px !important;
-    min-width: 14px !important;
-    min-height: 14px !important;
-  }
-
-  /* Kisebb Fiók gomb mobilon */
-  #nav-btn-register,
-  .btn-account {
-    height: 36px !important;
-    min-height: 36px !important;
-    padding: 4px 8px !important;
-    font-size: 12px !important;
-    gap: 4px !important;
-    display: inline-flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-  }
-
-  #nav-btn-register span,
-  .btn-account span {
-    font-size: 12px !important;
-    line-height: 1 !important;
-  }
-
-  #nav-btn-register i,
-  #nav-btn-register svg,
-  .btn-account i,
-  .btn-account svg {
-    width: 14px !important;
-    height: 14px !important;
-    min-width: 14px !important;
-    min-height: 14px !important;
-  }
-
-  /* Világos/sötét téma kapcsoló és beállítások mobilon mindig látható, nem csúszik le */
-  #btn-theme-toggle,
-  #btn-open-firebase-settings {
-    width: 36px !important;
-    height: 36px !important;
-    min-width: 36px !important;
-    min-height: 36px !important;
-    padding: 0 !important;
-    display: inline-flex !important;
-    visibility: visible !important;
-    opacity: 1 !important;
-    flex-shrink: 0 !important;
-  }
-
-  #btn-theme-toggle svg,
-  #btn-theme-toggle i,
-  #btn-open-firebase-settings svg,
-  #btn-open-firebase-settings i {
-    width: 16px !important;
-    height: 16px !important;
-  }
+  /* Fejléc gombok méretezése és stílusai a 9. szekcióban egységesítve */
 
   header > div {
     padding-left: 8px !important;
@@ -759,5 +681,228 @@ body:not(.has-bottom-nav) #offline-indicator-badge {
     bottom: 5rem !important;
   }
 }
+
+/* ======================================================== */
+/* 9. FEJLÉC GOMBOK MÉRETEZÉSE ÉS VIZUÁLIS STÍLUSAI         */
+/* ======================================================== */
+
+/* 1. Szöveges gombok (Bejelentkezés & Fiók) teljesen azonos méretezése */
+#nav-btn-login,
+#nav-btn-register,
+.header-right-actions .btn-login,
+.header-right-actions .btn-account {
+  width: 108px !important;
+  min-width: 108px !important;
+  max-width: 108px !important;
+  height: 38px !important;
+  min-height: 38px !important;
+  max-height: 38px !important;
+  padding: 0 8px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  text-align: center !important;
+  border-radius: 12px !important;
+  font-weight: 600 !important;
+  font-size: 12px !important;
+  line-height: 1 !important;
+  white-space: nowrap !important;
+  box-sizing: border-box !important;
+  transition: all 0.2s ease !important;
+  gap: 5px !important;
+}
+
+@media (min-width: 640px) {
+  #nav-btn-login,
+  #nav-btn-register,
+  .header-right-actions .btn-login,
+  .header-right-actions .btn-account {
+    width: 130px !important;
+    min-width: 130px !important;
+    max-width: 130px !important;
+    height: 42px !important;
+    min-height: 42px !important;
+    max-height: 42px !important;
+    padding: 0 12px !important;
+    font-size: 13.5px !important;
+    gap: 6px !important;
+  }
+}
+
+/* Bejelentkezés gomb (Kék szín) */
+#nav-btn-login,
+.header-right-actions .btn-login {
+  background-color: #2563eb !important;
+  color: #ffffff !important;
+  border: 1px solid #1d4ed8 !important;
+  box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2) !important;
+}
+
+#nav-btn-login:hover,
+.header-right-actions .btn-login:hover {
+  background-color: #1d4ed8 !important;
+  color: #ffffff !important;
+}
+
+/* Fiók gomb (Zöld szín - #10B981, fehér szöveg) */
+#nav-btn-register,
+.header-right-actions .btn-account {
+  background-color: #10b981 !important;
+  color: #ffffff !important;
+  border: 1px solid #059669 !important;
+  box-shadow: 0 2px 4px rgba(16, 185, 129, 0.2) !important;
+}
+
+#nav-btn-register:hover,
+.header-right-actions .btn-account:hover {
+  background-color: #059669 !important;
+  color: #ffffff !important;
+}
+
+#nav-btn-login i,
+#nav-btn-login svg,
+#nav-btn-login span,
+#nav-btn-register i,
+#nav-btn-register svg,
+#nav-btn-register span {
+  color: #ffffff !important;
+  fill: none !important;
+  stroke: #ffffff !important;
+}
+
+/* 2. Ikonos gombok (Beállítások / Fogaskerék & Téma) egységesített, megnövelt mérete */
+#btn-open-firebase-settings,
+#btn-theme-toggle {
+  width: 40px !important;
+  height: 40px !important;
+  min-width: 40px !important;
+  min-height: 40px !important;
+  max-width: 40px !important;
+  max-height: 40px !important;
+  border-radius: 12px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-sizing: border-box !important;
+  flex-shrink: 0 !important;
+  transition: all 0.2s ease !important;
+}
+
+@media (min-width: 640px) {
+  #btn-open-firebase-settings,
+  #btn-theme-toggle {
+    width: 44px !important;
+    height: 44px !important;
+    min-width: 44px !important;
+    min-height: 44px !important;
+    max-width: 44px !important;
+    max-height: 44px !important;
+  }
+}
+
+/* Ikonok megnövelt mérete az ikonos gombokban */
+#btn-open-firebase-settings i,
+#btn-open-firebase-settings svg,
+#btn-theme-toggle i,
+#btn-theme-toggle svg {
+  width: 20px !important;
+  height: 20px !important;
+  min-width: 20px !important;
+  min-height: 20px !important;
+}
+
+@media (min-width: 640px) {
+  #btn-open-firebase-settings i,
+  #btn-open-firebase-settings svg,
+  #btn-theme-toggle i,
+  #btn-theme-toggle svg {
+    width: 22px !important;
+    height: 22px !important;
+    min-width: 22px !important;
+    min-height: 22px !important;
+  }
+}
+
+/* Beállítások / Fogaskerék gomb & ikon: Narancssárga (#F97316) */
+#btn-open-firebase-settings {
+  background-color: #fff7ed !important;
+  border: 1.5px solid #fdba74 !important;
+  color: #f97316 !important;
+  box-shadow: 0 1px 3px rgba(249, 115, 22, 0.15) !important;
+}
+
+#btn-open-firebase-settings:hover {
+  background-color: #ffedd5 !important;
+  border-color: #f97316 !important;
+}
+
+#btn-open-firebase-settings i,
+#btn-open-firebase-settings svg {
+  color: #f97316 !important;
+  stroke: #f97316 !important;
+}
+
+html.dark #btn-open-firebase-settings,
+.dark #btn-open-firebase-settings {
+  background-color: rgba(124, 45, 18, 0.25) !important;
+  border: 1.5px solid rgba(249, 115, 22, 0.5) !important;
+  color: #fb923c !important;
+  box-shadow: 0 1px 3px rgba(249, 115, 22, 0.2) !important;
+}
+
+html.dark #btn-open-firebase-settings:hover,
+.dark #btn-open-firebase-settings:hover {
+  background-color: rgba(124, 45, 18, 0.45) !important;
+  border-color: #f97316 !important;
+}
+
+html.dark #btn-open-firebase-settings i,
+html.dark #btn-open-firebase-settings svg,
+.dark #btn-open-firebase-settings i,
+.dark #btn-open-firebase-settings svg {
+  color: #fb923c !important;
+  stroke: #fb923c !important;
+}
+
+/* Sötét/világos mód gomb (Hold / Nap ikon):
+   - Világos módban: Fekete kontúr / körvonal rajta/körülötte
+   - Sötét módban: Fehér kontúr / körvonal rajta/körülötte
+*/
+#btn-theme-toggle {
+  background-color: #ffffff !important;
+  border: 2px solid #000000 !important;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08) !important;
+}
+
+#btn-theme-toggle:hover {
+  background-color: #f1f5f9 !important;
+}
+
+#btn-theme-toggle #icon-theme-sun,
+#btn-theme-toggle svg.lucide-sun {
+  color: #d97706 !important;
+  stroke: #d97706 !important;
+}
+
+html.dark #btn-theme-toggle,
+.dark #btn-theme-toggle {
+  background-color: #0f172a !important;
+  border: 2px solid #ffffff !important;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.12) !important;
+}
+
+html.dark #btn-theme-toggle:hover,
+.dark #btn-theme-toggle:hover {
+  background-color: #1e293b !important;
+}
+
+html.dark #btn-theme-toggle #icon-theme-moon,
+.dark #btn-theme-toggle #icon-theme-moon,
+html.dark #btn-theme-toggle svg.lucide-moon,
+.dark #btn-theme-toggle svg.lucide-moon {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+}
+
 
 
