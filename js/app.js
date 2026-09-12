@@ -1416,17 +1416,34 @@ async function handlePracticeAction() {
     dom.quizCard.classList.remove('border-slate-200', 'dark:border-slate-800');
     dom.quizCard.classList.add('border-emerald-500', 'dark:border-emerald-500', 'animate-bounce-success');
 
-    dom.practiceFeedbackContainer.className = 'p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800/70 text-emerald-800 dark:text-emerald-200 animate-pop-in flex items-center justify-between';
-    dom.practiceFeedbackContainer.innerHTML = `
-      <div class="flex items-center gap-2.5 font-bold">
-        <span class="text-xl">🎉</span>
-        <span>Helyes válasz!</span>
-      </div>
-      <div class="text-xs text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">
-        <span>Továbbugrás...</span>
-        <kbd class="px-1.5 py-0.5 text-[10px] bg-emerald-200/60 dark:bg-emerald-800/60 rounded">Enter</kbd>
-      </div>
-    `;
+    if (result.hasTypo) {
+      dom.practiceFeedbackContainer.className = 'p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/50 border border-amber-300 dark:border-amber-700/70 text-amber-900 dark:text-amber-200 animate-pop-in flex flex-col sm:flex-row sm:items-center justify-between gap-2';
+      dom.practiceFeedbackContainer.innerHTML = `
+        <div class="flex flex-wrap items-center gap-2 font-bold text-amber-800 dark:text-amber-300">
+          <span class="text-xl">👌</span>
+          <span>Elfogadva (apró elütés)!</span>
+          <span class="text-xs font-normal text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/60 px-2 py-0.5 rounded-lg border border-amber-200 dark:border-amber-800">
+            Pontosan: <strong>${escapeHtml(result.correctAnswer)}</strong>
+          </span>
+        </div>
+        <div class="text-xs text-amber-700 dark:text-amber-400 font-semibold flex items-center gap-1 shrink-0">
+          <span>Továbbugrás...</span>
+          <kbd class="px-1.5 py-0.5 text-[10px] bg-amber-200/60 dark:bg-amber-800/60 rounded">Enter</kbd>
+        </div>
+      `;
+    } else {
+      dom.practiceFeedbackContainer.className = 'p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800/70 text-emerald-800 dark:text-emerald-200 animate-pop-in flex items-center justify-between';
+      dom.practiceFeedbackContainer.innerHTML = `
+        <div class="flex items-center gap-2.5 font-bold">
+          <span class="text-xl">🎉</span>
+          <span>Helyes válasz!</span>
+        </div>
+        <div class="text-xs text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">
+          <span>Továbbugrás...</span>
+          <kbd class="px-1.5 py-0.5 text-[10px] bg-emerald-200/60 dark:bg-emerald-800/60 rounded">Enter</kbd>
+        </div>
+      `;
+    }
 
     dom.btnPracticeSubmit.className = 'w-full min-h-[50px] py-3.5 px-6 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-base shadow-lg shadow-emerald-500/25 active:scale-[0.98] transition-all flex items-center justify-center gap-2';
     dom.practiceBtnText.textContent = result.isRoundFinished ? 'Kör befejezése' : 'Következő szó';
@@ -1448,7 +1465,7 @@ async function handlePracticeAction() {
           renderCurrentQuizWord();
         }
       }
-    }, 900);
+    }, result.hasTypo ? 1500 : 900);
 
   } else {
     // === HELYTELEN VÁLASZ ===
