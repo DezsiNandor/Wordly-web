@@ -360,11 +360,21 @@ function updateFirebaseStatusUI(isFirebase) {
 
 function updateNavForUser(user) {
   if (user) {
+    document.body.classList.add('logged-in');
+    document.body.classList.remove('logged-out');
+
+    // Bejelentkezés után a logó mobilon és asztali gépen is látható
+    if (dom.navLogo) {
+      dom.navLogo.classList.remove('hidden');
+      dom.navLogo.classList.add('flex');
+    }
+
     dom.publicAuthButtons.classList.add('hidden');
     dom.publicAuthButtons.classList.remove('flex');
     if (dom.publicNavLinks) {
       dom.publicNavLinks.classList.add('hidden');
       dom.publicNavLinks.classList.remove('md:flex');
+      dom.publicNavLinks.classList.remove('flex');
     }
     const footerLinks = document.getElementById('footer-public-links');
     if (footerLinks) footerLinks.classList.add('hidden');
@@ -389,11 +399,22 @@ function updateNavForUser(user) {
     document.body.classList.remove('has-bottom-nav');
     document.body.classList.add('no-bottom-nav');
   } else {
+    document.body.classList.remove('logged-in');
+    document.body.classList.add('logged-out');
+
+    // Bejelentkezés előtt a logó mobilon rejtve, asztali gépen megjelenítve
+    if (dom.navLogo) {
+      dom.navLogo.classList.add('hidden');
+      dom.navLogo.classList.add('md:flex');
+      dom.navLogo.classList.remove('flex');
+    }
+
     dom.publicAuthButtons.classList.remove('hidden');
     dom.publicAuthButtons.classList.add('flex');
     if (dom.publicNavLinks) {
-      dom.publicNavLinks.classList.remove('hidden');
+      dom.publicNavLinks.classList.add('hidden');
       dom.publicNavLinks.classList.add('md:flex');
+      dom.publicNavLinks.classList.remove('flex');
     }
     const footerLinks = document.getElementById('footer-public-links');
     if (footerLinks) footerLinks.classList.remove('hidden');

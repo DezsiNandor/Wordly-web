@@ -510,6 +510,7 @@ nav.md\:hidden a[href="#auth"] span {
   display: flex !important;
   align-items: center !important;
   justify-content: flex-end !important;
+  margin-left: auto;
   gap: 8px;
   flex-shrink: 0 !important;
   transition: all 0.2s ease;
@@ -847,5 +848,16 @@ html.dark #btn-theme-toggle svg.lucide-moon,
   stroke: #ffffff !important;
 }
 
+/* ======================================================== */
+/* 8. FEJLÉC RESZPONZÍV ÉS BEJELENTKEZÉSI SZABÁLYOK         */
+/* ======================================================== */
 
-
+/* Mobil nézetben (max-width: 768px) bejelentkezés előtt a logó, badge és a navigációs ikonok teljes elrejtése */
+@media (max-width: 768px) {
+  body.logged-out #nav-logo,
+  body:not(.logged-in) #nav-logo,
+  body.logged-out #public-nav-links,
+  body:not(.logged-in) #public-nav-links {
+    display: none !important;
+  }
+}
