@@ -222,6 +222,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   initPWA();
   refreshIcons();
 
+  // Alapértelmezetten tiszta kijelentkezett állapot (alsó léc rejtve, felesleges margók nélkül)
+  updateNavForUser(null);
+
   // Hitelesítés inicializálása
   const authStatus = await initAuth();
   updateFirebaseStatusUI(authStatus.isFirebase);
@@ -310,11 +313,25 @@ function updateNavForUser(user) {
     if (badgeBtn) {
       badgeBtn.title = `${user.email || 'Vendég'} (${user.isGuest ? 'Vendég mód' : (user.isFirebase ? 'Firebase fiók' : 'Helyi profil')})`;
     }
+
+    // Alsó navigációs sáv bekapcsolása bejelentkezett állapotban
+    if (dom.mobileBottomNav) {
+      dom.mobileBottomNav.classList.remove('hidden');
+    }
+    document.body.classList.remove('no-bottom-nav');
+    document.body.classList.add('has-bottom-nav');
   } else {
     dom.publicAuthButtons.classList.remove('hidden');
     dom.publicAuthButtons.classList.add('flex');
     dom.userProfileMenu.classList.add('hidden');
     dom.userProfileMenu.classList.remove('flex');
+
+    // Alsó navigációs sáv elrejtése kijelentkezett állapotban (0 helyfoglalás)
+    if (dom.mobileBottomNav) {
+      dom.mobileBottomNav.classList.add('hidden');
+    }
+    document.body.classList.remove('has-bottom-nav');
+    document.body.classList.add('no-bottom-nav');
   }
 }
 

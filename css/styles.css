@@ -583,11 +583,6 @@ nav.md\:hidden a[href="#auth"] span {
 /* 7. PROGRESSIVE WEB APP (PWA / STANDALONE MÓD) OPTIMALIZÁLÁS */
 /* ======================================================== */
 
-/* Alapértelmezett (böngészős) mobilos alsó sáv: Statisztika rejtve, amíg nem PWA */
-#mobile-bottom-nav #bottom-nav-stats {
-  display: none;
-}
-
 /* Fejléc jobb gombtár: zökkenőmentes és automatikus illeszkedés hézag nélkül */
 .header-right-actions {
   display: flex !important;
@@ -639,30 +634,6 @@ nav.md\:hidden a[href="#auth"] span {
   #mobile-bottom-nav .btn-account {
     display: none !important;
   }
-
-  /* Statisztika gomb bekapcsolása */
-  #mobile-bottom-nav #bottom-nav-stats {
-    display: flex !important;
-  }
-
-  /* Pontosan 3 menüpont: Kezdőlap, Szólisták, Statisztika - egyenletesen elosztva a kijelző alján */
-  #mobile-bottom-nav {
-    display: grid !important;
-    grid-template-columns: repeat(3, 1fr) !important;
-    justify-items: center !important;
-    align-items: center !important;
-    width: 100% !important;
-    padding: 4px 6px !important;
-  }
-
-  #mobile-bottom-nav .bottom-nav-item {
-    width: 100% !important;
-    display: flex !important;
-    flex-direction: column !important;
-    align-items: center !important;
-    justify-content: center !important;
-    min-width: 0 !important;
-  }
 }
 
 /* JavaScript által detektált .pwa-standalone esetén is pontosan ugyanaz a viselkedés */
@@ -695,22 +666,98 @@ header.header-hidden,
   height: 0 !important;
 }
 
-/* Alsó navigációs sáv véglegesített 3 gombos elrendezése */
-#mobile-bottom-nav {
-  display: grid !important;
-  grid-template-columns: repeat(3, 1fr) !important;
-  justify-items: center !important;
-  align-items: center !important;
-  width: 100% !important;
-  padding: 4px 6px !important;
+/* ======================================================== */
+/* 8. FELTÉTELES ALSÓ NAVIGÁCIÓ (AUTH GUARD / CONDITIONAL)  */
+/* ======================================================== */
+
+/* Rejtett alsó navigációs sáv (kijelentkezett / vendég állapot vagy hidden osztály) */
+#mobile-bottom-nav.hidden,
+body.no-bottom-nav #mobile-bottom-nav,
+body:not(.has-bottom-nav) #mobile-bottom-nav {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  height: 0 !important;
+  min-height: 0 !important;
+  max-height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: none !important;
+  box-shadow: none !important;
+  overflow: hidden !important;
 }
 
-#mobile-bottom-nav .bottom-nav-item {
-  width: 100% !important;
-  display: flex !important;
-  flex-direction: column !important;
-  align-items: center !important;
-  justify-content: center !important;
-  min-width: 0 !important;
+/* Kijelentkezett állapotban nincs alsó margó/térköz, a tartalom kitölti a rendelkezésre álló helyet */
+body.no-bottom-nav,
+body:not(.has-bottom-nav) {
+  padding-bottom: 0 !important;
 }
+
+body.no-bottom-nav main,
+body:not(.has-bottom-nav) main {
+  padding-bottom: 1.5rem !important;
+}
+
+body.no-bottom-nav footer,
+body:not(.has-bottom-nav) footer {
+  padding-bottom: 1.5rem !important;
+}
+
+body.no-bottom-nav #offline-indicator-badge,
+body:not(.has-bottom-nav) #offline-indicator-badge {
+  bottom: 1.5rem !important;
+}
+
+/* Asztali nézetben (>768px) az alsó navigációs sáv mindig rejtett */
+@media (min-width: 769px) {
+  #mobile-bottom-nav {
+    display: none !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+    height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+  }
+}
+
+/* Mobilon kizárólag bejelentkezett felhasználónál (has-bottom-nav) jelenik meg az alsó sáv */
+@media (max-width: 768px) {
+  body.has-bottom-nav #mobile-bottom-nav:not(.hidden) {
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr) !important;
+    justify-items: center !important;
+    align-items: center !important;
+    width: 100% !important;
+    padding: 4px 6px !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+  }
+
+  body.has-bottom-nav #mobile-bottom-nav .bottom-nav-item {
+    width: 100% !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    min-width: 0 !important;
+  }
+
+  body.has-bottom-nav #mobile-bottom-nav #bottom-nav-stats {
+    display: flex !important;
+  }
+
+  body.has-bottom-nav main {
+    padding-bottom: 5.5rem !important;
+  }
+
+  body.has-bottom-nav footer {
+    padding-bottom: 6rem !important;
+  }
+
+  body.has-bottom-nav #offline-indicator-badge {
+    bottom: 5rem !important;
+  }
+}
+
 
