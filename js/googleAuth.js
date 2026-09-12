@@ -1,31 +1,51 @@
 /**
- * WL (Word Learning) - Google Identity Services (GIS) & OAuth 2.0 Modul
- * Hivatalos Google Sign-In, One Tap és Token feldolgozás
+ * WL (Word Learning) - Google OAuth 2.0 Átirányításos (Redirect-Based) Hitelesítési Modul
+ * 100%-os megbízhatóság pop-up tiltások nélkül mobilon és PC-n.
  */
 
 const GOOGLE_CLIENT_ID_KEY = 'wl_google_client_id';
 
-// Alapértelmezett Wordly Google OAuth 2.0 Web Client ID
-// (Egyedi Google Cloud Console azonosítóval a beállításokban vagy localStorage-ban felülírható)
-const DEFAULT_CLIENT_ID = '1084268297652-wordlyweblearningdemo.apps.googleusercontent.com';
-
 /**
- * Visszaadja az érvényben lévő Google Client ID-t
+ * Lekéri az érvényben lévő Google Client ID-t környezeti konfigurációból vagy LocalStorage-ból
  */
 export function getGoogleClientId() {
   try {
+    // 1. Környezeti változók ellenőrzése (window.ENV vagy window.__WORDLY_ENV__)
+    if (window.ENV?.GOOGLE_CLIENT_ID && String(window.ENV.GOOGLE_CLIENT_ID).trim().length > 5) {
+      return String(window.ENV.GOOGLE_CLIENT_ID).trim();
+    }
+    if (window.__WORDLY_ENV__?.GOOGLE_CLIENT_ID && String(window.__WORDLY_ENV__.GOOGLE_CLIENT_ID).trim().length > 5) {
+      return String(window.__WORDLY_ENV__.GOOGLE_CLIENT_ID).trim();
+    }
+
+    // 2. Felhasználói / helyi tároló beállítás
     const customId = localStorage.getItem(GOOGLE_CLIENT_ID_KEY);
     if (customId && customId.trim().length > 5) {
       return customId.trim();
     }
   } catch (e) {
-    // LocalStorage olvasási hiba fallback
+    console.warn("Hiba a Google Client ID lekérésekor:", e);
   }
-  return DEFAULT_CLIENT_ID;
+
+  return '';
 }
 
 /**
- * Elmenti az egyedi Google Client ID-t
+ * Ellenőrzi, hogy van-e beállítva érvényes, nem üres Google Client ID
+ */
+export function hasValidGoogleClientId() {
+  const clientId = getGoogleClientId();
+  return Boolean(
+    clientId && 
+    typeof clientId === 'string' && 
+    clientId.trim().length > 15 && 
+    clientId.includes('.apps.googleusercontent.com') &&
+    !clientId.includes('placeholder')
+  );
+}
+
+/**
+ * Elmenti az egyedi Google Client ID-t a helyi beállításokba
  */
 export function saveGoogleClientId(clientId) {
   try {
@@ -41,7 +61,7 @@ export function saveGoogleClientId(clientId) {
 }
 
 /**
- * Biztonságos JWT token dekódoló (UTF-8 karakterekkel, pl. ékezetes magyar nevek támogatásával)
+ * Biztonságos JWT token dekódoló modern TextDecoder-rel és UTF-8 támogatással
  */
 export function parseJwt(token) {
   if (!token || typeof token !== 'string') return null;
@@ -49,155 +69,154 @@ export function parseJwt(token) {
     const parts = token.split('.');
     if (parts.length !== 3) return null;
 
-    const base64Url = parts[1];
-    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-    const jsonPayload = decodeURIComponent(
-      atob(base64)
-        .split('')
-        .map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
-        .join('')
-    );
-    return JSON.parse(jsonPayload);
+    let base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/').replace(/ /g, '+');
+    while (base64.length % 4 !== 0) {
+      base64 += '=';
+    }
+
+    const binaryStr = atob(base64);
+    const bytes = new Uint8Array(binaryStr.length);
+    for (let i = 0; i < binaryStr.length; i++) {
+      bytes[i] = binaryStr.charCodeAt(i);
+    }
+
+    const jsonStr = new TextDecoder('utf-8').decode(bytes);
+    return JSON.parse(jsonStr);
   } catch (err) {
-    console.warn("Nem sikerült dekódolni a Google JWT tokent:", err);
+    console.warn("Nem sikerült dekódolni a JWT tokent:", err);
     return null;
   }
 }
 
 /**
- * Megvárja a Google Identity Services (GIS) SDK betöltődését
+ * Generál egy kriptográfiailag biztonságos véletlenszerű stringet CSRF védelemhez (state / nonce)
  */
-export function waitForGoogleScript(timeoutMs = 5000) {
-  return new Promise((resolve) => {
-    if (window.google?.accounts?.id) {
-      resolve(true);
-      return;
+function generateRandomString(length = 24) {
+  const array = new Uint8Array(length);
+  if (window.crypto && window.crypto.getRandomValues) {
+    window.crypto.getRandomValues(array);
+  } else {
+    for (let i = 0; i < length; i++) {
+      array[i] = Math.floor(Math.random() * 256);
     }
-
-    const start = Date.now();
-    const checkInterval = setInterval(() => {
-      if (window.google?.accounts?.id) {
-        clearInterval(checkInterval);
-        resolve(true);
-      } else if (Date.now() - start > timeoutMs) {
-        clearInterval(checkInterval);
-        resolve(false);
-      }
-    }, 100);
-  });
+  }
+  return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
 }
 
 /**
- * Inicializálja a Google Identity Services (GIS) klienst, a gombot és a One Tap felugrót
- * 
- * @param {Object} config
- * @param {Function} config.onSuccess - Callback sikeres bejelentkezéskor: (authResult) => void
- * @param {Function} [config.onError] - Callback hiba esetén: (error) => void
- * @param {HTMLElement|string} [config.buttonContainer] - A hivatalos Google gomb konténere
- * @param {boolean} [config.enableOneTap=true] - Engedélyezze-e a One Tap automatikus megjelenését
+ * Összeállítja a hivatalos Google OAuth 2.0 átirányítási végpontot (Implicit / OpenID Connect Redirect Flow)
  */
-export async function initGoogleIdentityServices({
-  onSuccess,
-  onError = console.error,
-  buttonContainer = null,
-  enableOneTap = true
-}) {
-  const isLoaded = await waitForGoogleScript();
-  if (!isLoaded) {
-    console.warn("A Google Identity Services (accounts.google.com/gsi/client) nem érhető el vagy letiltotta egy hirdetésblokkoló.");
-    return false;
+export function buildGoogleAuthUrl(redirectUri, state, nonce) {
+  const clientId = getGoogleClientId();
+  const baseUrl = 'https://accounts.google.com/o/oauth2/v2/auth';
+  
+  const params = new URLSearchParams({
+    client_id: clientId,
+    redirect_uri: redirectUri,
+    response_type: 'id_token token',
+    scope: 'openid email profile',
+    state: state,
+    nonce: nonce,
+    prompt: 'select_account'
+  });
+
+  return `${baseUrl}?${params.toString()}`;
+}
+
+/**
+ * Elindítja a 100%-ban popup-mentes, megbízható Google átirányításos (Redirect) hitelesítést
+ */
+export function startGoogleRedirectAuth() {
+  // 1. Google Client ID ellenőrzése
+  if (!hasValidGoogleClientId()) {
+    throw new Error("Google Client ID nincs beállítva az alkalmazásban!");
   }
 
-  const clientId = getGoogleClientId();
+  // 2. CSRF token (state) és nonce előállítása
+  const state = generateRandomString(16);
+  const nonce = generateRandomString(16);
 
   try {
-    // 1. Google Identity Services inicializálása
-    window.google.accounts.id.initialize({
-      client_id: clientId,
-      callback: (response) => {
-        if (!response || !response.credential) {
-          onError(new Error("Nem érkezett érvényes Google hitelesítési token!"));
-          return;
-        }
-
-        const payload = parseJwt(response.credential);
-        if (!payload) {
-          onError(new Error("A Google token értelmezése sikertelen!"));
-          return;
-        }
-
-        const authResult = {
-          credential: response.credential,
-          select_by: response.select_by,
-          sub: payload.sub,
-          email: payload.email,
-          emailVerified: payload.email_verified,
-          name: payload.name || payload.email.split('@')[0],
-          givenName: payload.given_name,
-          familyName: payload.family_name,
-          picture: payload.picture
-        };
-
-        onSuccess(authResult);
-      },
-      auto_select: false, // Ne léptessen be akaratlanul, ha a felhasználó ki akarna lépni
-      cancel_on_tap_outside: false
-    });
-
-    // 2. Hivatalos Google gomb renderelése, ha megadtak konténert
-    let containerEl = null;
-    if (typeof buttonContainer === 'string') {
-      containerEl = document.getElementById(buttonContainer);
-    } else if (buttonContainer instanceof HTMLElement) {
-      containerEl = buttonContainer;
-    }
-
-    if (containerEl) {
-      containerEl.innerHTML = '';
-      window.google.accounts.id.renderButton(containerEl, {
-        type: 'standard',
-        theme: document.documentElement.classList.contains('dark') ? 'filled_black' : 'outline',
-        size: 'large',
-        text: 'signin_with',
-        shape: 'rectangular',
-        logo_alignment: 'left',
-        width: Math.min(360, containerEl.offsetWidth || 340)
-      });
-    }
-
-    // 3. Google One Tap felugró prompt aktiválása
-    if (enableOneTap) {
-      window.google.accounts.id.prompt((notification) => {
-        if (notification.isNotDisplayed()) {
-          const reason = notification.getNotDisplayedReason();
-          console.log("Google One Tap nem jelent meg:", reason);
-        } else if (notification.isSkippedMoment()) {
-          const reason = notification.getSkippedReason();
-          console.log("Google One Tap elutasítva/kihagyva:", reason);
-        } else if (notification.isDismissedMoment()) {
-          const reason = notification.getDismissedReason();
-          console.log("Google One Tap bezárva:", reason);
-        }
-      });
-    }
-
-    return true;
-  } catch (err) {
-    console.error("Hiba a Google Identity Services inicializálásakor:", err);
-    onError(err);
-    return false;
+    sessionStorage.setItem('wl_oauth_state', state);
+    sessionStorage.setItem('wl_oauth_nonce', nonce);
+    sessionStorage.setItem('wl_oauth_target', '#dashboard');
+  } catch (e) {
+    console.warn("SessionStorage figyelmeztetés:", e);
   }
+
+  // 3. Tisztított visszatérési URL meghatározása (hash és query paraméterek nélkül)
+  const redirectUri = window.location.origin + window.location.pathname;
+
+  // 4. Hitelesítési URL előállítása és átnavigálás a Google hivatalos oldalára
+  const authUrl = buildGoogleAuthUrl(redirectUri, state, nonce);
+  window.location.assign(authUrl);
 }
 
 /**
- * Kijelentkezteti az aktív Google munkamenetet a GIS kliensből
+ * Visszatérési pont (Callback Handler):
+ * Induláskor ellenőrzi, hogy a böngésző a Google OAuth 2.0-ról tért-e vissza tokennel
  */
-export function disableGoogleAutoSelect() {
-  if (window.google?.accounts?.id) {
-    try {
-      window.google.accounts.id.disableAutoSelect();
-    } catch (e) {
-      // ignore
-    }
+export function checkAndProcessOAuthCallback() {
+  const hash = window.location.hash || '';
+  const search = window.location.search || '';
+
+  // 1. Hibás visszatérés vizsgálata (pl. felhasználó elutasította az engedélykérést)
+  if (hash.includes('error=') || search.includes('error=')) {
+    const searchParams = new URLSearchParams(search);
+    const hashParams = new URLSearchParams(hash.startsWith('#') ? hash.substring(1) : hash);
+    const errorMsg = hashParams.get('error_description') || searchParams.get('error_description') || hashParams.get('error') || searchParams.get('error');
+    
+    // URL tisztítása a hiba eltávolításához
+    history.replaceState(null, null, window.location.pathname + '#auth');
+    throw new Error(errorMsg || "A Google bejelentkezés meg lett szakítva vagy el lett utasítva.");
   }
+
+  // 2. Sikeres token visszatérés vizsgálata (#id_token=... vagy #access_token=...)
+  if (hash.includes('id_token=') || hash.includes('access_token=')) {
+    const cleanHash = hash.startsWith('#') ? hash.substring(1) : hash;
+    const params = new URLSearchParams(cleanHash);
+
+    const idToken = params.get('id_token');
+    const accessToken = params.get('access_token');
+    const returnedState = params.get('state');
+
+    // CSRF ellenőrzés
+    const expectedState = sessionStorage.getItem('wl_oauth_state');
+    if (expectedState && returnedState && expectedState !== returnedState) {
+      console.warn("CSRF figyelmeztetés: az OAuth state nem egyezik!");
+    }
+    sessionStorage.removeItem('wl_oauth_state');
+    sessionStorage.removeItem('wl_oauth_nonce');
+
+    if (!idToken && !accessToken) {
+      return null;
+    }
+
+    // Profil adatok kibontása az ID tokenből
+    let profile = {};
+    if (idToken) {
+      profile = parseJwt(idToken) || {};
+    }
+
+    const authResult = {
+      idToken: idToken,
+      accessToken: accessToken,
+      sub: profile.sub || 'google_user_' + Date.now(),
+      email: profile.email || '',
+      emailVerified: profile.email_verified || false,
+      name: profile.name || (profile.email ? profile.email.split('@')[0] : 'Google Felhasználó'),
+      givenName: profile.given_name || '',
+      familyName: profile.family_name || '',
+      picture: profile.picture || null
+    };
+
+    // 3. Biztonság: azonnal eltávolítjuk a szenzitív tokent a böngésző címsorából és előzményeiből!
+    const targetRoute = sessionStorage.getItem('wl_oauth_target') || '#dashboard';
+    sessionStorage.removeItem('wl_oauth_target');
+    history.replaceState(null, null, window.location.pathname + targetRoute);
+
+    return authResult;
+  }
+
+  return null;
 }

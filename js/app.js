@@ -9,6 +9,7 @@ import {
   loginAsGuest, 
   loginWithGoogleCredential,
   loginWithGooglePopup,
+  startFirebaseGoogleRedirect,
   logout, 
   getCurrentUser, 
   onAuthStateChangedCustom,
@@ -29,7 +30,12 @@ import {
   setupRealtimeCloudListener
 } from './storage.js';
 
-import { initGoogleIdentityServices } from './googleAuth.js';
+import { 
+  hasValidGoogleClientId,
+  startGoogleRedirectAuth,
+  checkAndProcessOAuthCallback,
+  getGoogleClientId
+} from './googleAuth.js';
 
 import { 
   parseExcelFile, 
@@ -280,23 +286,19 @@ document.addEventListener('DOMContentLoaded', async () => {
   const authStatus = await initAuth();
   updateFirebaseStatusUI(authStatus.isFirebase);
 
-  // Google Identity Services (GIS - One Tap és Hivatalos Sign-In gomb) inicializálása
-  initGoogleIdentityServices({
-    buttonContainer: dom.googleBtnContainer,
-    enableOneTap: true,
-    onSuccess: async (authResult) => {
-      try {
-        showToast("Sikeres Google azonosítás! Szótárak betöltése...", "info");
-        await loginWithGoogleCredential(authResult.credential, authResult);
-        navigateTo('#dashboard');
-      } catch (err) {
-        showAuthError(err.message || "Hiba a Google bejelentkezés során.");
-      }
-    },
-    onError: (err) => {
-      console.warn("Google Identity Services hiba:", err);
+  // Google OAuth 2.0 Átirányításos visszatérés (Redirect Callback) ellenőrzése
+  try {
+    const oAuthResult = checkAndProcessOAuthCallback();
+    if (oAuthResult) {
+      showToast("Google fiók sikeresen azonosítva! Bejelentkezés...", "info");
+      await loginWithGoogleCredential(oAuthResult.idToken, oAuthResult);
+      navigateTo('#dashboard');
     }
-  });
+  } catch (oauthErr) {
+    console.error("Google OAuth callback hiba:", oauthErr);
+    showAuthError(oauthErr.message || "A Google bejelentkezés nem sikerült.");
+    showToast(oauthErr.message || "A Google bejelentkezés nem sikerült.", "error");
+  }
 
   // Hash-alapú router figyelése
   window.addEventListener('hashchange', handleRouting);
@@ -767,44 +769,54 @@ function setupEventListeners() {
     navigateTo('#dashboard');
   });
 
-  // Google Sign-In gomb
+  // Google Sign-In gomb (100%-ban megbízható Átirányításos / Redirect Flow)
   if (dom.btnGoogleSignin) {
     dom.btnGoogleSignin.addEventListener('click', async () => {
       hideAuthError();
-      try {
-        dom.btnGoogleSignin.disabled = true;
-        if (dom.btnGoogleText) dom.btnGoogleText.textContent = "Kapcsolódás a Google-hoz...";
 
-        // 1. Ha a Firebase aktív vagy be van állítva, megpróbáljuk a hivatalos popup ablakot
-        const isFb = isFirebaseActive();
-        const fbConfig = getSavedFirebaseConfig();
-        if (isFb || (fbConfig && fbConfig.apiKey)) {
-          try {
-            await loginWithGooglePopup();
-            navigateTo('#dashboard');
-            return;
-          } catch (popupErr) {
-            console.warn("Firebase popup kísérlet:", popupErr);
-            if (popupErr.message && (popupErr.message.includes('bezárva') || popupErr.message.includes('megszakadt'))) {
-              throw popupErr;
-            }
-          }
-        }
+      // 1. AZONNALI VIZUÁLIS VISSZAJELZÉS (Spinner & Letiltás)
+      dom.btnGoogleSignin.disabled = true;
+      const iconWrapper = document.getElementById('btn-google-icon-wrapper');
+      const originalIconHtml = iconWrapper ? iconWrapper.innerHTML : '';
+      if (iconWrapper) {
+        iconWrapper.innerHTML = '<i data-lucide="loader-2" class="w-5 h-5 animate-spin text-brand-600 dark:text-brand-400"></i>';
+        refreshIcons();
+      }
+      if (dom.btnGoogleText) {
+        dom.btnGoogleText.textContent = "Átirányítás folyamatban...";
+      }
 
-        // 2. Ha a Google GIS beágyazott gomb kész, közvetlenül aktiváljuk
-        const renderedBtn = dom.googleBtnContainer?.querySelector('div[role="button"]') || dom.googleBtnContainer?.querySelector('iframe');
-        if (renderedBtn) {
-          renderedBtn.click();
-        } else if (window.google?.accounts?.id) {
-          window.google.accounts.id.prompt();
-        } else {
-          showAuthError("A Google bejelentkezési szolgáltatás nem érhető el. Kérjük, engedélyezze a harmadik féltől származó sütiket, vagy lépjen be email címmel!");
-        }
-      } catch (err) {
-        showAuthError(err.message || "A Google bejelentkezés megszakadt.");
-      } finally {
+      // 2. KÖRNYEZETI VÁLTOZÓK ÉS CLIENT ID KONFIGURÁCIÓ ELLENŐRZÉSE
+      if (!hasValidGoogleClientId()) {
+        const missingMsg = "Google Client ID nincs beállítva az alkalmazásban!";
+        showToast(missingMsg, "error");
+        showAuthError(missingMsg + " Kérjük, adja meg a Google Client ID-t a beállításokban vagy a környezeti változókban.");
+
+        // Vizuális állapot visszaállítása
         dom.btnGoogleSignin.disabled = false;
+        if (iconWrapper) iconWrapper.innerHTML = originalIconHtml;
         if (dom.btnGoogleText) dom.btnGoogleText.textContent = "Folytatás Google-fiókkal";
+        refreshIcons();
+        return;
+      }
+
+      // 3. KÖZVETLEN ÁTIRÁNYÍTÁS (Redirect-based OAuth2 Flow)
+      try {
+        // Ha Firebase Auth aktív, megkíséreljük a Firebase Redirect-et
+        if (isFirebaseActive()) {
+          const started = await startFirebaseGoogleRedirect();
+          if (started) return;
+        }
+
+        // Standard Google OAuth 2.0 átirányítás
+        startGoogleRedirectAuth();
+      } catch (err) {
+        showToast(err.message || "Hiba az átirányítás indításakor!", "error");
+        showAuthError(err.message || "Hiba az átirányítás indításakor!");
+        dom.btnGoogleSignin.disabled = false;
+        if (iconWrapper) iconWrapper.innerHTML = originalIconHtml;
+        if (dom.btnGoogleText) dom.btnGoogleText.textContent = "Folytatás Google-fiókkal";
+        refreshIcons();
       }
     });
   }

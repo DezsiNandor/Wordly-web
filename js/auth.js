@@ -3,7 +3,7 @@
  */
 
 import { getSavedFirebaseConfig } from './firebaseConfig.js';
-import { parseJwt, disableGoogleAutoSelect } from './googleAuth.js';
+import { parseJwt } from './googleAuth.js';
 
 let firebaseApp = null;
 let firebaseAuth = null;
@@ -23,12 +23,31 @@ export async function initAuth() {
   if (config && config.apiKey && config.projectId) {
     try {
       const { initializeApp } = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js');
-      const { getAuth, onAuthStateChanged } = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js');
+      const { getAuth, onAuthStateChanged, getRedirectResult } = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js');
       const { getFirestore } = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js');
 
       firebaseApp = initializeApp(config);
       firebaseAuth = getAuth(firebaseApp);
       firebaseFirestore = getFirestore(firebaseApp);
+
+      // Firebase Redirect eredmény ellenőrzése visszatéréskor
+      try {
+        const redirectRes = await getRedirectResult(firebaseAuth);
+        if (redirectRes && redirectRes.user) {
+          currentUser = {
+            uid: redirectRes.user.uid,
+            email: redirectRes.user.email,
+            displayName: redirectRes.user.displayName || (redirectRes.user.email ? redirectRes.user.email.split('@')[0] : 'Google Felhasználó'),
+            photoURL: redirectRes.user.photoURL || null,
+            isFirebase: true,
+            isGuest: false,
+            isGoogle: true
+          };
+          localStorage.setItem(LOCAL_SESSION_KEY, JSON.stringify(currentUser));
+        }
+      } catch (redirErr) {
+        console.warn("Firebase redirect hiba:", redirErr);
+      }
 
       onAuthStateChanged(firebaseAuth, (user) => {
         if (user) {
@@ -306,6 +325,21 @@ export async function loginWithGooglePopup() {
 }
 
 /**
+ * Firebase Google Redirect indítása
+ */
+export async function startFirebaseGoogleRedirect() {
+  if (firebaseAuth) {
+    const { GoogleAuthProvider, signInWithRedirect } = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js');
+    const provider = new GoogleAuthProvider();
+    provider.addScope('email');
+    provider.addScope('profile');
+    await signInWithRedirect(firebaseAuth, provider);
+    return true;
+  }
+  return false;
+}
+
+/**
  * Kijelentkezés
  */
 export async function logout() {
@@ -317,7 +351,6 @@ export async function logout() {
       console.warn("Hiba a Firebase kijelentkezéskor:", e);
     }
   }
-  disableGoogleAutoSelect();
   currentUser = null;
   localStorage.removeItem(LOCAL_SESSION_KEY);
   notifyListeners();
