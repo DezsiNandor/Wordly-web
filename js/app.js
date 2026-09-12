@@ -42,6 +42,12 @@ import {
 } from './firebaseConfig.js';
 
 import { initPWA } from './pwa.js';
+import { 
+  connectOneDriveList, 
+  syncOneDriveList, 
+  linkExistingListToOneDrive, 
+  checkAllOneDriveListsOnStartup 
+} from './oneDrive.js';
 
 // Alkalmazás állapot
 let activeUser = null;
@@ -221,7 +227,25 @@ const dom = {
   btnConfirmDelete: document.getElementById('btn-confirm-delete'),
   appToast: document.getElementById('app-toast'),
   appToastMessage: document.getElementById('app-toast-message'),
-  appToastIcon: document.getElementById('app-toast-icon')
+  appToastIcon: document.getElementById('app-toast-icon'),
+
+  // OneDrive Modal & Badges
+  btnOpenOneDriveModal: document.getElementById('btn-open-onedrive-modal'),
+  modalOneDriveConnect: document.getElementById('modal-onedrive-connect'),
+  btnCloseOneDriveModal: document.getElementById('btn-close-onedrive-modal'),
+  btnCancelOneDrive: document.getElementById('btn-cancel-onedrive'),
+  formOneDriveConnect: document.getElementById('form-onedrive-connect'),
+  oneDriveLinkInput: document.getElementById('onedrive-link-input'),
+  oneDriveCustomName: document.getElementById('onedrive-custom-name'),
+  oneDriveTargetListId: document.getElementById('onedrive-target-list-id'),
+  oneDriveNameGroup: document.getElementById('onedrive-name-group'),
+  btnSubmitOneDrive: document.getElementById('btn-submit-onedrive'),
+  iconOneDriveSubmit: document.getElementById('icon-onedrive-submit'),
+  textOneDriveSubmit: document.getElementById('text-onedrive-submit'),
+  oneDriveModalAlert: document.getElementById('onedrive-modal-alert'),
+  oneDriveAlertIcon: document.getElementById('onedrive-alert-icon'),
+  oneDriveAlertMessage: document.getElementById('onedrive-alert-message'),
+  practiceNewWordBadge: document.getElementById('practice-new-word-badge')
 };
 
 // ==========================================
@@ -264,10 +288,23 @@ document.addEventListener('DOMContentLoaded', async () => {
         handleRouting();
       }
       await renderDashboard();
+
+      // OneDrive háttérbeli szinkronizáció indításkor a kapcsolt listákhoz
+      checkAllOneDriveListsOnStartup(async (syncResult) => {
+        await renderDashboard();
+        showToast(`OneDrive: ${syncResult.newWordsCount} új szó szinkronizálva!`, 'info');
+      });
     } else {
       handleRouting();
     }
     refreshIcons();
+  });
+
+  // Globális eseményfigyelő külső szinkronizációhoz
+  window.addEventListener('onedrive-synced', async () => {
+    if (!dom.viewDashboard.classList.contains('hidden')) {
+      await renderDashboard();
+    }
   });
 });
 
@@ -943,6 +980,25 @@ function setupEventListeners() {
       );
     });
   }
+
+  // OneDrive Szinkronizációs Modál eseménykezelői
+  if (dom.btnOpenOneDriveModal) {
+    dom.btnOpenOneDriveModal.addEventListener('click', () => openOneDriveModal());
+  }
+  if (dom.btnCloseOneDriveModal) {
+    dom.btnCloseOneDriveModal.addEventListener('click', closeOneDriveModal);
+  }
+  if (dom.btnCancelOneDrive) {
+    dom.btnCancelOneDrive.addEventListener('click', closeOneDriveModal);
+  }
+  if (dom.modalOneDriveConnect) {
+    dom.modalOneDriveConnect.addEventListener('click', (e) => {
+      if (e.target === dom.modalOneDriveConnect) closeOneDriveModal();
+    });
+  }
+  if (dom.formOneDriveConnect) {
+    dom.formOneDriveConnect.addEventListener('submit', handleOneDriveSubmit);
+  }
 }
 
 let toastTimeout = null;
@@ -1077,6 +1133,10 @@ async function renderDashboard() {
       return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium border ${badgeClass}" title="${escapeHtml(s.name)}">${icon} ${escapeHtml(s.name)}</span>`;
     }).join('');
 
+    const hasOneDrive = Boolean(list.oneDriveUrl);
+    const hasNewWords = (list.words || []).some(w => w.isNew === true);
+    const newWordsCount = (list.words || []).filter(w => w.isNew === true).length;
+
     card.innerHTML = `
       <div>
         <div class="flex items-start justify-between gap-2 mb-3">
@@ -1094,6 +1154,15 @@ async function renderDashboard() {
 
           <!-- Kártya menü gombok -->
           <div class="flex items-center gap-1">
+            ${hasOneDrive ? `
+            <button class="btn-sync-onedrive p-2 min-w-[44px] min-h-[44px] inline-flex items-center justify-center text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 rounded-xl hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors" title="OneDrive azonnali frissítés">
+              <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+            </button>
+            ` : `
+            <button class="btn-link-onedrive p-2 min-w-[44px] min-h-[44px] inline-flex items-center justify-center text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" title="Összekapcsolás OneDrive fájllal">
+              <i data-lucide="cloud" class="w-4 h-4"></i>
+            </button>
+            `}
             <button class="btn-rename-list p-2 min-w-[44px] min-h-[44px] inline-flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" title="Átnevezés">
               <i data-lucide="pencil" class="w-4 h-4"></i>
             </button>
@@ -1106,7 +1175,19 @@ async function renderDashboard() {
         <!-- Munkalapok előnézete & haladás -->
         <div class="my-3 space-y-2">
           <div class="flex items-center justify-between text-xs">
-            <span class="text-slate-500 dark:text-slate-400 font-medium">${wordCount} szó &bull; ${sheetsCount} munkalap</span>
+            <div class="flex items-center gap-1.5 flex-wrap">
+              <span class="text-slate-500 dark:text-slate-400 font-medium">${wordCount} szó &bull; ${sheetsCount} munkalap</span>
+              ${hasOneDrive ? `
+              <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-semibold bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800" title="OneDrive felhővel szinkronizálva">
+                <i data-lucide="cloud" class="w-3 h-3"></i> OneDrive
+              </span>
+              ` : ''}
+              ${hasNewWords ? `
+              <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-amber-100 dark:bg-amber-950/70 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-700/60 animate-pulse" title="${newWordsCount} új szó gyakorlási prioritásban">
+                ✨ ${newWordsCount} új szó
+              </span>
+              ` : ''}
+            </div>
             <span class="text-brand-600 dark:text-brand-400 font-semibold">${masteredCount}/${sheetsCount} elsajátítva ⭐</span>
           </div>
 
@@ -1146,6 +1227,40 @@ async function renderDashboard() {
     `;
 
     // Eseménykezelők kártyán belül
+    if (hasOneDrive) {
+      const syncBtn = card.querySelector('.btn-sync-onedrive');
+      if (syncBtn) {
+        syncBtn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          const icon = syncBtn.querySelector('i');
+          if (icon) icon.classList.add('animate-spin');
+          syncBtn.disabled = true;
+          try {
+            const res = await syncOneDriveList(list.id, { force: true });
+            if (res.success) {
+              await renderDashboard();
+              showToast(res.message || 'A lista sikeresen szinkronizálva!', 'success');
+            } else {
+              showToast(res.message || 'Nem sikerült a szinkronizáció.', 'danger');
+            }
+          } catch (err) {
+            showToast('Hiba a szinkronizálás során: ' + err.message, 'danger');
+          } finally {
+            syncBtn.disabled = false;
+            if (icon) icon.classList.remove('animate-spin');
+          }
+        });
+      }
+    } else {
+      const linkBtn = card.querySelector('.btn-link-onedrive');
+      if (linkBtn) {
+        linkBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          openOneDriveModal(list.id);
+        });
+      }
+    }
+
     card.querySelector('.btn-start-practice').addEventListener('click', () => {
       startPractice(list.id);
     });
@@ -1244,6 +1359,113 @@ async function handleSelectedExcelFile(file) {
     refreshIcons();
   } catch (err) {
     alert("Nem sikerült feldolgozni a fájlt:\n" + err.message);
+  }
+}
+
+// ==========================================
+// 5.2. ONEDRIVE EXCEL SZINKRONIZÁCIÓ KEZELÉSE
+// ==========================================
+
+function openOneDriveModal(listId = null, defaultUrl = '') {
+  if (!dom.modalOneDriveConnect) return;
+  hideOneDriveAlert();
+
+  if (listId) {
+    dom.oneDriveTargetListId.value = listId;
+    if (dom.oneDriveNameGroup) dom.oneDriveNameGroup.classList.add('hidden');
+    const modalTitle = document.getElementById('onedrive-modal-title');
+    if (modalTitle) modalTitle.textContent = 'OneDrive Szinkronizálás';
+    if (dom.textOneDriveSubmit) dom.textOneDriveSubmit.textContent = 'Szinkronizálás';
+    if (dom.oneDriveLinkInput) dom.oneDriveLinkInput.value = defaultUrl || '';
+  } else {
+    dom.oneDriveTargetListId.value = '';
+    if (dom.oneDriveNameGroup) dom.oneDriveNameGroup.classList.remove('hidden');
+    const modalTitle = document.getElementById('onedrive-modal-title');
+    if (modalTitle) modalTitle.textContent = 'Microsoft OneDrive Szinkron';
+    if (dom.textOneDriveSubmit) dom.textOneDriveSubmit.textContent = 'Csatlakozás és Szinkronizáció';
+    if (dom.oneDriveLinkInput) dom.oneDriveLinkInput.value = defaultUrl || '';
+    if (dom.oneDriveCustomName) dom.oneDriveCustomName.value = '';
+  }
+
+  dom.modalOneDriveConnect.classList.remove('hidden');
+  dom.modalOneDriveConnect.classList.add('flex');
+  setTimeout(() => dom.oneDriveLinkInput?.focus(), 50);
+  refreshIcons();
+}
+
+function closeOneDriveModal() {
+  if (!dom.modalOneDriveConnect) return;
+  dom.modalOneDriveConnect.classList.add('hidden');
+  dom.modalOneDriveConnect.classList.remove('flex');
+  hideOneDriveAlert();
+}
+
+function showOneDriveAlert(message, type = 'error') {
+  if (!dom.oneDriveModalAlert) return;
+  dom.oneDriveModalAlert.className = type === 'error'
+    ? 'p-3 rounded-xl text-xs flex items-center gap-2 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 text-rose-700 dark:text-rose-300'
+    : 'p-3 rounded-xl text-xs flex items-center gap-2 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900/60 text-emerald-700 dark:text-emerald-300';
+  if (dom.oneDriveAlertIcon) {
+    dom.oneDriveAlertIcon.innerHTML = type === 'error'
+      ? '<i data-lucide="alert-circle" class="w-4 h-4 text-rose-500 shrink-0"></i>'
+      : '<i data-lucide="check-circle" class="w-4 h-4 text-emerald-500 shrink-0"></i>';
+  }
+  if (dom.oneDriveAlertMessage) {
+    dom.oneDriveAlertMessage.textContent = message;
+  }
+  dom.oneDriveModalAlert.classList.remove('hidden');
+  refreshIcons();
+}
+
+function hideOneDriveAlert() {
+  if (dom.oneDriveModalAlert) {
+    dom.oneDriveModalAlert.classList.add('hidden');
+  }
+}
+
+async function handleOneDriveSubmit(e) {
+  e.preventDefault();
+  const url = dom.oneDriveLinkInput ? dom.oneDriveLinkInput.value.trim() : '';
+  const targetListId = dom.oneDriveTargetListId ? dom.oneDriveTargetListId.value : '';
+  const customName = dom.oneDriveCustomName ? dom.oneDriveCustomName.value.trim() : null;
+
+  if (!url) {
+    showOneDriveAlert("Kérlek, adj meg egy érvényes OneDrive hivatkozást!", "error");
+    return;
+  }
+
+  // Gomb állapotának frissítése (loading)
+  if (dom.btnSubmitOneDrive) dom.btnSubmitOneDrive.disabled = true;
+  if (dom.iconOneDriveSubmit) dom.iconOneDriveSubmit.classList.add('animate-spin');
+  if (dom.textOneDriveSubmit) dom.textOneDriveSubmit.textContent = 'Szinkronizálás folyamatban...';
+
+  try {
+    if (targetListId) {
+      // Meglévő lista összekapcsolása / frissítése
+      const result = await linkExistingListToOneDrive(targetListId, url);
+      if (result.success) {
+        closeOneDriveModal();
+        await renderDashboard();
+        showToast(result.message || 'A szólista sikeresen szinkronizálva!', 'success');
+      } else {
+        showOneDriveAlert(result.message || 'Hiba történt a szinkronizálás során.', 'error');
+      }
+    } else {
+      // Új lista csatlakoztatása OneDrive-ról
+      const newList = await connectOneDriveList(url, customName);
+      closeOneDriveModal();
+      await renderDashboard();
+      showToast(`A(z) "${newList.name}" sikeresen importálva a OneDrive-ról! (${newList.wordCount} szó)`, 'success');
+    }
+  } catch (err) {
+    console.error("OneDrive szinkron hiba:", err);
+    showOneDriveAlert(err.message || 'Nem sikerült letölteni vagy feldolgozni a OneDrive fájlt.', 'error');
+  } finally {
+    if (dom.btnSubmitOneDrive) dom.btnSubmitOneDrive.disabled = false;
+    if (dom.iconOneDriveSubmit) dom.iconOneDriveSubmit.classList.remove('animate-spin');
+    if (dom.textOneDriveSubmit) {
+      dom.textOneDriveSubmit.textContent = targetListId ? 'Szinkronizálás' : 'Csatlakozás és Szinkronizáció';
+    }
   }
 }
 
@@ -1555,6 +1777,15 @@ function renderCurrentQuizWord() {
   const promptText = isReversePractice ? word.hungarian : word.english;
   dom.practicePromptWord.textContent = promptText;
 
+  // Új szó jelvény megjelenítése ha kiemelt prioritású új szó
+  if (dom.practiceNewWordBadge) {
+    if (word.isNew === true) {
+      dom.practiceNewWordBadge.classList.remove('hidden');
+    } else {
+      dom.practiceNewWordBadge.classList.add('hidden');
+    }
+  }
+
   updatePracticeStatsUI();
 
   dom.practiceAnswerInput.value = '';
@@ -1570,6 +1801,7 @@ function resetQuizCardState() {
   dom.quizCard.className = 'quiz-card bg-white dark:bg-slate-900 rounded-3xl border-2 border-slate-200 dark:border-slate-800 p-6 sm:p-12 shadow-xl shadow-slate-200/40 dark:shadow-none text-center relative overflow-hidden transition-all duration-300';
   dom.practiceFeedbackContainer.classList.add('hidden');
   dom.practiceFeedbackContainer.innerHTML = '';
+  if (dom.practiceNewWordBadge) dom.practiceNewWordBadge.classList.add('hidden');
   dom.practiceBtnText.textContent = 'Ellenőrzés';
   dom.btnPracticeSubmit.className = 'w-full min-h-[50px] py-3.5 px-6 rounded-2xl bg-brand-600 hover:bg-brand-700 text-white font-bold text-base shadow-lg shadow-brand-500/25 active:scale-[0.98] transition-all flex items-center justify-center gap-2';
 }
@@ -1605,6 +1837,11 @@ async function handlePracticeAction() {
 
   if (result.isCorrect) {
     // === HELYES VÁLASZ ===
+    if (result.learnedNewWord) {
+      showToast(`✨ Új szó sikeresen elsajátítva: "${result.promptWord}"!`, 'success');
+      if (dom.practiceNewWordBadge) dom.practiceNewWordBadge.classList.add('hidden');
+    }
+
     dom.quizCard.classList.remove('border-slate-200', 'dark:border-slate-800');
     dom.quizCard.classList.add('border-emerald-500', 'dark:border-emerald-500', 'animate-bounce-success');
 

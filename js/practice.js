@@ -66,6 +66,37 @@ export function levenshteinDistance(s1, s2) {
   return prev[n];
 }
 
+/**
+ * Tömb véletlenszerű összekeverése (Fisher-Yates)
+ */
+export function shuffleArray(arr) {
+  const array = [...arr];
+  for (let i = array.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [array[i], array[j]] = [array[j], array[i]];
+  }
+  return array;
+}
+
+/**
+ * Szavak prioritás szerinti csoportosítása és rendezése:
+ * 1. Újonnan érkezett / hozzáadott szavak (isNew === true) - egymás közt keverve
+ * 2. Korábban elrontott / gyenge szavak (!isNew && timesPracticed > timesCorrect) - egymás közt keverve
+ * 3. Normál / már rögzült szavak - egymás közt keverve
+ */
+export function generatePrioritizedRoundWords(words) {
+  if (!Array.isArray(words) || words.length === 0) return [];
+  const newWords = words.filter(w => w.isNew === true);
+  const failedWords = words.filter(w => !w.isNew && (w.timesPracticed || 0) > (w.timesCorrect || 0));
+  const normalWords = words.filter(w => !w.isNew && (w.timesPracticed || 0) <= (w.timesCorrect || 0));
+
+  return [
+    ...shuffleArray(newWords),
+    ...shuffleArray(failedWords),
+    ...shuffleArray(normalWords)
+  ];
+}
+
 export class PracticeSession {
   constructor(list, options = {}) {
     this.list = list;
@@ -104,8 +135,8 @@ export class PracticeSession {
       this.modeTitle = list.name;
     }
 
-    // Kör előkészítése: a szavak véletlenszerű összekeverése
-    this.roundWords = this.shuffleArray([...this.words]);
+    // Kör előkészítése: prioritás szerinti rendezés (új szavak elöl, rontottak másodikként, többi utána)
+    this.roundWords = generatePrioritizedRoundWords(this.words);
     this.roundTotal = this.roundWords.length;
     this.currentIndex = 0;
 
@@ -128,12 +159,7 @@ export class PracticeSession {
   }
 
   shuffleArray(arr) {
-    const array = [...arr];
-    for (let i = array.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [array[i], array[j]] = [array[j], array[i]];
-    }
-    return array;
+    return shuffleArray(arr);
   }
 
   initSpeech() {
@@ -225,6 +251,7 @@ export class PracticeSession {
     const isCorrect = matchResult.isCorrect;
     const hasTypo = matchResult.hasTypo;
 
+    const wasNew = Boolean(this.currentWord.isNew);
     this.stats.totalAnswered++;
 
     if (isCorrect) {
@@ -233,6 +260,9 @@ export class PracticeSession {
       this.stats.streak++;
       if (this.stats.streak > this.stats.bestStreak) {
         this.stats.bestStreak = this.stats.streak;
+      }
+      if (wasNew) {
+        this.currentWord.isNew = false;
       }
     } else {
       this.state = 'INCORRECT';
@@ -251,6 +281,7 @@ export class PracticeSession {
     return {
       isCorrect,
       hasTypo,
+      learnedNewWord: isCorrect && wasNew,
       matchedCandidate: matchResult.matchedCandidate,
       userAnswer: this.lastUserInput,
       correctAnswer: targetString,

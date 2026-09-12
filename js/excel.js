@@ -3,108 +3,116 @@
  */
 
 /**
+ * Excel bináris tartalom (ArrayBuffer vagy Uint8Array) feldolgozása
+ */
+export function parseExcelBuffer(arrayBuffer, defaultName = "Új szószedet", fileName = "") {
+  if (!window.XLSX) {
+    throw new Error("A SheetJS (XLSX) könyvtár még nem töltődött be. Ellenőrizze az internetkapcsolatot!");
+  }
+
+  const data = new Uint8Array(arrayBuffer);
+  const workbook = window.XLSX.read(data, { type: 'array' });
+
+  if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
+    throw new Error("Az Excel fájl nem tartalmaz munkalapot!");
+  }
+
+  const sheets = [];
+  const allWords = [];
+  let globalWordCounter = 0;
+
+  workbook.SheetNames.forEach((sheetName, sheetIndex) => {
+    const worksheet = workbook.Sheets[sheetName];
+    if (!worksheet) return;
+
+    // Munkalap átalakítása 2 dimenziós tömbbé
+    const rows = window.XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: false, defval: '' });
+    if (!rows || rows.length === 0) return;
+
+    let startIndex = 0;
+    // Fejléc felismerési logika
+    if (rows.length > 0) {
+      const firstRowCol1 = String(rows[0][0] || '').trim().toLowerCase();
+      const firstRowCol2 = String(rows[0][1] || '').trim().toLowerCase();
+
+      const commonHeadersCol1 = ['english', 'angol', 'word', 'szó', 'kifejezés', 'phrase', 'en'];
+      const commonHeadersCol2 = ['hungarian', 'magyar', 'jelentés', 'meaning', 'fordítás', 'hu'];
+
+      if (commonHeadersCol1.some(h => firstRowCol1.includes(h)) || 
+          commonHeadersCol2.some(h => firstRowCol2.includes(h))) {
+        startIndex = 1; // Átugorjuk a fejlécet
+      }
+    }
+
+    const sheetWords = [];
+    for (let i = startIndex; i < rows.length; i++) {
+      const row = rows[i];
+      if (!row || row.length === 0) continue;
+
+      const col1 = String(row[0] || '').trim();
+      const col2 = String(row[1] || '').trim();
+
+      // Csak akkor adjuk hozzá, ha mindkét oszlopban van tartalom
+      if (col1 && col2) {
+        globalWordCounter++;
+        const wordObj = {
+          id: `w_${sheetIndex}_${i}_${Date.now()}_${globalWordCounter}`,
+          english: col1,
+          hungarian: col2,
+          timesPracticed: 0,
+          timesCorrect: 0
+        };
+        sheetWords.push(wordObj);
+        allWords.push(wordObj);
+      }
+    }
+
+    if (sheetWords.length > 0) {
+      sheets.push({
+        id: `sheet_${sheetIndex}_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+        name: sheetName || `Munkalap ${sheetIndex + 1}`,
+        order: sheets.length,
+        isUnlocked: sheets.length === 0, // Első munkalap alapértelmezetten fel van oldva
+        consecutivePerfectScores: 0,
+        timesPracticed: 0,
+        timesPassed: 0,
+        totalCorrect: 0,
+        totalIncorrect: 0,
+        words: sheetWords
+      });
+    }
+  });
+
+  if (sheets.length === 0 || allWords.length === 0) {
+    throw new Error("Nem sikerült érvényes szópárokat kinyerni az Excel fájlból! Ellenőrizze, hogy az 1. oszlopban az angol szó, a 2. oszlopban a magyar jelentés található-e.");
+  }
+
+  let cleanName = defaultName.trim();
+  if (!cleanName) cleanName = "Új szószedet";
+
+  return {
+    fileName: fileName || (cleanName + ".xlsx"),
+    listName: cleanName,
+    wordCount: allWords.length,
+    words: allWords,
+    sheets: sheets,
+    preview: allWords.slice(0, 6)
+  };
+}
+
+/**
  * Excel fájl (.xlsx, .xls) beolvasása és szavak kinyerése
  * 1. oszlop = Angol kifejezés, 2. oszlop = Magyar jelentés
  */
 export async function parseExcelFile(file) {
   return new Promise((resolve, reject) => {
-    if (!window.XLSX) {
-      return reject(new Error("A SheetJS (XLSX) könyvtár még nem töltődött be. Ellenőrizze az internetkapcsolatot!"));
-    }
-
     const reader = new FileReader();
 
     reader.onload = (e) => {
       try {
-        const data = new Uint8Array(e.target.result);
-        const workbook = window.XLSX.read(data, { type: 'array' });
-
-        if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
-          throw new Error("Az Excel fájl nem tartalmaz munkalapot!");
-        }
-
-        const sheets = [];
-        const allWords = [];
-        let globalWordCounter = 0;
-
-        workbook.SheetNames.forEach((sheetName, sheetIndex) => {
-          const worksheet = workbook.Sheets[sheetName];
-          if (!worksheet) return;
-
-          // Munkalap átalakítása 2 dimenziós tömbbé
-          const rows = window.XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: false, defval: '' });
-          if (!rows || rows.length === 0) return;
-
-          let startIndex = 0;
-          // Fejléc felismerési logika
-          if (rows.length > 0) {
-            const firstRowCol1 = String(rows[0][0] || '').trim().toLowerCase();
-            const firstRowCol2 = String(rows[0][1] || '').trim().toLowerCase();
-
-            const commonHeadersCol1 = ['english', 'angol', 'word', 'szó', 'kifejezés', 'phrase', 'en'];
-            const commonHeadersCol2 = ['hungarian', 'magyar', 'jelentés', 'meaning', 'fordítás', 'hu'];
-
-            if (commonHeadersCol1.some(h => firstRowCol1.includes(h)) || 
-                commonHeadersCol2.some(h => firstRowCol2.includes(h))) {
-              startIndex = 1; // Átugorjuk a fejlécet
-            }
-          }
-
-          const sheetWords = [];
-          for (let i = startIndex; i < rows.length; i++) {
-            const row = rows[i];
-            if (!row || row.length === 0) continue;
-
-            const col1 = String(row[0] || '').trim();
-            const col2 = String(row[1] || '').trim();
-
-            // Csak akkor adjuk hozzá, ha mindkét oszlopban van tartalom
-            if (col1 && col2) {
-              globalWordCounter++;
-              const wordObj = {
-                id: `w_${sheetIndex}_${i}_${Date.now()}_${globalWordCounter}`,
-                english: col1,
-                hungarian: col2,
-                timesPracticed: 0,
-                timesCorrect: 0
-              };
-              sheetWords.push(wordObj);
-              allWords.push(wordObj);
-            }
-          }
-
-          if (sheetWords.length > 0) {
-            sheets.push({
-              id: `sheet_${sheetIndex}_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-              name: sheetName || `Munkalap ${sheetIndex + 1}`,
-              order: sheets.length,
-              isUnlocked: sheets.length === 0, // Első munkalap alapértelmezetten fel van oldva
-              consecutivePerfectScores: 0,
-              timesPracticed: 0,
-              timesPassed: 0,
-              totalCorrect: 0,
-              totalIncorrect: 0,
-              words: sheetWords
-            });
-          }
-        });
-
-        if (sheets.length === 0 || allWords.length === 0) {
-          throw new Error("Nem sikerült érvényes szópárokat kinyerni az Excel fájlból! Ellenőrizze, hogy az 1. oszlopban az angol szó, a 2. oszlopban a magyar jelentés található-e.");
-        }
-
-        // Fájlnévből lista alapértelmezett neve (kiterjesztés nélkül)
         let defaultName = file.name.replace(/\.[^/.]+$/, "");
-        if (!defaultName.trim()) defaultName = "Új szószedet";
-
-        resolve({
-          fileName: file.name,
-          listName: defaultName,
-          wordCount: allWords.length,
-          words: allWords,
-          sheets: sheets,
-          preview: allWords.slice(0, 6)
-        });
+        const result = parseExcelBuffer(e.target.result, defaultName, file.name);
+        resolve(result);
       } catch (err) {
         reject(err);
       }

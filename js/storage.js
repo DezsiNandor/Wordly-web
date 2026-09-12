@@ -441,6 +441,11 @@ export async function recordWordPractice(listId, wordId, isCorrect, sheetId = nu
       word.timesPracticed = (word.timesPracticed || 0) + 1;
       if (isCorrect) {
         word.timesCorrect = (word.timesCorrect || 0) + 1;
+        // Állapotváltás: ha a felhasználó egy új szót legalább egyszer helyesen megválaszol,
+        // lekerül róla az isNew jelölés
+        if (word.isNew) {
+          word.isNew = false;
+        }
       }
     }
   }
@@ -454,6 +459,9 @@ export async function recordWordPractice(listId, wordId, isCorrect, sheetId = nu
           sheetWord.timesPracticed = (sheetWord.timesPracticed || 0) + 1;
           if (isCorrect) {
             sheetWord.timesCorrect = (sheetWord.timesCorrect || 0) + 1;
+            if (sheetWord.isNew) {
+              sheetWord.isNew = false;
+            }
           }
         }
       }
@@ -518,8 +526,8 @@ export async function updateSheetProgress(listId, sheetId, sessionStats) {
 }
 
 
-// Belső segédfüggvény a teljes lista felülírására
-async function saveExistingList(listId, listData) {
+// Segédfüggvény a teljes lista felülírására
+export async function saveExistingList(listId, listData) {
   const user = getCurrentUser();
   if (!user) return false;
 
@@ -544,4 +552,138 @@ async function saveExistingList(listId, listData) {
     return true;
   }
   return false;
+}
+
+/**
+ * Meglévő szólista intelligens összefésülése új Excel adatokkal (pl. OneDrive szinkronizáció esetén):
+ * 1. Kulcsképzés: sheetName + "_" + foreignWord
+ * 2. Meglévő tanulási statisztikák (timesPracticed, timesCorrect, feloldott szintek, streak) megőrzése
+ * 3. Újonnan érkező szavak detektálása: isNew: true, addedAt: ISO dátum
+ * 4. Új munkalapok hozzáadása, meglévő munkalapok sorrendjének és státuszának megtartása
+ */
+export async function mergeListWithNewExcelData(existingList, parsedData, syncMeta = {}) {
+  if (!existingList || !parsedData) return null;
+
+  ensureListSheets(existingList);
+
+  // 1. Meglévő szavak indexelése egyedi kulcs alapján
+  // kulcs: (sheetName).toLowerCase().trim() + "_" + (foreignWord).toLowerCase().trim()
+  const existingWordsMap = new Map();
+  const existingSheetsMap = new Map();
+
+  (existingList.sheets || []).forEach(s => {
+    const sNameKey = (s.name || '').toLowerCase().trim();
+    existingSheetsMap.set(sNameKey, s);
+    (s.words || []).forEach(w => {
+      const wKey = sNameKey + '_' + (w.english || '').toLowerCase().trim();
+      existingWordsMap.set(wKey, w);
+    });
+  });
+
+  // Ha voltak olyan szavak a listában, amelyek nem voltak munkalapban
+  (existingList.words || []).forEach(w => {
+    const wKey = '_' + (w.english || '').toLowerCase().trim();
+    if (!existingWordsMap.has(wKey)) {
+      existingWordsMap.set(wKey, w);
+    }
+  });
+
+  let newWordsCount = 0;
+  let updatedWordsCount = 0;
+  const mergedSheets = [];
+  const mergedAllWords = [];
+
+  const nowIso = new Date().toISOString();
+
+  // 2. Új Excel munkalapjainak és szavainak bejárása
+  (parsedData.sheets || []).forEach((parsedSheet, sIdx) => {
+    const sNameKey = (parsedSheet.name || '').toLowerCase().trim();
+    const existingSheet = existingSheetsMap.get(sNameKey);
+
+    const mergedSheetWords = [];
+
+    (parsedSheet.words || []).forEach((pw, wIdx) => {
+      const wKey = sNameKey + '_' + (pw.english || '').toLowerCase().trim();
+      const existingWord = existingWordsMap.get(wKey) || existingWordsMap.get('_' + (pw.english || '').toLowerCase().trim());
+
+      if (existingWord) {
+        // Már létező szó: megőrizzük a tanulási statisztikákat
+        const isHungarianChanged = existingWord.hungarian !== pw.hungarian;
+        if (isHungarianChanged) updatedWordsCount++;
+
+        const mergedWord = {
+          ...existingWord,
+          english: pw.english,
+          hungarian: pw.hungarian, // frissítjük ha az Excelben módosult
+          timesPracticed: existingWord.timesPracticed || 0,
+          timesCorrect: existingWord.timesCorrect || 0,
+          isNew: existingWord.isNew === true, // megmarad ha még nem tanulta meg
+          addedAt: existingWord.addedAt || existingList.createdAt || nowIso
+        };
+        mergedSheetWords.push(mergedWord);
+        mergedAllWords.push(mergedWord);
+      } else {
+        // Új szó detektálva!
+        newWordsCount++;
+        const newWord = {
+          id: pw.id || `w_sync_${sIdx}_${wIdx}_${Date.now()}_${newWordsCount}`,
+          english: pw.english,
+          hungarian: pw.hungarian,
+          timesPracticed: 0,
+          timesCorrect: 0,
+          isNew: true, // Kiemelt gyakorlási prioritás
+          addedAt: nowIso
+        };
+        mergedSheetWords.push(newWord);
+        mergedAllWords.push(newWord);
+      }
+    });
+
+    if (existingSheet) {
+      // Meglévő munkalap: megőrizzük a haladást és a feloldási állapotot
+      mergedSheets.push({
+        ...existingSheet,
+        name: parsedSheet.name,
+        order: sIdx,
+        words: mergedSheetWords
+      });
+    } else {
+      // Teljesen új munkalap érkezett
+      mergedSheets.push({
+        id: parsedSheet.id || `sheet_${sIdx}_${Date.now()}`,
+        name: parsedSheet.name || `Munkalap ${sIdx + 1}`,
+        order: sIdx,
+        isUnlocked: sIdx === 0,
+        consecutivePerfectScores: 0,
+        timesPracticed: 0,
+        timesPassed: 0,
+        totalCorrect: 0,
+        totalIncorrect: 0,
+        words: mergedSheetWords
+      });
+    }
+  });
+
+  // 3. Lista tulajdonságok és szinkronizációs metaadatok frissítése
+  existingList.words = mergedAllWords;
+  existingList.sheets = mergedSheets;
+  existingList.wordCount = mergedAllWords.length;
+  existingList.updatedAt = nowIso;
+  existingList.lastSyncAt = nowIso;
+
+  if (syncMeta.oneDriveUrl) existingList.oneDriveUrl = syncMeta.oneDriveUrl;
+  if (syncMeta.eTag) existingList.oneDriveETag = syncMeta.eTag;
+  if (syncMeta.lastModified) existingList.oneDriveLastModified = syncMeta.lastModified;
+
+  // 4. Perzisztens mentés
+  await saveExistingList(existingList.id, existingList);
+
+  return {
+    updatedList: existingList,
+    newWordsCount,
+    updatedWordsCount,
+    totalWords: mergedAllWords.length,
+    sheetsCount: mergedSheets.length,
+    syncedAt: nowIso
+  };
 }
