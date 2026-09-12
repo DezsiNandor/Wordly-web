@@ -1,5 +1,5 @@
 # WL (Word Learning) - Könnyűsúlyú Beépített PowerShell HTTP Szerver
-$port = 3000
+$port = 3001
 $prefix = "http://localhost:$port/"
 $baseDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 
