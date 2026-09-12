@@ -294,6 +294,7 @@ function navigateTo(hash) {
 
 function handleRouting() {
   const hash = window.location.hash || '#landing';
+  updateActiveBottomNav(hash);
 
   // Sima anchor linkek a landing page-en belül (pl. #how-it-works, #features, #faq)
   if (hash === '#how-it-works' || hash === '#features' || hash === '#faq') {
@@ -307,6 +308,27 @@ function handleRouting() {
       const targetEl = document.querySelector(hash);
       if (targetEl) targetEl.scrollIntoView({ behavior: 'smooth' });
     }, 100);
+    return;
+  }
+
+  // Statisztika menüpont kezelése
+  if (hash === '#stats' || hash === '#statistics') {
+    if (!activeUser) {
+      dom.authProtectedNotice.classList.remove('hidden');
+      showView('auth');
+      return;
+    }
+    showView('dashboard');
+    setTimeout(() => {
+      const statsSection = document.getElementById('dashboard-metrics-summary');
+      if (statsSection) {
+        statsSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        statsSection.classList.add('ring-2', 'ring-brand-500', 'ring-offset-2');
+        setTimeout(() => {
+          statsSection.classList.remove('ring-2', 'ring-brand-500', 'ring-offset-2');
+        }, 2000);
+      }
+    }, 120);
     return;
   }
 
@@ -340,6 +362,21 @@ function handleRouting() {
 
   // Alapértelmezett: Landing Page
   showView('landing');
+}
+
+function updateActiveBottomNav(hash) {
+  const current = hash || window.location.hash || '#landing';
+  const navItems = document.querySelectorAll('#mobile-bottom-nav a.bottom-nav-item');
+  navItems.forEach(item => {
+    const href = item.getAttribute('href');
+    if (href && (href === current || (current === '' && href === '#landing'))) {
+      item.classList.remove('text-slate-600', 'dark:text-slate-400');
+      item.classList.add('text-brand-600', 'dark:text-brand-400');
+    } else if (href) {
+      item.classList.add('text-slate-600', 'dark:text-slate-400');
+      item.classList.remove('text-brand-600', 'dark:text-brand-400');
+    }
+  });
 }
 
 function showView(viewName) {

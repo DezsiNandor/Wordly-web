@@ -577,3 +577,132 @@ nav.md\:hidden a[href="#auth"] span {
   word-break: keep-all !important;
   overflow-wrap: normal !important;
 }
+
+/* ======================================================== */
+/* 7. PROGRESSIVE WEB APP (PWA / STANDALONE MÓD) OPTIMALIZÁLÁS */
+/* ======================================================== */
+
+/* Alapértelmezett (böngészős) mobilos alsó sáv: Statisztika rejtve, amíg nem PWA */
+#mobile-bottom-nav #bottom-nav-stats {
+  display: none;
+}
+
+/* Fejléc jobb gombtár: zökkenőmentes és automatikus illeszkedés hézag nélkül */
+.header-right-actions {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  gap: 8px;
+  flex-shrink: 0 !important;
+  transition: all 0.2s ease;
+}
+
+@media (max-width: 768px) {
+  .header-right-actions {
+    gap: 4px !important;
+  }
+}
+
+/* Ha a PWA telepítés/letöltés gomb eltűnik a fejlécből, a maradék gombok azonnal hézag nélkül a helyükre csúsznak */
+.btn-install-pwa.hidden,
+.pwa-standalone .btn-install-pwa {
+  display: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  width: 0 !important;
+  height: 0 !important;
+  border: none !important;
+}
+
+/* PWA / Telepített állapot mind CSS Media Query (@media display-mode: standalone), mind JS .pwa-standalone esetén */
+@media (display-mode: standalone) {
+  /* Fejléc notch és status bar felső margó iOS és Android eszközökön */
+  header {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+
+  /* Telepítés / Letöltés gombok automatikus eltüntetése */
+  .btn-install-pwa,
+  #modal-ios-install {
+    display: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 0 !important;
+    height: 0 !important;
+  }
+
+  /* Alsó navigációs sáv PWA módban: Telepítés és Fiók rejtve */
+  #mobile-bottom-nav #bottom-nav-install,
+  #mobile-bottom-nav .btn-install-pwa,
+  #mobile-bottom-nav #bottom-nav-account,
+  #mobile-bottom-nav .btn-account {
+    display: none !important;
+  }
+
+  /* Statisztika gomb bekapcsolása */
+  #mobile-bottom-nav #bottom-nav-stats {
+    display: flex !important;
+  }
+
+  /* Pontosan 3 menüpont: Kezdőlap, Szólisták, Statisztika - egyenletesen elosztva a kijelző alján */
+  #mobile-bottom-nav {
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr) !important;
+    justify-items: center !important;
+    align-items: center !important;
+    width: 100% !important;
+    padding: 4px 6px !important;
+  }
+
+  #mobile-bottom-nav .bottom-nav-item {
+    width: 100% !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    min-width: 0 !important;
+  }
+}
+
+/* JavaScript által detektált .pwa-standalone esetén is pontosan ugyanaz a viselkedés */
+.pwa-standalone header {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+.pwa-standalone .btn-install-pwa,
+.pwa-standalone #modal-ios-install {
+  display: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+.pwa-standalone #mobile-bottom-nav #bottom-nav-install,
+.pwa-standalone #mobile-bottom-nav .btn-install-pwa,
+.pwa-standalone #mobile-bottom-nav #bottom-nav-account,
+.pwa-standalone #mobile-bottom-nav .btn-account {
+  display: none !important;
+}
+
+.pwa-standalone #mobile-bottom-nav #bottom-nav-stats {
+  display: flex !important;
+}
+
+.pwa-standalone #mobile-bottom-nav {
+  display: grid !important;
+  grid-template-columns: repeat(3, 1fr) !important;
+  justify-items: center !important;
+  align-items: center !important;
+  width: 100% !important;
+  padding: 4px 6px !important;
+}
+
+.pwa-standalone #mobile-bottom-nav .bottom-nav-item {
+  width: 100% !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-width: 0 !important;
+}

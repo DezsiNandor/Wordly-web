@@ -4,10 +4,55 @@
 
 let deferredInstallPrompt = null;
 
+/**
+ * Standalone (telepített PWA) állapot érzékelése
+ */
+export function isStandaloneMode() {
+  const isUrlStandalone = window.location.search.includes('mode=standalone') || window.location.search.includes('pwa=1');
+  const isDisplayStandalone = window.matchMedia('(display-mode: standalone)').matches;
+  const isIosStandalone = window.navigator.standalone === true;
+  const isAndroidApp = document.referrer.includes('android-app://');
+
+  return isUrlStandalone || isDisplayStandalone || isIosStandalone || isAndroidApp;
+}
+
+/**
+ * PWA állapot osztályok és felület szinkronizálása
+ */
+export function updatePWAStandaloneUI() {
+  const isStandalone = isStandaloneMode();
+  if (isStandalone) {
+    document.documentElement.classList.add('pwa-standalone');
+    document.body.classList.add('pwa-standalone');
+    
+    // Telepítés gombok azonnali eltüntetése a fejlécből és láblécből
+    document.querySelectorAll('.btn-install-pwa').forEach(btn => {
+      btn.classList.add('hidden');
+      btn.classList.remove('inline-flex', 'flex');
+    });
+
+    const banner = document.getElementById('pwa-install-banner');
+    if (banner) banner.classList.add('hidden');
+  } else {
+    document.documentElement.classList.remove('pwa-standalone');
+    document.body.classList.remove('pwa-standalone');
+  }
+}
+
 export function initPWA() {
+  updatePWAStandaloneUI();
   registerServiceWorker();
   setupInstallPrompt();
   setupNetworkStatusListeners();
+
+  // Standalone mód váltásának figyelése futásidőben
+  try {
+    window.matchMedia('(display-mode: standalone)').addEventListener('change', () => {
+      updatePWAStandaloneUI();
+    });
+  } catch (e) {
+    console.debug('[PWA] Standalone matchMedia listener hiba:', e);
+  }
 }
 
 /**
@@ -80,6 +125,7 @@ function setupInstallPrompt() {
   window.addEventListener('appinstalled', () => {
     console.log('[PWA] WL Wordly sikeresen telepítve!');
     deferredInstallPrompt = null;
+    updatePWAStandaloneUI();
     installButtons.forEach(btn => btn.classList.add('hidden'));
     if (installBanner) installBanner.classList.add('hidden');
   });
