@@ -192,53 +192,53 @@
       </nav>
 
       <!-- RIGHT NAV ACTIONS -->
-      <div class="flex items-center gap-1.5 sm:gap-2 shrink-0">
+      <div class="flex items-center gap-1 sm:gap-2 shrink-0">
         
         <!-- PWA Install Button -->
-        <button class="btn-install-pwa hidden w-10 h-10 min-w-[40px] min-h-[40px] items-center justify-center rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm shadow-emerald-500/20 transition-all" title="Alkalmazás telepítése (PWA)" aria-label="Alkalmazás telepítése">
-          <i data-lucide="download" class="w-5 h-5"></i>
+        <button class="btn-install-pwa hidden w-9 h-9 sm:w-10 sm:h-10 min-w-[36px] min-h-[36px] sm:min-w-[40px] sm:min-h-[40px] items-center justify-center rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm shadow-emerald-500/20 transition-all shrink-0" title="Alkalmazás telepítése (PWA)" aria-label="Alkalmazás telepítése">
+          <i data-lucide="download" class="w-4 h-4 sm:w-5 sm:h-5"></i>
         </button>
 
         <!-- Public Auth Buttons (when logged out) -->
-        <div id="public-auth-buttons" class="flex items-center gap-1.5 sm:gap-2 shrink-0">
-          <a href="#auth" id="nav-btn-login" class="btn-login h-10 min-h-[40px] px-3.5 py-2 inline-flex items-center justify-center gap-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm shadow-sm shadow-blue-500/20 transition-all shrink-0 select-none whitespace-nowrap" style="writing-mode: horizontal-tb; white-space: nowrap; background-color: #2563eb; color: #ffffff;" title="Bejelentkezés" aria-label="Bejelentkezés">
-            <i data-lucide="log-in" class="w-4 h-4 shrink-0 text-white"></i>
+        <div id="public-auth-buttons" class="flex items-center gap-1 sm:gap-2 shrink-0">
+          <a href="#auth" id="nav-btn-login" class="btn-login h-9 sm:h-10 px-2.5 py-1.5 sm:px-3.5 sm:py-2 inline-flex items-center justify-center gap-1 sm:gap-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs sm:text-sm shadow-sm shadow-blue-500/20 transition-all shrink-0 select-none whitespace-nowrap" style="writing-mode: horizontal-tb; white-space: nowrap; background-color: #2563eb; color: #ffffff;" title="Bejelentkezés" aria-label="Bejelentkezés">
+            <i data-lucide="log-in" class="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 text-white"></i>
             <span style="writing-mode: horizontal-tb; white-space: nowrap; color: #ffffff;">Bejelentkezés</span>
           </a>
-          <a href="#auth" id="nav-btn-register" class="btn-account h-10 min-h-[40px] px-3 py-2 inline-flex items-center justify-center gap-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-100 border border-slate-200 dark:border-slate-700 font-semibold text-sm transition-all shrink-0 select-none whitespace-nowrap" style="writing-mode: horizontal-tb; white-space: nowrap;" title="Fiók" aria-label="Fiók">
-            <i data-lucide="user" class="w-4 h-4 shrink-0"></i>
+          <a href="#auth" id="nav-btn-register" class="btn-account h-9 sm:h-10 px-2 py-1.5 sm:px-3 sm:py-2 inline-flex items-center justify-center gap-1 sm:gap-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-100 border border-slate-200 dark:border-slate-700 font-semibold text-xs sm:text-sm transition-all shrink-0 select-none whitespace-nowrap" style="writing-mode: horizontal-tb; white-space: nowrap;" title="Fiók" aria-label="Fiók">
+            <i data-lucide="user" class="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0"></i>
             <span style="writing-mode: horizontal-tb; white-space: nowrap;">Fiók</span>
           </a>
         </div>
 
         <!-- Logged In User Menu -->
-        <div id="user-profile-menu" class="hidden items-center gap-1.5 sm:gap-2">
-          <button id="nav-btn-dashboard" class="w-10 h-10 min-w-[40px] min-h-[40px] flex items-center justify-center rounded-xl bg-brand-50 dark:bg-brand-950 text-brand-600 dark:text-brand-300 hover:bg-brand-100 dark:hover:bg-brand-900/60 border border-brand-200/60 dark:border-brand-800/60 transition-colors" title="Szólistáim és Gyakorlás" aria-label="Szólistáim és Gyakorlás">
-            <i data-lucide="book-open" class="w-5 h-5"></i>
+        <div id="user-profile-menu" class="hidden items-center gap-1 sm:gap-2 shrink-0">
+          <button id="nav-btn-dashboard" class="w-9 h-9 sm:w-10 sm:h-10 min-w-[36px] min-h-[36px] sm:min-w-[40px] sm:min-h-[40px] flex items-center justify-center rounded-xl bg-brand-50 dark:bg-brand-950 text-brand-600 dark:text-brand-300 hover:bg-brand-100 dark:hover:bg-brand-900/60 border border-brand-200/60 dark:border-brand-800/60 transition-colors shrink-0" title="Szólistáim és Gyakorlás" aria-label="Szólistáim és Gyakorlás">
+            <i data-lucide="book-open" class="w-4 h-4 sm:w-5 sm:h-5"></i>
           </button>
           
-          <div id="user-profile-badge-btn" class="w-10 h-10 min-w-[40px] min-h-[40px] flex items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 select-none" title="Bejelentkezett profil" aria-label="Profil">
-            <i data-lucide="user" class="w-5 h-5 text-brand-600 dark:text-brand-400"></i>
+          <div id="user-profile-badge-btn" class="w-9 h-9 sm:w-10 sm:h-10 min-w-[36px] min-h-[36px] sm:min-w-[40px] sm:min-h-[40px] flex items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 select-none shrink-0" title="Bejelentkezett profil" aria-label="Profil">
+            <i data-lucide="user" class="w-4 h-4 sm:w-5 sm:h-5 text-brand-600 dark:text-brand-400"></i>
             <span id="user-email-display" class="hidden"></span>
             <span id="user-badge" class="hidden">Felhasználó</span>
           </div>
 
-          <button id="btn-logout" class="w-10 h-10 min-w-[40px] min-h-[40px] flex items-center justify-center text-slate-500 hover:text-rose-600 dark:text-slate-400 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-xl transition-colors border border-transparent hover:border-rose-200 dark:hover:border-rose-900/50" title="Kijelentkezés" aria-label="Kijelentkezés">
-            <i data-lucide="log-out" class="w-5 h-5"></i>
+          <button id="btn-logout" class="w-9 h-9 sm:w-10 sm:h-10 min-w-[36px] min-h-[36px] sm:min-w-[40px] sm:min-h-[40px] flex items-center justify-center text-slate-500 hover:text-rose-600 dark:text-slate-400 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-xl transition-colors border border-transparent hover:border-rose-200 dark:hover:border-rose-900/50 shrink-0" title="Kijelentkezés" aria-label="Kijelentkezés">
+            <i data-lucide="log-out" class="w-4 h-4 sm:w-5 sm:h-5"></i>
           </button>
         </div>
 
         <!-- Firebase Status Indicator / Setup Button (in-app) -->
-        <button id="btn-open-firebase-settings" class="relative w-10 h-10 min-w-[40px] min-h-[40px] flex items-center justify-center rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors border border-slate-200 dark:border-slate-700" title="Beállítások (Firebase felhő kapcsolat)" aria-label="Beállítások">
-          <i data-lucide="settings" class="w-5 h-5"></i>
-          <span id="firebase-status-dot" class="w-2.5 h-2.5 rounded-full bg-emerald-500 absolute top-1.5 right-1.5 ring-2 ring-white dark:ring-slate-900 inline-block"></span>
+        <button id="btn-open-firebase-settings" class="relative w-9 h-9 sm:w-10 sm:h-10 min-w-[36px] min-h-[36px] sm:min-w-[40px] sm:min-h-[40px] flex items-center justify-center rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors border border-slate-200 dark:border-slate-700 shrink-0" title="Beállítások (Firebase felhő kapcsolat)" aria-label="Beállítások">
+          <i data-lucide="settings" class="w-4 h-4 sm:w-5 sm:h-5"></i>
+          <span id="firebase-status-dot" class="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-emerald-500 absolute top-1 right-1 sm:top-1.5 sm:right-1.5 ring-2 ring-white dark:ring-slate-900 inline-block"></span>
           <span id="firebase-status-text" class="hidden">Helyi mód</span>
         </button>
 
         <!-- Dark / Light mode toggle -->
-        <button id="btn-theme-toggle" class="w-10 h-10 min-w-[40px] min-h-[40px] flex items-center justify-center rounded-xl text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors border border-slate-200/60 dark:border-slate-800" title="Téma váltása (Sötét / Világos)" aria-label="Téma váltása">
-          <i data-lucide="moon" id="icon-theme-moon" class="w-5 h-5 hidden"></i>
-          <i data-lucide="sun" id="icon-theme-sun" class="w-5 h-5"></i>
+        <button id="btn-theme-toggle" class="w-9 h-9 sm:w-10 sm:h-10 min-w-[36px] min-h-[36px] sm:min-w-[40px] sm:min-h-[40px] flex items-center justify-center rounded-xl text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors border border-slate-200/60 dark:border-slate-800 shrink-0" title="Téma váltása (Sötét / Világos)" aria-label="Téma váltása">
+          <i data-lucide="moon" id="icon-theme-moon" class="w-4 h-4 sm:w-5 sm:h-5 hidden"></i>
+          <i data-lucide="sun" id="icon-theme-sun" class="w-4 h-4 sm:w-5 sm:h-5"></i>
         </button>
 
       </div>
@@ -975,6 +975,98 @@
           </button>
         </div>
       </form>
+
+    </div>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- MODAL: DOWNLOAD / EXPORT LIST PANEL        -->
+  <!-- ========================================== -->
+  <div id="modal-download-export" class="download-panel fixed inset-0 z-50 hidden items-center justify-center p-3 sm:p-4 bg-slate-950/60 backdrop-blur-sm animate-fade-in">
+    <div class="modal-content w-full max-w-lg min-w-[320px] bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl p-5 sm:p-7 space-y-5 max-h-[92vh] flex flex-col">
+      
+      <!-- Modal Header -->
+      <div class="flex items-center justify-between shrink-0 pb-3 border-b border-slate-100 dark:border-slate-800">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+            <i data-lucide="download" class="w-5 h-5"></i>
+          </div>
+          <div class="min-w-0">
+            <h3 class="text-base sm:text-lg font-bold text-slate-900 dark:text-white whitespace-nowrap">Szólista Letöltése</h3>
+            <p id="download-list-name-badge" class="text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">Válassz letöltési formátumot</p>
+          </div>
+        </div>
+        <button id="btn-close-download-modal" class="p-2 min-w-[36px] min-h-[36px] inline-flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors shrink-0" title="Bezárás" aria-label="Bezárás">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- Format Download Options -->
+      <div class="space-y-2.5 shrink-0">
+        <div class="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 whitespace-nowrap">Letöltési formátum kiválasztása</div>
+        
+        <!-- XLSX Option -->
+        <button id="btn-export-opt-xlsx" class="download-option w-full p-3.5 rounded-2xl border border-emerald-200/80 dark:border-emerald-900/40 bg-emerald-50/40 dark:bg-emerald-950/20 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 text-left transition-all flex items-center justify-between gap-3 group active:scale-[0.99]" style="white-space: nowrap;">
+          <div class="flex items-center gap-3 min-w-0">
+            <div class="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-sm shadow-emerald-500/20">
+              <i data-lucide="file-spreadsheet" class="w-4 h-4"></i>
+            </div>
+            <div class="min-w-0">
+              <div class="flex items-center gap-2">
+                <span class="font-bold text-sm text-slate-900 dark:text-white whitespace-nowrap">Excel táblázat (.xlsx)</span>
+                <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 uppercase whitespace-nowrap">Ajánlott</span>
+              </div>
+              <p class="text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">Színes, formázott táblázat a szavakkal és jelentésekkel</p>
+            </div>
+          </div>
+          <i data-lucide="arrow-down-to-line" class="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 group-hover:translate-y-0.5 transition-transform"></i>
+        </button>
+
+        <!-- CSV Option -->
+        <button id="btn-export-opt-csv" class="download-option w-full p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 hover:border-blue-400 dark:hover:border-blue-600 bg-slate-50/50 dark:bg-slate-800/40 hover:bg-blue-50/30 dark:hover:bg-blue-950/20 text-left transition-all flex items-center justify-between gap-3 group active:scale-[0.99]" style="white-space: nowrap;">
+          <div class="flex items-center gap-3 min-w-0">
+            <div class="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-sm shadow-blue-500/20">
+              <i data-lucide="file-text" class="w-4 h-4"></i>
+            </div>
+            <div class="min-w-0">
+              <div class="flex items-center gap-2">
+                <span class="font-bold text-sm text-slate-900 dark:text-white whitespace-nowrap">Vesszővel tagolt (.csv)</span>
+                <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300 uppercase whitespace-nowrap">Univerzális</span>
+              </div>
+              <p class="text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">Egyszerű szöveges formátum más tanulóprogramokhoz</p>
+            </div>
+          </div>
+          <i data-lucide="arrow-down-to-line" class="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0 group-hover:translate-y-0.5 transition-transform"></i>
+        </button>
+
+        <!-- JSON Option -->
+        <button id="btn-export-opt-json" class="download-option w-full p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 hover:border-indigo-400 dark:hover:border-indigo-600 bg-slate-50/50 dark:bg-slate-800/40 hover:bg-indigo-50/30 dark:hover:bg-indigo-950/20 text-left transition-all flex items-center justify-between gap-3 group active:scale-[0.99]" style="white-space: nowrap;">
+          <div class="flex items-center gap-3 min-w-0">
+            <div class="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-sm shadow-indigo-500/20">
+              <i data-lucide="code" class="w-4 h-4"></i>
+            </div>
+            <div class="min-w-0">
+              <div class="flex items-center gap-2">
+                <span class="font-bold text-sm text-slate-900 dark:text-white whitespace-nowrap">Adatfájl (.json)</span>
+                <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 uppercase whitespace-nowrap">Biztonsági mentés</span>
+              </div>
+              <p class="text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">Strukturált adatmentés tanulási statisztikákkal</p>
+            </div>
+          </div>
+          <i data-lucide="arrow-down-to-line" class="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0 group-hover:translate-y-0.5 transition-transform"></i>
+        </button>
+      </div>
+
+      <!-- Words in List Preview -->
+      <div class="space-y-2 flex-1 min-h-0 flex flex-col pt-2 border-t border-slate-100 dark:border-slate-800">
+        <div class="flex items-center justify-between text-xs font-semibold text-slate-500 dark:text-slate-400 shrink-0">
+          <span class="whitespace-nowrap">Letöltendő szavak előnézete:</span>
+          <span id="download-word-counter" class="text-brand-600 dark:text-brand-400 font-bold whitespace-nowrap">0 szó</span>
+        </div>
+        <div id="download-words-preview-list" class="download-words-preview flex-1 overflow-y-auto overflow-x-auto space-y-1.5 max-h-36 p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-800">
+          <!-- Dynamically populated with horizontal words -->
+        </div>
+      </div>
 
     </div>
   </div>

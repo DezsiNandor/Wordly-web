@@ -176,3 +176,51 @@ export function downloadSampleExcel() {
 
   window.XLSX.writeFile(wb, "WL_Minta_Szolista.xlsx");
 }
+
+/**
+ * Szólista exportálása CSV formátumban (.csv)
+ */
+export function exportListToCSV(listName, words) {
+  const safeName = (listName || 'Wordly_lista').replace(/[^a-zA-Z0-9áéíóöőúüűÁÉÍÓÖŐÚÜŰ_\-\s]/g, '_');
+  const header = "Angol szó,Magyar jelentés\r\n";
+  const rows = (words || []).map(w => {
+    const en = (w.english || '').replace(/"/g, '""');
+    const hu = (w.hungarian || '').replace(/"/g, '""');
+    return `"${en}","${hu}"`;
+  }).join("\r\n");
+
+  const blob = new Blob(["\uFEFF" + header + rows], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${safeName}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+/**
+ * Szólista exportálása strukturált JSON formátumban (.json)
+ */
+export function exportListToJSON(listName, words) {
+  const safeName = (listName || 'Wordly_lista').replace(/[^a-zA-Z0-9áéíóöőúüűÁÉÍÓÖŐÚÜŰ_\-\s]/g, '_');
+  const payload = {
+    app: "WL Wordly",
+    version: "2.0",
+    listName: listName,
+    exportedAt: new Date().toISOString(),
+    totalWords: (words || []).length,
+    words: words || []
+  };
+
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${safeName}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}

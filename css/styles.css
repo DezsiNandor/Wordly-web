@@ -141,25 +141,90 @@ select,
     display: none !important;
   }
 
-  /* Bejelentkezés és Fiók gombok mobilon */
+  /* Kisebb Bejelentkezés gomb mobilon, hogy kényelmesen elférjen */
   #nav-btn-login,
-  #nav-btn-register,
-  .btn-login,
-  .btn-account {
-    min-height: 40px !important;
-    padding: 6px 12px !important;
+  .btn-login {
+    height: 36px !important;
+    min-height: 36px !important;
+    padding: 4px 9px !important;
+    font-size: 12px !important;
+    gap: 4px !important;
     display: inline-flex !important;
     align-items: center !important;
     justify-content: center !important;
-    gap: 6px !important;
   }
 
-  @media (min-width: 640px) {
-    header button,
-    header a:not(.btn-login):not(.btn-account):not(#nav-logo) {
-      min-height: 44px;
-      min-width: 44px;
-    }
+  #nav-btn-login span,
+  .btn-login span {
+    font-size: 12px !important;
+    line-height: 1 !important;
+  }
+
+  #nav-btn-login i,
+  #nav-btn-login svg,
+  .btn-login i,
+  .btn-login svg {
+    width: 14px !important;
+    height: 14px !important;
+    min-width: 14px !important;
+    min-height: 14px !important;
+  }
+
+  /* Kisebb Fiók gomb mobilon */
+  #nav-btn-register,
+  .btn-account {
+    height: 36px !important;
+    min-height: 36px !important;
+    padding: 4px 8px !important;
+    font-size: 12px !important;
+    gap: 4px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  #nav-btn-register span,
+  .btn-account span {
+    font-size: 12px !important;
+    line-height: 1 !important;
+  }
+
+  #nav-btn-register i,
+  #nav-btn-register svg,
+  .btn-account i,
+  .btn-account svg {
+    width: 14px !important;
+    height: 14px !important;
+    min-width: 14px !important;
+    min-height: 14px !important;
+  }
+
+  /* Világos/sötét téma kapcsoló és beállítások mobilon mindig látható, nem csúszik le */
+  #btn-theme-toggle,
+  #btn-open-firebase-settings {
+    width: 36px !important;
+    height: 36px !important;
+    min-width: 36px !important;
+    min-height: 36px !important;
+    padding: 0 !important;
+    display: inline-flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    flex-shrink: 0 !important;
+  }
+
+  #btn-theme-toggle svg,
+  #btn-theme-toggle i,
+  #btn-open-firebase-settings svg,
+  #btn-open-firebase-settings i {
+    width: 16px !important;
+    height: 16px !important;
+  }
+
+  header > div {
+    padding-left: 8px !important;
+    padding-right: 8px !important;
+    gap: 6px !important;
   }
 
   /* Mobil alsó menü érintési felületei (legalább 48px) */
@@ -462,4 +527,53 @@ nav.md\:hidden a[href="#auth"] span {
 .btn-login svg {
   color: #ffffff !important;
   stroke: #ffffff !important;
+}
+
+/* Dark/Light mode téma váltó gomb mindig látható a fejlécben */
+#btn-theme-toggle {
+  display: inline-flex !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  flex-shrink: 0 !important;
+}
+
+/* ======================================================== */
+/* 6. LETÖLTÉS PANEL / MODAL & DROPDOWN SZÖVEGELRENDEZÉSE  */
+/* ======================================================== */
+
+/* Letöltés panel konténer és modál méretezés */
+.download-panel,
+#modal-download-export {
+  width: 100%;
+}
+
+#modal-download-export .modal-content {
+  width: 95% !important;
+  max-width: 500px !important;
+  min-width: 310px !important;
+  margin: auto !important;
+}
+
+/* Letöltési opciók gombjai és szövegei: tiszta vízszintes, törésmentes */
+.download-option,
+.download-option *,
+#modal-download-export .download-option,
+#modal-download-export .download-option * {
+  white-space: nowrap !important;
+  word-break: keep-all !important;
+  overflow-wrap: normal !important;
+}
+
+/* Szavak előnézeti soraiban a szavak tisztán, vízszintesen jelennek meg */
+.download-words-preview,
+.download-word-item {
+  width: 100% !important;
+}
+
+.download-word-item span,
+.download-words-preview span,
+#manage-words-table span {
+  white-space: nowrap !important;
+  word-break: keep-all !important;
+  overflow-wrap: normal !important;
 }

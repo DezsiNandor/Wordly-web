@@ -27,6 +27,8 @@ import {
 import { 
   parseExcelFile, 
   exportListToExcel, 
+  exportListToCSV,
+  exportListToJSON,
   downloadSampleExcel 
 } from './excel.js';
 
@@ -151,6 +153,15 @@ const dom = {
   manageWordsTable: document.getElementById('manage-words-table'),
   btnExportCurrentList: document.getElementById('btn-export-current-list'),
   btnDoneManageModal: document.getElementById('btn-done-manage-modal'),
+
+  modalDownloadExport: document.getElementById('modal-download-export'),
+  btnCloseDownloadModal: document.getElementById('btn-close-download-modal'),
+  downloadListNameBadge: document.getElementById('download-list-name-badge'),
+  downloadWordCounter: document.getElementById('download-word-counter'),
+  downloadWordsPreviewList: document.getElementById('download-words-preview-list'),
+  btnExportOptXlsx: document.getElementById('btn-export-opt-xlsx'),
+  btnExportOptCsv: document.getElementById('btn-export-opt-csv'),
+  btnExportOptJson: document.getElementById('btn-export-opt-json'),
 
   modalFirebaseSettings: document.getElementById('modal-firebase-settings'),
   btnCloseFirebaseModal: document.getElementById('btn-close-firebase-modal'),
@@ -545,9 +556,44 @@ function setupEventListeners() {
     if (!activeManageListId) return;
     const target = await getListById(activeManageListId);
     if (target) {
-      exportListToExcel(target.name, target.words);
+      openDownloadModal(target.name, target.words || []);
     }
   });
+
+  // Download / Export modal format actions
+  if (dom.btnCloseDownloadModal) {
+    dom.btnCloseDownloadModal.addEventListener('click', closeDownloadModal);
+  }
+
+  if (dom.modalDownloadExport) {
+    dom.modalDownloadExport.addEventListener('click', (e) => {
+      if (e.target === dom.modalDownloadExport) closeDownloadModal();
+    });
+  }
+
+  if (dom.btnExportOptXlsx) {
+    dom.btnExportOptXlsx.addEventListener('click', () => {
+      if (!activeDownloadData) return;
+      exportListToExcel(activeDownloadData.name, activeDownloadData.words);
+      closeDownloadModal();
+    });
+  }
+
+  if (dom.btnExportOptCsv) {
+    dom.btnExportOptCsv.addEventListener('click', () => {
+      if (!activeDownloadData) return;
+      exportListToCSV(activeDownloadData.name, activeDownloadData.words);
+      closeDownloadModal();
+    });
+  }
+
+  if (dom.btnExportOptJson) {
+    dom.btnExportOptJson.addEventListener('click', () => {
+      if (!activeDownloadData) return;
+      exportListToJSON(activeDownloadData.name, activeDownloadData.words);
+      closeDownloadModal();
+    });
+  }
 
   // Practice session controls
   dom.btnExitPractice.addEventListener('click', () => {
@@ -754,7 +800,7 @@ async function renderDashboard() {
     });
 
     card.querySelector('.btn-export-list').addEventListener('click', () => {
-      exportListToExcel(list.name, list.words || []);
+      openDownloadModal(list.name, list.words || []);
     });
 
     card.querySelector('.btn-rename-list').addEventListener('click', async () => {
@@ -826,6 +872,59 @@ async function handleSelectedExcelFile(file) {
 }
 
 // ==========================================
+// 5.5. LETÖLTÉS / EXPORT PANEL (MODAL)
+// ==========================================
+
+let activeDownloadData = null;
+
+function openDownloadModal(listName, words) {
+  activeDownloadData = { name: listName, words: words || [] };
+  if (dom.downloadListNameBadge) {
+    dom.downloadListNameBadge.textContent = `${listName} — ${activeDownloadData.words.length} szó`;
+  }
+  if (dom.downloadWordCounter) {
+    dom.downloadWordCounter.textContent = `${activeDownloadData.words.length} szó`;
+  }
+  if (dom.downloadWordsPreviewList) {
+    dom.downloadWordsPreviewList.innerHTML = '';
+    if (activeDownloadData.words.length === 0) {
+      dom.downloadWordsPreviewList.innerHTML = '<div class="text-xs text-slate-400 py-3 text-center whitespace-nowrap">Nincsenek szavak ebben a listában.</div>';
+    } else {
+      activeDownloadData.words.slice(0, 40).forEach(w => {
+        const item = document.createElement('div');
+        item.className = 'download-word-item flex items-center justify-between gap-3 px-3 py-1.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800 text-xs shadow-xs';
+        item.innerHTML = `
+          <span class="font-semibold text-slate-900 dark:text-slate-100 whitespace-nowrap shrink-0" style="white-space: nowrap !important; word-break: keep-all !important;">${escapeHtml(w.english || '')}</span>
+          <span class="text-slate-400 text-[10px] shrink-0">→</span>
+          <span class="text-slate-600 dark:text-slate-300 whitespace-nowrap shrink-0" style="white-space: nowrap !important; word-break: keep-all !important;">${escapeHtml(w.hungarian || '')}</span>
+        `;
+        dom.downloadWordsPreviewList.appendChild(item);
+      });
+      if (activeDownloadData.words.length > 40) {
+        const more = document.createElement('div');
+        more.className = 'text-center text-[11px] text-slate-400 py-1 whitespace-nowrap';
+        more.textContent = `...és további ${activeDownloadData.words.length - 40} szó a letöltendő fájlban`;
+        dom.downloadWordsPreviewList.appendChild(more);
+      }
+    }
+  }
+
+  if (dom.modalDownloadExport) {
+    dom.modalDownloadExport.classList.remove('hidden');
+    dom.modalDownloadExport.classList.add('flex');
+  }
+  refreshIcons();
+}
+
+function closeDownloadModal() {
+  activeDownloadData = null;
+  if (dom.modalDownloadExport) {
+    dom.modalDownloadExport.classList.add('hidden');
+    dom.modalDownloadExport.classList.remove('flex');
+  }
+}
+
+// ==========================================
 // 6. SZÓLISTA SZERKESZTŐ (MANAGE) MODAL
 // ==========================================
 
@@ -874,9 +973,9 @@ function renderWordsListRows(words) {
     item.dataset.hungarian = word.hungarian.toLowerCase();
 
     item.innerHTML = `
-      <div class="flex-1 grid grid-cols-2 gap-2 mr-2">
-        <span class="font-semibold text-slate-900 dark:text-slate-100 truncate">${escapeHtml(word.english)}</span>
-        <span class="text-slate-600 dark:text-slate-300 truncate">${escapeHtml(word.hungarian)}</span>
+      <div class="flex-1 grid grid-cols-2 gap-2 mr-2 min-w-0" style="white-space: nowrap;">
+        <span class="font-semibold text-slate-900 dark:text-slate-100 truncate whitespace-nowrap" style="white-space: nowrap !important; word-break: keep-all !important;">${escapeHtml(word.english)}</span>
+        <span class="text-slate-600 dark:text-slate-300 truncate whitespace-nowrap" style="white-space: nowrap !important; word-break: keep-all !important;">${escapeHtml(word.hungarian)}</span>
       </div>
       <div class="flex items-center gap-1 shrink-0">
         <button class="btn-edit-word p-2 min-w-[44px] min-h-[44px] inline-flex items-center justify-center text-slate-400 hover:text-brand-600 rounded-xl transition-colors" title="Szerkesztés">
