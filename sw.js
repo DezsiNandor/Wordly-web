@@ -2,7 +2,7 @@
  * WL Wordly - Service Worker (PWA Offline & Caching Engine)
  */
 
-const CACHE_NAME = 'wlwordly-cache-v1.0.0';
+const CACHE_NAME = 'wlwordly-cache-v1.0.1';
 
 // Alapvető helyi fájlok gyorsítótárazása
 const STATIC_ASSETS = [
@@ -11,6 +11,8 @@ const STATIC_ASSETS = [
   './css/styles.css',
   './js/app.js',
   './js/auth.js',
+  './js/googleAuth.js',
+  './js/cloudSync.js',
   './js/excel.js',
   './js/storage.js',
   './js/practice.js',

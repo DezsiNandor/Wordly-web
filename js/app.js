@@ -111,10 +111,6 @@ const dom = {
   bottomNavLists: document.getElementById('bottom-nav-lists'),
   bottomNavStats: document.getElementById('bottom-nav-stats'),
 
-  // Landing Page Buttons
-  btnLandingSampleExcel: document.getElementById('btn-landing-sample-excel'),
-  btnLandingGuestTry: document.getElementById('btn-landing-guest-try'),
-
   // Auth View
   authProtectedNotice: document.getElementById('auth-protected-notice'),
   tabLogin: document.getElementById('tab-login'),
@@ -279,8 +275,25 @@ document.addEventListener('DOMContentLoaded', async () => {
   initPWA();
   refreshIcons();
 
-  // Alapértelmezetten tiszta kijelentkezett állapot (alsó léc rejtve, felesleges margók nélkül)
-  updateNavForUser(null);
+  // Azonnali munkamenet-ellenőrzés a kezdőlap bevillanásának kivédésére
+  const savedSessionRaw = localStorage.getItem('wl_current_session');
+  if (savedSessionRaw) {
+    try {
+      const savedUser = JSON.parse(savedSessionRaw);
+      if (savedUser && savedUser.uid) {
+        activeUser = savedUser;
+        updateNavForUser(savedUser);
+        let curHash = window.location.hash || '';
+        if (curHash.startsWith('#/')) curHash = '#' + curHash.substring(2);
+        if (!curHash || curHash === '#' || curHash === '#landing' || curHash === '#home' || curHash === '#auth' || curHash === '#how-it-works' || curHash === '#features' || curHash === '#faq') {
+          window.location.hash = '#dashboard';
+        }
+      }
+    } catch (e) {}
+  } else {
+    // Alapértelmezetten tiszta kijelentkezett állapot
+    updateNavForUser(null);
+  }
 
   // Hitelesítés inicializálása
   const authStatus = await initAuth();
@@ -324,14 +337,17 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
       await renderDashboard();
 
-      // Többeszközös felhőszinkronizáció (Multi-device Cloud Sync)
+      // Központi többeszközös felhőszinkronizáció (Multi-device Cloud Sync)
       syncMultiDeviceCloud(user).then(async (syncedLists) => {
         if (syncedLists && syncedLists.length > 0) {
           await renderDashboard();
+          if (dom.viewStats && !dom.viewStats.classList.contains('hidden')) {
+            await renderStatsView();
+          }
         }
-      }).catch(err => console.warn("Többeszközös szinkronizáció háttérbeli figyelmeztetés:", err));
+      }).catch(err => console.warn("Többeszközös szinkronizáció figyelmeztetés:", err));
 
-      // Valós idejű szinkronizációs figyelő feliratkozás
+      // Valós idejű szinkronizációs figyelő feliratkozás (PC + Mobil azonnali frissülés)
       if (window._realtimeCloudUnsubscribe) {
         window._realtimeCloudUnsubscribe();
         window._realtimeCloudUnsubscribe = null;
@@ -339,6 +355,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       window._realtimeCloudUnsubscribe = setupRealtimeCloudListener(user, async (updatedLists) => {
         console.log("Valós idejű felhő szinkronizációs frissítés érkezett egy másik eszközről!");
         await renderDashboard();
+        if (dom.viewStats && !dom.viewStats.classList.contains('hidden')) {
+          await renderStatsView();
+        }
         showToast("Szótáraid szinkronizálva lettek egy másik eszközödről!", "info");
       });
 
@@ -536,6 +555,13 @@ function handleRouting() {
 
   const isHomeOrLanding = !hash || hash === '#landing' || hash === '#home' || hash === '#how-it-works' || hash === '#features' || hash === '#faq';
 
+  if (!activeUser) {
+    activeUser = getCurrentUser();
+    if (activeUser) {
+      updateNavForUser(activeUser);
+    }
+  }
+
   // 1. BEJELENTKEZETT FELHASZNÁLÓK ÚTVÁLASZTÁSA ÉS ROUTE GUARD:
   // Bejelentkezett állapotban a „Kezdőlap” felület nem érhető el vagy látható.
   // Ha a bejelentkezett felhasználó manuálisan a gyökér útvonalra (/), a kezdőlapra (#landing / #home)
@@ -692,20 +718,13 @@ function setupEventListeners() {
     });
   }
 
-  // Landing Page Buttons
-  if (dom.btnLandingSampleExcel) {
-    dom.btnLandingSampleExcel.addEventListener('click', () => downloadSampleExcel());
-  }
-  if (dom.btnLandingGuestTry) {
-    dom.btnLandingGuestTry.addEventListener('click', () => {
-      loginAsGuest();
-      navigateTo('#dashboard');
-    });
-  }
-
   // Logout
   dom.btnLogout.addEventListener('click', async () => {
     if (confirm("Biztosan ki szeretnél jelentkezni?")) {
+      if (window._realtimeCloudUnsubscribe) {
+        window._realtimeCloudUnsubscribe();
+        window._realtimeCloudUnsubscribe = null;
+      }
       await logout();
       navigateTo('#landing');
     }
@@ -2278,7 +2297,10 @@ function clearAutoAdvance() {
 async function renderStatsView() {
   if (!dom.statsListsContainer) return;
 
-  const lists = await getUserLists();
+  const allLists = await getUserLists();
+  // Kizárólag a betöltött Excel fájlok és munkalapjaik (a próba/minta tesztadatok szigorú kizárásával)
+  const lists = (allLists || []).filter(l => !l.isStarter && !l.id?.startsWith('starter_pack'));
+
   if (!lists || lists.length === 0) {
     dom.statsEmptyState.classList.remove('hidden');
     dom.statsListsContainer.innerHTML = '';
@@ -2286,6 +2308,7 @@ async function renderStatsView() {
     if (dom.statsTotalSheets) dom.statsTotalSheets.textContent = '0';
     if (dom.statsMasteredSheets) dom.statsMasteredSheets.textContent = '0';
     if (dom.statsAvgAccuracy) dom.statsAvgAccuracy.textContent = '0%';
+    refreshIcons();
     return;
   }
 
@@ -2301,9 +2324,6 @@ async function renderStatsView() {
   lists.forEach((list) => {
     const sheets = list.sheets || [];
     totalSheets += sheets.length;
-
-    // Ellenőrizzük van-e mesterelt lap a Mix gombhoz
-    const canMix = sheets.some(s => (s.consecutivePerfectScores >= 2) || ((s.timesPassed || 0) >= 2));
 
     const listCard = document.createElement('div');
     listCard.className = 'bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 p-6 sm:p-8 space-y-6 shadow-sm';
@@ -2325,22 +2345,15 @@ async function renderStatsView() {
         </div>
 
         <div class="flex items-center gap-2 self-start sm:self-auto">
-          ${canMix ? `
-          <button class="btn-stats-mix min-h-[40px] px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-semibold text-xs transition-all flex items-center gap-1.5 shadow-sm active:scale-95" title="Mix gyakorlás a mesterelt munkalapokból">
-            <i data-lucide="shuffle" class="w-3.5 h-3.5"></i>
-            <span>Mix Gyakorlás</span>
-          </button>
-          ` : ''}
-          <button class="btn-stats-start-all min-h-[40px] px-3.5 py-2 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-semibold text-xs transition-all flex items-center gap-1.5 shadow-sm active:scale-95" title="Gyakorlás indítása az aktuális munkalapon">
+          <button class="btn-stats-start-all min-h-[40px] px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-semibold text-xs transition-all flex items-center gap-1.5 shadow-sm active:scale-95" title="Gyakorlás indítása a teljes szólistával">
             <i data-lucide="play" class="w-3.5 h-3.5 fill-current"></i>
-            <span>Gyakorlás</span>
+            <span>Gyakorlás indítása</span>
           </button>
         </div>
       </div>
 
       <!-- Munkalapok rácsa -->
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sheets-grid">
-        <!-- Sheet kártyák -->
       </div>
     `;
 
@@ -2351,14 +2364,15 @@ async function renderStatsView() {
       const incorrect = sheet.totalIncorrect || 0;
       const totalAnswers = correct + incorrect;
       const accuracy = totalAnswers > 0 ? Math.round((correct / totalAnswers) * 100) : 0;
-      const isMastered = (sheet.consecutivePerfectScores >= 2) || ((sheet.timesPassed || 0) >= 2);
-      
+      const timesPassed100 = sheet.timesPassed || 0;
+      const streak = sheet.consecutivePerfectScores || 0;
+      const isMastered = (streak >= 2) || (timesPassed100 >= 2);
+
       if (isMastered) masteredCount++;
       grandCorrect += correct;
       grandIncorrect += incorrect;
 
       const isUnlocked = !!sheet.isUnlocked;
-      const streak = sheet.consecutivePerfectScores || 0;
 
       let badgeHtml = '';
       if (!isUnlocked) {
@@ -2370,41 +2384,59 @@ async function renderStatsView() {
       }
 
       const sheetCard = document.createElement('div');
-      sheetCard.className = `p-4 rounded-2xl border transition-all ${
+      sheetCard.className = `p-4 rounded-2xl border transition-all flex flex-col justify-between gap-3 ${
         !isUnlocked 
           ? 'bg-slate-50/70 dark:bg-slate-900/40 border-slate-200 dark:border-slate-800 opacity-75' 
           : 'bg-white dark:bg-slate-800/70 border-slate-200 dark:border-slate-700 shadow-sm hover:border-brand-300 dark:hover:border-brand-700'
       }`;
 
       sheetCard.innerHTML = `
-        <div class="flex items-center justify-between gap-2 mb-3">
-          <div class="flex items-center gap-2 truncate">
-            <span class="text-xs font-bold text-slate-400 font-mono">#${idx + 1}</span>
-            <h4 class="font-bold text-slate-900 dark:text-white text-sm truncate" title="${escapeHtml(sheet.name)}">${escapeHtml(sheet.name)}</h4>
+        <div class="space-y-3">
+          <div class="flex items-center justify-between gap-2">
+            <div class="flex items-center gap-2 truncate">
+              <span class="text-xs font-bold text-slate-400 font-mono">#${idx + 1}</span>
+              <h4 class="font-bold text-slate-900 dark:text-white text-sm truncate" title="${escapeHtml(sheet.name)}">${escapeHtml(sheet.name)}</h4>
+            </div>
+            ${badgeHtml}
           </div>
-          ${badgeHtml}
-        </div>
 
-        <div class="space-y-2 mb-3 text-xs">
-          <div>
-            <div class="flex items-center justify-between text-slate-600 dark:text-slate-300 font-medium mb-1">
-              <span>Találati arány:</span>
-              <span class="font-bold ${accuracy >= 80 ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-700 dark:text-slate-300'}">${accuracy}%</span>
+          <!-- 1. Elért pontosság / eltalálási arány százalékban -->
+          <div class="space-y-1">
+            <div class="flex items-center justify-between text-xs text-slate-600 dark:text-slate-300 font-medium">
+              <span>Eltalálási arány:</span>
+              <span class="font-bold text-sm ${accuracy >= 80 ? 'text-emerald-600 dark:text-emerald-400' : 'text-brand-600 dark:text-brand-400'}">${accuracy}%</span>
             </div>
             <div class="w-full h-2 rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden">
               <div class="h-full rounded-full transition-all duration-500 ${accuracy >= 80 ? 'bg-emerald-500' : 'bg-brand-500'}" style="width: ${accuracy}%"></div>
             </div>
           </div>
 
-          <div class="grid grid-cols-2 gap-2 pt-1 text-[11px] text-slate-500 dark:text-slate-400">
-            <div>Szavak: <strong class="text-slate-700 dark:text-slate-200">${sheet.words?.length || 0} db</strong></div>
-            <div>Gyakorolva: <strong class="text-slate-700 dark:text-slate-200">${sheet.timesPracticed || 0}x</strong></div>
-            <div class="text-emerald-600 dark:text-emerald-400">Helyes: <strong>${correct}</strong></div>
-            <div class="text-rose-600 dark:text-rose-400">Hibás: <strong>${incorrect}</strong></div>
+          <!-- 2. Helyes és hibás válaszok száma -->
+          <div class="grid grid-cols-2 gap-2 p-2 rounded-xl bg-slate-50 dark:bg-slate-900/50 text-xs border border-slate-100 dark:border-slate-800/80">
+            <div class="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-semibold">
+              <i data-lucide="check-circle-2" class="w-3.5 h-3.5"></i>
+              <span>Helyes: ${correct} db</span>
+            </div>
+            <div class="flex items-center gap-1.5 text-rose-600 dark:text-rose-400 font-semibold">
+              <i data-lucide="x-circle" class="w-3.5 h-3.5"></i>
+              <span>Hibás: ${incorrect} db</span>
+            </div>
+          </div>
+
+          <!-- 3. Szint teljesítettségi állapota (hányszor sikerült 100%-ra) -->
+          <div class="pt-1 text-xs text-slate-600 dark:text-slate-300 space-y-1">
+            <div class="flex items-center justify-between">
+              <span class="text-slate-500 dark:text-slate-400">100%-os szint:</span>
+              <strong class="${timesPassed100 > 0 ? 'text-emerald-600 dark:text-emerald-400 font-bold' : 'text-slate-600 dark:text-slate-400'}">${timesPassed100}x sikerült</strong>
+            </div>
+            <div class="flex items-center justify-between">
+              <span class="text-slate-500 dark:text-slate-400">Hibátlan sorozat:</span>
+              <strong>${streak} / 2</strong>
+            </div>
           </div>
         </div>
 
-        <div>
+        <div class="pt-2">
           ${isUnlocked ? `
           <button class="btn-sheet-practice w-full min-h-[40px] py-2 px-3 rounded-xl bg-slate-100 hover:bg-brand-600 hover:text-white dark:bg-slate-700/80 dark:hover:bg-brand-600 text-slate-800 dark:text-slate-200 font-semibold text-xs transition-all flex items-center justify-center gap-1.5 active:scale-[0.98]">
             <i data-lucide="play" class="w-3.5 h-3.5 fill-current"></i>
@@ -2428,19 +2460,9 @@ async function renderStatsView() {
       sheetsGrid.appendChild(sheetCard);
     });
 
-    // Fejléc gombok eseménykezelői
     listCard.querySelector('.btn-stats-start-all').addEventListener('click', () => {
       startPractice(list.id);
     });
-
-    if (canMix) {
-      const mixBtn = listCard.querySelector('.btn-stats-mix');
-      if (mixBtn) {
-        mixBtn.addEventListener('click', () => {
-          startMixPractice(list.id);
-        });
-      }
-    }
 
     dom.statsListsContainer.appendChild(listCard);
   });

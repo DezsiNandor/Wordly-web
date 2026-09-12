@@ -360,6 +360,14 @@ export async function logout() {
  * Jelenlegi bejelentkezett felhasználó
  */
 export function getCurrentUser() {
+  if (!currentUser) {
+    try {
+      const savedSession = localStorage.getItem(LOCAL_SESSION_KEY);
+      if (savedSession) {
+        currentUser = JSON.parse(savedSession);
+      }
+    } catch (e) {}
+  }
   return currentUser;
 }
 
