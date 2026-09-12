@@ -1,5 +1,5 @@
 /**
- * WL (Word Learning) - Fő Alkalmazásvezérlő és Router (Route Guards)
+ * WL (Word Learning) - Fő Alkalmazásvezérlő és Router (Route Guards) - JAVÍTOTT VÁLTOZAT
  */
 
 import { 
@@ -275,7 +275,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   initPWA();
   refreshIcons();
 
-  // Azonnali munkamenet-ellenőrzés a kezdőlap bevillanásának kivédésére
+  // Azonnali munkamenet-ellenőrzés
   const savedSessionRaw = localStorage.getItem('wl_current_session');
   if (savedSessionRaw) {
     try {
@@ -283,15 +283,12 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (savedUser && savedUser.uid) {
         activeUser = savedUser;
         updateNavForUser(savedUser);
-        let curHash = window.location.hash || '';
-        if (curHash.startsWith('#/')) curHash = '#' + curHash.substring(2);
-        if (!curHash || curHash === '#' || curHash === '#landing' || curHash === '#home' || curHash === '#auth' || curHash === '#how-it-works' || curHash === '#features' || curHash === '#faq') {
-          window.location.hash = '#dashboard';
-        }
       }
-    } catch (e) {}
+    } catch (e) {
+      activeUser = null;
+      updateNavForUser(null);
+    }
   } else {
-    // Alapértelmezetten tiszta kijelentkezett állapot
     updateNavForUser(null);
   }
 
@@ -299,7 +296,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const authStatus = await initAuth();
   updateFirebaseStatusUI(authStatus.isFirebase);
 
-  // Google OAuth 2.0 Átirányításos visszatérés (Redirect Callback) ellenőrzése
+  // Google OAuth 2.0 Átirányításos visszatérés
   try {
     const oAuthResult = checkAndProcessOAuthCallback();
     if (oAuthResult) {
@@ -310,20 +307,17 @@ document.addEventListener('DOMContentLoaded', async () => {
   } catch (oauthErr) {
     console.error("Google OAuth callback hiba:", oauthErr);
     showAuthError(oauthErr.message || "A Google bejelentkezés nem sikerült.");
-    showToast(oauthErr.message || "A Google bejelentkezés nem sikerült.", "error");
   }
 
   // Hash-alapú router figyelése
   window.addEventListener('hashchange', handleRouting);
 
-  // Felhasználó figyelése (Auth state listener)
+  // Felhasználó állapotának figyelése
   onAuthStateChangedCustom(async (user) => {
     activeUser = user;
     updateNavForUser(user);
 
     if (user) {
-      // Sikeres bejelentkezéskor vagy aktív munkamenet észlelésekor
-      // a kezdőlapról (/) és az auth oldalról azonnal a fő munkafelületre (#dashboard) irányítunk
       let hash = window.location.hash || '';
       if (hash.startsWith('#/')) hash = '#' + hash.substring(2);
       if (hash === '#') hash = '';
@@ -335,36 +329,36 @@ document.addEventListener('DOMContentLoaded', async () => {
       } else {
         handleRouting();
       }
-      await renderDashboard();
 
-      // Központi többeszközös felhőszinkronizáció (Multi-device Cloud Sync)
+      // Központi többeszközös felhőszinkronizáció
       syncMultiDeviceCloud(user).then(async (syncedLists) => {
-        if (syncedLists && syncedLists.length > 0) {
+        if (syncedLists && syncedLists.length > 0 && !dom.viewDashboard.classList.contains('hidden')) {
           await renderDashboard();
-          if (dom.viewStats && !dom.viewStats.classList.contains('hidden')) {
-            await renderStatsView();
-          }
         }
       }).catch(err => console.warn("Többeszközös szinkronizáció figyelmeztetés:", err));
 
-      // Valós idejű szinkronizációs figyelő feliratkozás (PC + Mobil azonnali frissülés)
+      // Valós idejű szinkronizációs figyelő
       if (window._realtimeCloudUnsubscribe) {
         window._realtimeCloudUnsubscribe();
         window._realtimeCloudUnsubscribe = null;
       }
-      window._realtimeCloudUnsubscribe = setupRealtimeCloudListener(user, async (updatedLists) => {
-        console.log("Valós idejű felhő szinkronizációs frissítés érkezett egy másik eszközről!");
-        await renderDashboard();
+      window._realtimeCloudUnsubscribe = setupRealtimeCloudListener(user, async () => {
+        if (!dom.viewDashboard.classList.contains('hidden')) {
+          await renderDashboard();
+        }
         if (dom.viewStats && !dom.viewStats.classList.contains('hidden')) {
           await renderStatsView();
         }
-        showToast("Szótáraid szinkronizálva lettek egy másik eszközödről!", "info");
       });
 
-      // Google Drive / Sheets háttérbeli szinkronizáció indításkor a kapcsolt listákhoz
+      // Google Drive indulási ellenőrzés
       checkAllGoogleDriveListsOnStartup(async (syncResult) => {
-        await renderDashboard();
-        showToast(`Google Táblázat: ${syncResult.newWordsCount} új szó szinkronizálva!`, 'info');
+        if (!dom.viewDashboard.classList.contains('hidden')) {
+          await renderDashboard();
+        }
+        if (syncResult && syncResult.newWordsCount > 0) {
+          showToast(`Google Táblázat: ${syncResult.newWordsCount} új szó szinkronizálva!`, 'info');
+        }
       });
     } else {
       if (window._realtimeCloudUnsubscribe) {
@@ -376,12 +370,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     refreshIcons();
   });
 
-  // Globális eseményfigyelő külső szinkronizációhoz
   window.addEventListener('gdrive-synced', async () => {
     if (!dom.viewDashboard.classList.contains('hidden')) {
       await renderDashboard();
     }
   });
+
+  // Első routing futtatás
+  handleRouting();
 });
 
 function initTheme() {
@@ -421,45 +417,47 @@ function updateFirebaseStatusUI(isFirebase) {
   if (isFirebase) {
     dom.firebaseStatusDot.className = 'w-2.5 h-2.5 rounded-full bg-emerald-500 absolute top-1.5 right-1.5 ring-2 ring-white dark:ring-slate-900 inline-block';
     dom.firebaseStatusText.textContent = 'Firebase Felhő';
-    if (dom.btnOpenFirebaseSettings) {
-      dom.btnOpenFirebaseSettings.title = 'Firebase Felhő csatlakoztatva (Kattints a beállításokhoz)';
-    }
   } else {
     dom.firebaseStatusDot.className = 'w-2.5 h-2.5 rounded-full bg-amber-500 absolute top-1.5 right-1.5 ring-2 ring-white dark:ring-slate-900 inline-block';
     dom.firebaseStatusText.textContent = 'Helyi tároló';
-    if (dom.btnOpenFirebaseSettings) {
-      dom.btnOpenFirebaseSettings.title = 'Helyi tárolási mód (Kattints a Firebase beállításához)';
-    }
   }
 }
 
+// FEJLÉC ÉS GOMBOK SZIGORÚ SZÉTVÁLASZTÁSA
 function updateNavForUser(user) {
   if (user) {
     document.body.classList.add('logged-in');
     document.body.classList.remove('logged-out');
 
-    // Bejelentkezés után a logó mobilon és asztali gépen is látható
+    // Bejelentkezve a logó mindenhol látható
     if (dom.navLogo) {
       dom.navLogo.classList.remove('hidden');
       dom.navLogo.classList.add('flex');
     }
 
+    // Vendég gombok teljes eltüntetése
     dom.publicAuthButtons.classList.add('hidden');
     dom.publicAuthButtons.classList.remove('flex');
+
     if (dom.publicNavLinks) {
       dom.publicNavLinks.classList.add('hidden');
       dom.publicNavLinks.classList.remove('md:flex');
-      dom.publicNavLinks.classList.remove('flex');
     }
     const footerLinks = document.getElementById('footer-public-links');
     if (footerLinks) footerLinks.classList.add('hidden');
 
+    // Bejelentkezett menü megjelenítése (Narancssárga Fiók gomb és profil)
     dom.userProfileMenu.classList.remove('hidden');
     dom.userProfileMenu.classList.add('flex');
+
+    // Ha van külön Fiók gombod kijelentkezve, azt itt rejtjük
+    if (dom.navBtnRegister) {
+      dom.navBtnRegister.classList.add('hidden');
+    }
+
     dom.userEmailDisplay.textContent = user.displayName || user.email || 'Vendég';
-    dom.userBadge.textContent = user.isGoogle ? 'Google fiók' : (user.isGuest ? 'Vendég mód' : (user.isFirebase ? 'Firebase fiók' : 'Helyi profil'));
+    dom.userBadge.textContent = user.isGoogle ? 'Google fiók' : (user.isGuest ? 'Vendég mód' : 'Helyi profil');
     
-    // Profilkép (Google avatar kép) frissítése
     if (dom.userProfileAvatar && dom.userProfileIcon) {
       if (user.photoURL) {
         dom.userProfileAvatar.src = user.photoURL;
@@ -471,42 +469,28 @@ function updateNavForUser(user) {
         dom.userProfileIcon.classList.remove('hidden');
       }
     }
-
-    const badgeBtn = document.getElementById('user-profile-badge-btn');
-    if (badgeBtn) {
-      badgeBtn.title = `${user.displayName || user.email || 'Vendég'} (${user.isGoogle ? 'Google fiók' : (user.isGuest ? 'Vendég mód' : (user.isFirebase ? 'Firebase fiók' : 'Helyi profil'))})`;
-    }
-
-    // Alsó navigációs sáv véglegesen kikapcsolva / eltávolítva a DOM-ból
-    if (dom.mobileBottomNav) {
-      dom.mobileBottomNav.remove();
-      dom.mobileBottomNav = null;
-    }
-    const bottomNavEl = document.getElementById('mobile-bottom-nav');
-    if (bottomNavEl) bottomNavEl.remove();
-
-    document.body.classList.remove('has-bottom-nav');
-    document.body.classList.add('no-bottom-nav');
   } else {
     document.body.classList.remove('logged-in');
     document.body.classList.add('logged-out');
 
-    // Profilkép és ikon visszaállítása
-    if (dom.userProfileAvatar && dom.userProfileIcon) {
-      dom.userProfileAvatar.classList.add('hidden');
-      dom.userProfileAvatar.src = '';
-      dom.userProfileIcon.classList.remove('hidden');
-    }
-
-    // Bejelentkezés előtt a logó mobilon rejtve, asztali gépen megjelenítve
+    // Kijelentkezve mobilon NINCS logó, PC-n van
     if (dom.navLogo) {
       dom.navLogo.classList.add('hidden');
       dom.navLogo.classList.add('md:flex');
       dom.navLogo.classList.remove('flex');
     }
 
+    // Csak a kék Bejelentkezés gomb látszódhat, a narancssárga Fiók NEM!
     dom.publicAuthButtons.classList.remove('hidden');
     dom.publicAuthButtons.classList.add('flex');
+    
+    if (dom.navBtnLogin) {
+      dom.navBtnLogin.classList.remove('hidden');
+    }
+    if (dom.navBtnRegister) {
+      dom.navBtnRegister.classList.add('hidden'); // Vendégként ne legyen kint a Fiók gomb!
+    }
+
     if (dom.publicNavLinks) {
       dom.publicNavLinks.classList.add('hidden');
       dom.publicNavLinks.classList.add('md:flex');
@@ -515,19 +499,14 @@ function updateNavForUser(user) {
     const footerLinks = document.getElementById('footer-public-links');
     if (footerLinks) footerLinks.classList.remove('hidden');
 
+    // Bejelentkezett menü elrejtése
     dom.userProfileMenu.classList.add('hidden');
     dom.userProfileMenu.classList.remove('flex');
+  }
 
-    // Alsó navigációs sáv véglegesen kikapcsolva / eltávolítva
-    if (dom.mobileBottomNav) {
-      dom.mobileBottomNav.remove();
-      dom.mobileBottomNav = null;
-    }
-    const bottomNavEl = document.getElementById('mobile-bottom-nav');
-    if (bottomNavEl) bottomNavEl.remove();
-
-    document.body.classList.remove('has-bottom-nav');
-    document.body.classList.add('no-bottom-nav');
+  // Fogaskerék garantált végleges kiirtása
+  if (dom.btnOpenFirebaseSettings) {
+    dom.btnOpenFirebaseSettings.remove();
   }
 }
 
@@ -545,27 +524,17 @@ function navigateTo(hash) {
 
 function handleRouting() {
   let hash = window.location.hash || '';
-  // Normalizálás (#/szolistak -> #szolistak, #/ -> üres, # -> üres)
-  if (hash.startsWith('#/')) {
-    hash = '#' + hash.substring(2);
-  }
+  if (hash.startsWith('#/')) hash = '#' + hash.substring(2);
   if (hash === '#') hash = '';
-
-  updateActiveBottomNav(hash);
 
   const isHomeOrLanding = !hash || hash === '#landing' || hash === '#home' || hash === '#how-it-works' || hash === '#features' || hash === '#faq';
 
   if (!activeUser) {
     activeUser = getCurrentUser();
-    if (activeUser) {
-      updateNavForUser(activeUser);
-    }
+    updateNavForUser(activeUser);
   }
 
-  // 1. BEJELENTKEZETT FELHASZNÁLÓK ÚTVÁLASZTÁSA ÉS ROUTE GUARD:
-  // Bejelentkezett állapotban a „Kezdőlap” felület nem érhető el vagy látható.
-  // Ha a bejelentkezett felhasználó manuálisan a gyökér útvonalra (/), a kezdőlapra (#landing / #home)
-  // vagy a bejelentkező felületre navigál, azonnal átirányítjuk a fő munkafelületre (#dashboard / #szolistak).
+  // Bejelentkezve nincs kezdőlap, azonnal dashboard
   if (activeUser) {
     if (isHomeOrLanding || hash === '#auth') {
       navigateTo('#dashboard');
@@ -573,10 +542,9 @@ function handleRouting() {
     }
   }
 
-  // 2. Szólisták / Fő munkafelület és Gyakorlás (#dashboard, #szolistak, #lists, #practice)
+  // Szólisták / Dashboard védelme
   if (hash === '#dashboard' || hash === '#szolistak' || hash === '#lists' || hash === '#practice') {
     if (!activeUser) {
-      // Nem bejelentkezett látogató védett útvonalra lépne -> átirányítás az Auth nézetre
       dom.authProtectedNotice.classList.remove('hidden');
       showView('auth');
       return;
@@ -587,16 +555,11 @@ function handleRouting() {
       return;
     }
 
-    if (hash === '#szolistak' || hash === '#lists') {
-      showView('dashboard');
-      return;
-    }
-
-    showView(hash.substring(1));
+    showView(hash === '#practice' ? 'practice' : 'dashboard');
     return;
   }
 
-  // 3. Statisztika menüpont (#stats, #statistics, #statisztika)
+  // Statisztika védelme
   if (hash === '#stats' || hash === '#statistics' || hash === '#statisztika') {
     if (!activeUser) {
       dom.authProtectedNotice.classList.remove('hidden');
@@ -607,7 +570,7 @@ function handleRouting() {
     return;
   }
 
-  // 4. Auth nézet (bejelentkezés / regisztráció nem bejelentkezett felhasználóknak)
+  // Auth oldal vendégeknek
   if (hash === '#auth') {
     if (activeUser) {
       navigateTo('#dashboard');
@@ -618,59 +581,19 @@ function handleRouting() {
     return;
   }
 
-  // 5. Landing page szekciói (csak nem bejelentkezett látogatóknak)
-  if (hash === '#how-it-works' || hash === '#features' || hash === '#faq') {
-    if (!dom.viewLanding.classList.contains('hidden')) {
-      const targetEl = document.querySelector(hash);
-      if (targetEl) targetEl.scrollIntoView({ behavior: 'smooth' });
-      return;
-    }
-    showView('landing');
-    setTimeout(() => {
-      const targetEl = document.querySelector(hash);
-      if (targetEl) targetEl.scrollIntoView({ behavior: 'smooth' });
-    }, 100);
-    return;
-  }
-
-  // 6. Alapértelmezett navigáció:
-  // Bejelentkezett állapotban a fő munkafelületre (#dashboard), vendégként a Kezdőlapra irányít.
+  // Alapértelmezett ág
   if (activeUser) {
-    navigateTo('#dashboard');
+    showView('dashboard');
   } else {
     showView('landing');
   }
 }
 
-function updateActiveBottomNav(hash) {
-  const current = hash || window.location.hash || '#landing';
-  const navItems = document.querySelectorAll('#public-nav-links a');
-  navItems.forEach(item => {
-    const href = item.getAttribute('href');
-    if (href && (href === current || (current === '' && href === '#landing'))) {
-      item.classList.remove('text-slate-600', 'dark:text-slate-400');
-      item.classList.add('text-brand-600', 'dark:text-brand-400');
-    } else if (href) {
-      item.classList.add('text-slate-600', 'dark:text-slate-400');
-      item.classList.remove('text-brand-600', 'dark:text-brand-400');
-    }
-  });
-}
-
+// SZIGORÚ NÉZETSZÉTVÁLASZTÁS
 function showView(viewName) {
   const user = activeUser || getCurrentUser();
   const isAuthenticated = Boolean(user && user.uid);
 
-  // ========================================================
-  // STRICT CONDITIONAL RENDERING (Feltételes Nézetvezérlő):
-  // isAuthenticated ? <Dashboard /> : <LandingPage />
-  // ========================================================
-  // 1. Ha a felhasználó NINCS bejelentkezve (!isAuthenticated):
-  //    - Kizárólag a bemutató felület (landing) vagy a bejelentkező felület (auth) jelenhet meg.
-  //    - A belső dashboard, gyakorlás vagy statisztika teljesen el van zárva.
-  // 2. Ha a felhasználó BE VAN JELENTKEZVE (isAuthenticated):
-  //    - A kezdőlap és a lila CTA banner ("Fiók Létrehozása") azonnal és véglegesen elrejtődik.
-  //    - Kizárólag a belső munkafelület (dashboard, stats, practice) jelenhet meg.
   let targetView = viewName;
   if (!isAuthenticated) {
     if (targetView !== 'auth') {
@@ -682,21 +605,21 @@ function showView(viewName) {
     }
   }
 
-  // Minden nézet szigorú alaphelyzetbe állítása (hidden)
+  // 1. MINDEN NÉZETET ELREJTÜNK
   dom.viewLanding.classList.add('hidden');
   dom.viewAuth.classList.add('hidden');
   dom.viewDashboard.classList.add('hidden');
   dom.viewPractice.classList.add('hidden');
   if (dom.viewStats) dom.viewStats.classList.add('hidden');
 
-  // Kizárólag az engedélyezett nézet renderelése
+  // 2. KIZÁRÓLAG AZ EGYETLEN ENGEDÉLYEZETT NÉZET JELENIK MEG
   if (targetView === 'landing') {
     dom.viewLanding.classList.remove('hidden');
   } else if (targetView === 'auth') {
     dom.viewAuth.classList.remove('hidden');
   } else if (targetView === 'dashboard') {
     dom.viewDashboard.classList.remove('hidden');
-    renderDashboard();
+    renderDashboard(); // Csak ekkor hívjuk meg!
   } else if (targetView === 'stats') {
     if (dom.viewStats) {
       dom.viewStats.classList.remove('hidden');
@@ -707,8 +630,6 @@ function showView(viewName) {
   }
 
   window.scrollTo({ top: 0, behavior: 'smooth' });
-  const appHeader = document.getElementById('app-header') || document.querySelector('header');
-  if (appHeader) appHeader.classList.remove('header-hidden');
   refreshIcons();
 }
 
@@ -717,7 +638,6 @@ function showView(viewName) {
 // ==========================================
 
 function setupEventListeners() {
-  // Theme & Navigation
   dom.btnThemeToggle.addEventListener('click', toggleTheme);
   
   dom.navLogo.addEventListener('click', () => {
@@ -728,17 +648,15 @@ function setupEventListeners() {
     }
   });
 
-  dom.navBtnDashboard.addEventListener('click', () => {
-    navigateTo('#dashboard');
-  });
-
-  if (dom.navBtnStats) {
-    dom.navBtnStats.addEventListener('click', () => {
-      navigateTo('#stats');
-    });
+  if (dom.navBtnDashboard) {
+    dom.navBtnDashboard.addEventListener('click', () => navigateTo('#dashboard'));
   }
 
-  // Logout
+  if (dom.navBtnStats) {
+    dom.navBtnStats.addEventListener('click', () => navigateTo('#stats'));
+  }
+
+  // Kijelentkezés
   dom.btnLogout.addEventListener('click', async () => {
     if (confirm("Biztosan ki szeretnél jelentkezni?")) {
       if (window._realtimeCloudUnsubscribe) {
@@ -746,16 +664,18 @@ function setupEventListeners() {
         window._realtimeCloudUnsubscribe = null;
       }
       await logout();
+      activeUser = null;
+      updateNavForUser(null);
       navigateTo('#landing');
     }
   });
 
-  // Auth Tabs
+  // Auth lapok váltása
   let isRegisterMode = false;
   dom.tabLogin.addEventListener('click', () => {
     isRegisterMode = false;
-    dom.tabLogin.className = 'flex-1 min-h-[44px] py-2.5 px-3 text-sm sm:text-sm font-semibold rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm transition-all';
-    dom.tabRegister.className = 'flex-1 min-h-[44px] py-2.5 px-3 text-sm sm:text-sm font-medium rounded-lg text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all';
+    dom.tabLogin.className = 'flex-1 min-h-[44px] py-2.5 px-3 text-sm font-semibold rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm transition-all';
+    dom.tabRegister.className = 'flex-1 min-h-[44px] py-2.5 px-3 text-sm font-medium rounded-lg text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all';
     dom.authConfirmPasswordContainer.classList.add('hidden');
     dom.btnAuthText.textContent = 'Bejelentkezés';
     hideAuthError();
@@ -763,14 +683,14 @@ function setupEventListeners() {
 
   dom.tabRegister.addEventListener('click', () => {
     isRegisterMode = true;
-    dom.tabRegister.className = 'flex-1 min-h-[44px] py-2.5 px-3 text-sm sm:text-sm font-semibold rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm transition-all';
-    dom.tabLogin.className = 'flex-1 min-h-[44px] py-2.5 px-3 text-sm sm:text-sm font-medium rounded-lg text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all';
+    dom.tabRegister.className = 'flex-1 min-h-[44px] py-2.5 px-3 text-sm font-semibold rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm transition-all';
+    dom.tabLogin.className = 'flex-1 min-h-[44px] py-2.5 px-3 text-sm font-medium rounded-lg text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all';
     dom.authConfirmPasswordContainer.classList.remove('hidden');
     dom.btnAuthText.textContent = 'Fiók létrehozása';
     hideAuthError();
   });
 
-  // Auth Form Submit
+  // Auth űrlap beküldése
   dom.formAuth.addEventListener('submit', async (e) => {
     e.preventDefault();
     hideAuthError();
@@ -802,75 +722,41 @@ function setupEventListeners() {
     }
   });
 
-  // Guest login inside Auth Modal
   dom.btnGuestLogin.addEventListener('click', () => {
     loginAsGuest();
     navigateTo('#dashboard');
   });
 
-  // Google Sign-In gomb (100%-ban megbízható Átirányításos / Redirect Flow)
+  // Google bejelentkezés
   if (dom.btnGoogleSignin) {
     dom.btnGoogleSignin.addEventListener('click', async () => {
       hideAuthError();
-
-      // 1. AZONNALI VIZUÁLIS VISSZAJELZÉS (Spinner & Letiltás)
       dom.btnGoogleSignin.disabled = true;
-      const iconWrapper = document.getElementById('btn-google-icon-wrapper');
-      const originalIconHtml = iconWrapper ? iconWrapper.innerHTML : '';
-      if (iconWrapper) {
-        iconWrapper.innerHTML = '<i data-lucide="loader-2" class="w-5 h-5 animate-spin text-brand-600 dark:text-brand-400"></i>';
-        refreshIcons();
-      }
-      if (dom.btnGoogleText) {
-        dom.btnGoogleText.textContent = "Átirányítás folyamatban...";
-      }
+      if (dom.btnGoogleText) dom.btnGoogleText.textContent = "Átirányítás...";
 
-      // 2. KÖRNYEZETI VÁLTOZÓK ÉS CLIENT ID KONFIGURÁCIÓ ELLENŐRZÉSE
-      if (!hasValidGoogleClientId()) {
-        const missingMsg = "Google Client ID nincs beállítva az alkalmazásban!";
-        showToast(missingMsg, "error");
-        showAuthError(missingMsg + " Kérjük, adja meg a Google Client ID-t a beállításokban vagy a környezeti változókban.");
-
-        // Vizuális állapot visszaállítása
-        dom.btnGoogleSignin.disabled = false;
-        if (iconWrapper) iconWrapper.innerHTML = originalIconHtml;
-        if (dom.btnGoogleText) dom.btnGoogleText.textContent = "Folytatás Google-fiókkal";
-        refreshIcons();
-        return;
-      }
-
-      // 3. KÖZVETLEN ÁTIRÁNYÍTÁS (Redirect-based OAuth2 Flow)
       try {
-        // Ha Firebase Auth aktív, megkíséreljük a Firebase Redirect-et
         if (isFirebaseActive()) {
           const started = await startFirebaseGoogleRedirect();
           if (started) return;
         }
-
-        // Standard Google OAuth 2.0 átirányítás
         startGoogleRedirectAuth();
       } catch (err) {
-        showToast(err.message || "Hiba az átirányítás indításakor!", "error");
-        showAuthError(err.message || "Hiba az átirányítás indításakor!");
+        showToast(err.message || "Hiba a Google átirányításkor!", "error");
         dom.btnGoogleSignin.disabled = false;
-        if (iconWrapper) iconWrapper.innerHTML = originalIconHtml;
         if (dom.btnGoogleText) dom.btnGoogleText.textContent = "Folytatás Google-fiókkal";
-        refreshIcons();
       }
     });
   }
 
-  // Excel Upload Modal trigger
-  dom.btnOpenUploadModal.addEventListener('click', () => openUploadModal());
-  dom.btnEmptyUpload.addEventListener('click', () => openUploadModal());
-  dom.btnCloseUploadModal.addEventListener('click', () => closeUploadModal());
-  dom.btnCancelUpload.addEventListener('click', () => closeUploadModal());
+  // Modálok és műveletek
+  dom.btnOpenUploadModal.addEventListener('click', openUploadModal);
+  dom.btnEmptyUpload.addEventListener('click', openUploadModal);
+  dom.btnCloseUploadModal.addEventListener('click', closeUploadModal);
+  dom.btnCancelUpload.addEventListener('click', closeUploadModal);
 
-  // Download Sample Excel
-  dom.btnDownloadSampleExcel.addEventListener('click', () => downloadSampleExcel());
-  dom.btnEmptySample.addEventListener('click', () => downloadSampleExcel());
+  dom.btnDownloadSampleExcel.addEventListener('click', downloadSampleExcel);
+  dom.btnEmptySample.addEventListener('click', downloadSampleExcel);
 
-  // Dropzone & File picker
   dom.excelDropzone.addEventListener('click', () => dom.excelFileInput.click());
   dom.excelFileInput.addEventListener('change', (e) => {
     if (e.target.files && e.target.files[0]) {
@@ -878,124 +764,32 @@ function setupEventListeners() {
     }
   });
 
-  // Drag & drop events
-  dom.excelDropzone.addEventListener('dragover', (e) => {
-    e.preventDefault();
-    dom.excelDropzone.classList.add('border-brand-500', 'bg-brand-50/40', 'dark:bg-brand-950/40');
-  });
-
-  dom.excelDropzone.addEventListener('dragleave', () => {
-    dom.excelDropzone.classList.remove('border-brand-500', 'bg-brand-50/40', 'dark:bg-brand-950/40');
-  });
-
-  dom.excelDropzone.addEventListener('drop', (e) => {
-    e.preventDefault();
-    dom.excelDropzone.classList.remove('border-brand-500', 'bg-brand-50/40', 'dark:bg-brand-950/40');
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      handleSelectedExcelFile(e.dataTransfer.files[0]);
-    }
-  });
-
-  // Save Uploaded List
   dom.btnSaveUploadedList.addEventListener('click', async () => {
     if (!pendingExcelData) return;
     const customName = dom.uploadListName.value.trim() || pendingExcelData.listName;
 
     try {
       dom.btnSaveUploadedList.disabled = true;
-      dom.btnSaveUploadedList.textContent = "Mentés...";
       await saveNewList(customName, pendingExcelData.words, pendingExcelData.sheets);
       closeUploadModal();
       await renderDashboard();
+      showToast("Sikeres mentés!", "success");
     } catch (err) {
       alert("Nem sikerült elmenteni a listát: " + err.message);
     } finally {
       dom.btnSaveUploadedList.disabled = false;
-      dom.btnSaveUploadedList.innerHTML = `<i data-lucide="check" class="w-4 h-4"></i><span>Lista mentése</span>`;
-      refreshIcons();
     }
   });
 
-  // Create empty list button
   dom.btnCreateEmptyList.addEventListener('click', async () => {
-    const listName = prompt("Add meg az új szólista nevét (pl. B2 Kifejezések):");
+    const listName = prompt("Add meg az új szólista nevét:");
     if (listName && listName.trim()) {
       await saveNewList(listName.trim(), []);
       await renderDashboard();
     }
   });
 
-  // Manage Words Modal
-  dom.btnCloseManageModal.addEventListener('click', () => closeManageModal());
-  dom.btnDoneManageModal.addEventListener('click', () => closeManageModal());
-
-  // Add word in manage modal
-  dom.formAddWord.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    if (!activeManageListId) return;
-
-    const en = dom.addWordEnglish.value.trim();
-    const hu = dom.addWordHungarian.value.trim();
-    if (!en || !hu) return;
-
-    await addWordToList(activeManageListId, en, hu);
-    dom.addWordEnglish.value = '';
-    dom.addWordHungarian.value = '';
-    dom.addWordEnglish.focus();
-    await renderManageModal(activeManageListId);
-    await renderDashboard();
-  });
-
-  // Search in manage modal
-  dom.manageSearchInput.addEventListener('input', (e) => {
-    filterManageWords(e.target.value);
-  });
-
-  // Export from manage modal
-  dom.btnExportCurrentList.addEventListener('click', async () => {
-    if (!activeManageListId) return;
-    const target = await getListById(activeManageListId);
-    if (target) {
-      openDownloadModal(target.name, target.words || []);
-    }
-  });
-
-  // Download / Export modal format actions
-  if (dom.btnCloseDownloadModal) {
-    dom.btnCloseDownloadModal.addEventListener('click', closeDownloadModal);
-  }
-
-  if (dom.modalDownloadExport) {
-    dom.modalDownloadExport.addEventListener('click', (e) => {
-      if (e.target === dom.modalDownloadExport) closeDownloadModal();
-    });
-  }
-
-  if (dom.btnExportOptXlsx) {
-    dom.btnExportOptXlsx.addEventListener('click', () => {
-      if (!activeDownloadData) return;
-      exportListToExcel(activeDownloadData.name, activeDownloadData.words);
-      closeDownloadModal();
-    });
-  }
-
-  if (dom.btnExportOptCsv) {
-    dom.btnExportOptCsv.addEventListener('click', () => {
-      if (!activeDownloadData) return;
-      exportListToCSV(activeDownloadData.name, activeDownloadData.words);
-      closeDownloadModal();
-    });
-  }
-
-  if (dom.btnExportOptJson) {
-    dom.btnExportOptJson.addEventListener('click', () => {
-      if (!activeDownloadData) return;
-      exportListToJSON(activeDownloadData.name, activeDownloadData.words);
-      closeDownloadModal();
-    });
-  }
-
-  // Practice session controls
+  // Gyakorlás vezérlők
   dom.btnExitPractice.addEventListener('click', () => {
     if (confirm("Biztosan vissza akarsz térni a szólistákhoz?")) {
       clearAutoAdvance();
@@ -1006,15 +800,9 @@ function setupEventListeners() {
 
   dom.btnToggleDirection.addEventListener('click', () => {
     isReversePractice = !isReversePractice;
-    dom.directionLabel.textContent = isReversePractice 
-      ? '🇭🇺 Magyar → 🇬🇧 Angol' 
-      : '🇬🇧 Angol → 🇭🇺 Magyar';
-    
+    dom.directionLabel.textContent = isReversePractice ? '🇭🇺 Magyar → 🇬🇧 Angol' : '🇬🇧 Angol → 🇭🇺 Magyar';
     if (currentPracticeSession) {
       currentPracticeSession.options.reverse = isReversePractice;
-      dom.practicePromptHint.textContent = isReversePractice 
-        ? "Írd be a megfelelő angol kifejezést:" 
-        : "Írd be a megfelelő magyar jelentést:";
       renderCurrentQuizWord();
     }
   });
@@ -1029,12 +817,9 @@ function setupEventListeners() {
   });
 
   dom.btnSpeakWord.addEventListener('click', () => {
-    if (currentPracticeSession) {
-      currentPracticeSession.speakCurrentWord();
-    }
+    if (currentPracticeSession) currentPracticeSession.speakCurrentWord();
   });
 
-  // Practice Answer Submit & Enter handling
   dom.btnPracticeSubmit.addEventListener('click', handlePracticeAction);
   dom.practiceAnswerInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
@@ -1043,25 +828,13 @@ function setupEventListeners() {
     }
   });
 
-  // Round Completed Modal Controls
   if (dom.btnRoundRetry) {
     dom.btnRoundRetry.addEventListener('click', () => {
       closeRoundCompletedModal();
       if (currentActivePracticeConfig.sheetId) {
         startSheetPractice(currentActivePracticeConfig.listId, currentActivePracticeConfig.sheetId);
-      } else if (currentActivePracticeConfig.isMix) {
-        startMixPractice(currentActivePracticeConfig.listId);
       } else if (currentActivePracticeConfig.listId) {
         startPractice(currentActivePracticeConfig.listId);
-      }
-    });
-  }
-
-  if (dom.btnRoundNextLevel) {
-    dom.btnRoundNextLevel.addEventListener('click', () => {
-      closeRoundCompletedModal();
-      if (nextUnlockedSheetData) {
-        startSheetPractice(nextUnlockedSheetData.listId, nextUnlockedSheetData.sheetId);
       }
     });
   }
@@ -1069,127 +842,34 @@ function setupEventListeners() {
   if (dom.btnRoundExit) {
     dom.btnRoundExit.addEventListener('click', () => {
       closeRoundCompletedModal();
-      navigateTo('#stats');
+      navigateTo('#dashboard');
     });
   }
 
-  // Dinamikus fejléc elrejtése görgetéskor
-  setupHeaderScrollHide();
-
-  // Firebase Settings Modal
-  dom.btnOpenFirebaseSettings.addEventListener('click', openFirebaseModal);
-  dom.btnCloseFirebaseModal.addEventListener('click', closeFirebaseModal);
-
-  dom.formFirebaseConfig.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const config = {
-      apiKey: dom.cfgApiKey.value.trim(),
-      authDomain: dom.cfgAuthDomain.value.trim(),
-      projectId: dom.cfgProjectId.value.trim(),
-      storageBucket: dom.cfgStorageBucket.value.trim(),
-      appId: dom.cfgAppId.value.trim()
-    };
-
-    if (!config.apiKey || !config.projectId) {
-      alert("Az API Key és a Project ID megadása kötelező!");
-      return;
-    }
-
-    saveFirebaseConfig(config);
-    alert("Firebase konfiguráció elmentve! Az oldal újratöltődik a felhő kapcsolathoz.");
-    window.location.reload();
-  });
-
-    dom.btnResetToLocal.addEventListener('click', () => {
-    if (confirm("Biztosan visszaállítod az alkalmazást a Helyi tárolási módra?")) {
-      clearFirebaseConfig();
-      window.location.reload();
-    }
-  });
-
-  // Delete Confirmation Modal Event Listeners
-  if (dom.btnCancelDelete) {
-    dom.btnCancelDelete.addEventListener('click', closeDeleteModal);
-  }
-  if (dom.btnCloseDeleteModal) {
-    dom.btnCloseDeleteModal.addEventListener('click', closeDeleteModal);
-  }
-  if (dom.modalDeleteConfirm) {
-    dom.modalDeleteConfirm.addEventListener('click', (e) => {
-      if (e.target === dom.modalDeleteConfirm) {
-        closeDeleteModal();
-      }
-    });
-  }
-  window.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && dom.modalDeleteConfirm && !dom.modalDeleteConfirm.classList.contains('hidden')) {
-      closeDeleteModal();
-    }
-  });
-
+  // Törlés modál
+  if (dom.btnCancelDelete) dom.btnCancelDelete.addEventListener('click', closeDeleteModal);
+  if (dom.btnCloseDeleteModal) dom.btnCloseDeleteModal.addEventListener('click', closeDeleteModal);
   if (dom.btnConfirmDelete) {
     dom.btnConfirmDelete.addEventListener('click', async () => {
       if (!pendingDeleteTarget) return;
-
-      const targetListId = pendingDeleteTarget.id;
-      const targetListName = pendingDeleteTarget.name;
-      const isStarter = pendingDeleteTarget.id?.startsWith('starter_') || 
-                        pendingDeleteTarget.name?.includes('Starter') || 
-                        pendingDeleteTarget.name?.includes('Kezdő minta') ||
-                        pendingDeleteTarget.isStarter;
-
-      // 1. Törlési modál azonnali bezárása
+      const targetId = pendingDeleteTarget.id;
       closeDeleteModal();
-
-      // 2. Végleges törlés a perzisztens tárolóból és adatbázisból (LocalStorage, Firestore)
-      await deleteList(targetListId);
-
-      // 3. Globális állapot azonnali tisztítása (ha épp ezt a feladatot gyakorolják vagy szerkesztik)
-      if (currentPracticeSession && currentPracticeSession.list && currentPracticeSession.list.id === targetListId) {
-        currentPracticeSession = null;
-        if (!dom.viewPractice.classList.contains('hidden')) {
-          navigateTo('#dashboard');
-        }
-      }
-
-      if (activeManageListId === targetListId) {
-        activeManageListId = null;
-        closeManageModal();
-      }
-
-      // 4. Azonnali UI és Statisztika frissítés oldalújratöltés nélkül
+      await deleteList(targetId);
       await renderDashboard();
-      await renderStatsView();
-
-      // 5. Megerősítő toast visszajelzés
-      showToast(
-        isStarter 
-          ? "A kezdő minta feladat és minden kapcsolódó statisztika véglegesen törölve!" 
-          : `A(z) "${targetListName}" feladat és minden statisztikája sikeresen törölve!`,
-        'danger'
-      );
+      showToast("Szólista sikeresen törölve!", "danger");
     });
   }
 
-  // Google Drive / Sheets Szinkronizációs Modál eseménykezelői
-  if (dom.btnOpenGDriveModal) {
-    dom.btnOpenGDriveModal.addEventListener('click', () => openGDriveModal());
-  }
-  if (dom.btnCloseGDriveModal) {
-    dom.btnCloseGDriveModal.addEventListener('click', closeGDriveModal);
-  }
-  if (dom.btnCancelGDrive) {
-    dom.btnCancelGDrive.addEventListener('click', closeGDriveModal);
-  }
-  if (dom.modalGDriveConnect) {
-    dom.modalGDriveConnect.addEventListener('click', (e) => {
-      if (e.target === dom.modalGDriveConnect) closeGDriveModal();
-    });
-  }
-  if (dom.formGDriveConnect) {
-    dom.formGDriveConnect.addEventListener('submit', handleGDriveSubmit);
-  }
+  // Google Drive integráció
+  if (dom.btnOpenGDriveModal) dom.btnOpenGDriveModal.addEventListener('click', () => openGDriveModal());
+  if (dom.btnCloseGDriveModal) dom.btnCloseGDriveModal.addEventListener('click', closeGDriveModal);
+  if (dom.btnCancelGDrive) dom.btnCancelGDrive.addEventListener('click', closeGDriveModal);
+  if (dom.formGDriveConnect) dom.formGDriveConnect.addEventListener('submit', handleGDriveSubmit);
 }
+
+// ==========================================
+// TOAST ÉS SEGÉDFÜGGVÉNYEK
+// ==========================================
 
 let toastTimeout = null;
 function showToast(message, type = 'success') {
@@ -1198,51 +878,17 @@ function showToast(message, type = 'success') {
 
   dom.appToastMessage.textContent = message;
   if (type === 'success') {
-    dom.appToast.className = 'fixed top-20 right-4 sm:right-6 z-50 flex items-center gap-2.5 px-4 py-3 rounded-2xl shadow-xl text-xs sm:text-sm font-semibold bg-emerald-600 text-white border border-emerald-500 shadow-emerald-600/20 transition-all pointer-events-none animate-pop-in';
-    dom.appToastIcon.innerHTML = '✓';
-  } else if (type === 'danger') {
-    dom.appToast.className = 'fixed top-20 right-4 sm:right-6 z-50 flex items-center gap-2.5 px-4 py-3 rounded-2xl shadow-xl text-xs sm:text-sm font-semibold bg-rose-600 text-white border border-rose-500 shadow-rose-600/20 transition-all pointer-events-none animate-pop-in';
-    dom.appToastIcon.innerHTML = '🗑️';
+    dom.appToast.className = 'fixed top-20 right-4 z-50 flex items-center gap-2.5 px-4 py-3 rounded-2xl shadow-xl text-xs sm:text-sm font-semibold bg-emerald-600 text-white border border-emerald-500 animate-pop-in';
+  } else if (type === 'danger' || type === 'error') {
+    dom.appToast.className = 'fixed top-20 right-4 z-50 flex items-center gap-2.5 px-4 py-3 rounded-2xl shadow-xl text-xs sm:text-sm font-semibold bg-rose-600 text-white border border-rose-500 animate-pop-in';
   } else {
-    dom.appToast.className = 'fixed top-20 right-4 sm:right-6 z-50 flex items-center gap-2.5 px-4 py-3 rounded-2xl shadow-xl text-xs sm:text-sm font-semibold bg-slate-900 text-white border border-slate-700 shadow-slate-900/20 transition-all pointer-events-none animate-pop-in';
-    dom.appToastIcon.innerHTML = 'ℹ️';
+    dom.appToast.className = 'fixed top-20 right-4 z-50 flex items-center gap-2.5 px-4 py-3 rounded-2xl shadow-xl text-xs sm:text-sm font-semibold bg-slate-900 text-white border border-slate-700 animate-pop-in';
   }
 
   dom.appToast.classList.remove('hidden');
-
   toastTimeout = setTimeout(() => {
-    if (dom.appToast) {
-      dom.appToast.classList.add('hidden');
-    }
+    if (dom.appToast) dom.appToast.classList.add('hidden');
   }, 3500);
-}
-
-function openDeleteModal(list) {
-  pendingDeleteTarget = list;
-  const isStarter = list.id?.startsWith('starter_') || 
-                    list.name?.includes('Starter') || 
-                    list.name?.includes('Kezdő minta') || 
-                    list.isStarter;
-
-  if (isStarter) {
-    dom.deleteConfirmTitle.textContent = "Kezdő minta feladat törlése";
-    dom.deleteConfirmMessage.innerHTML = `Biztosan törölni szeretnéd a <strong>minta feladatot</strong>? Ezzel minden kapcsolódó statisztika és előzmény is végleg törlődik.`;
-  } else {
-    dom.deleteConfirmTitle.textContent = "Szólista végleges törlése";
-    dom.deleteConfirmMessage.innerHTML = `Biztosan törölni szeretnéd a(z) <strong>"${escapeHtml(list.name)}"</strong> feladatot? Ezzel minden kapcsolódó munkalap, statisztika és előzmény is végleg törlődik.`;
-  }
-
-  dom.modalDeleteConfirm.classList.remove('hidden');
-  dom.modalDeleteConfirm.classList.add('flex');
-  refreshIcons();
-}
-
-function closeDeleteModal() {
-  pendingDeleteTarget = null;
-  if (dom.modalDeleteConfirm) {
-    dom.modalDeleteConfirm.classList.add('hidden');
-    dom.modalDeleteConfirm.classList.remove('flex');
-  }
 }
 
 function showAuthError(msg) {
@@ -1254,6 +900,22 @@ function hideAuthError() {
   dom.authErrorBanner.classList.add('hidden');
 }
 
+function openDeleteModal(list) {
+  pendingDeleteTarget = list;
+  dom.deleteConfirmTitle.textContent = "Szólista törlése";
+  dom.deleteConfirmMessage.innerHTML = `Biztosan törölni szeretnéd a(z) <strong>"${escapeHtml(list.name)}"</strong> listát?`;
+  dom.modalDeleteConfirm.classList.remove('hidden');
+  dom.modalDeleteConfirm.classList.add('flex');
+}
+
+function closeDeleteModal() {
+  pendingDeleteTarget = null;
+  if (dom.modalDeleteConfirm) {
+    dom.modalDeleteConfirm.classList.add('hidden');
+    dom.modalDeleteConfirm.classList.remove('flex');
+  }
+}
+
 // ==========================================
 // 4. DASHBOARD RENDERELÉSE
 // ==========================================
@@ -1262,7 +924,6 @@ async function renderDashboard() {
   if (!activeUser) return;
   const lists = await getUserLists();
 
-  // Metrics
   const totalLists = lists.length;
   let totalWords = 0;
   let totalPracticed = 0;
@@ -1292,40 +953,10 @@ async function renderDashboard() {
 
   lists.forEach(list => {
     const card = document.createElement('div');
-    card.className = 'group bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 p-5 shadow-sm hover:shadow-md hover:border-brand-500/40 transition-all flex flex-col justify-between';
+    card.className = 'group bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 p-5 shadow-sm hover:shadow-md transition-all flex flex-col justify-between';
 
     const wordCount = list.words ? list.words.length : 0;
-    const formattedDate = new Date(list.createdAt || Date.now()).toLocaleDateString('hu-HU', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
-
     const sheets = list.sheets || [];
-    const sheetsCount = sheets.length;
-    const masteredCount = sheets.filter(s => (s.consecutivePerfectScores >= 2) || (s.timesPassed >= 2)).length;
-    const canMix = masteredCount > 0;
-
-    const wordsWithPractice = (list.words || []).filter(w => (w.timesPracticed || 0) > 0);
-    const practicedCount = wordsWithPractice.length;
-    const progressPercent = wordCount > 0 ? Math.round((practicedCount / wordCount) * 100) : 0;
-
-    // Sheet preview badges HTML
-    const sheetsBadgesHtml = sheets.slice(0, 4).map((s, idx) => {
-      const isUnl = s.isUnlocked;
-      const isMast = (s.consecutivePerfectScores >= 2) || (s.timesPassed >= 2);
-      const badgeClass = isMast 
-        ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
-        : (isUnl 
-            ? 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800' 
-            : 'bg-slate-100 dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700');
-      const icon = isMast ? '⭐' : (isUnl ? '🔓' : '🔒');
-      return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium border ${badgeClass}" title="${escapeHtml(s.name)}">${icon} ${escapeHtml(s.name)}</span>`;
-    }).join('');
-
-    const hasGDrive = Boolean(list.googleDriveUrl || list.oneDriveUrl);
-    const hasNewWords = (list.words || []).some(w => w.isNew === true);
-    const newWordsCount = (list.words || []).filter(w => w.isNew === true).length;
 
     card.innerHTML = `
       <div>
@@ -1335,154 +966,27 @@ async function renderDashboard() {
               <i data-lucide="book-marked" class="w-5 h-5"></i>
             </div>
             <div>
-              <h4 class="font-bold text-slate-900 dark:text-white group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors line-clamp-1" title="${escapeHtml(list.name)}">
-                ${escapeHtml(list.name)}
-              </h4>
-              <div class="text-[11px] text-slate-400">Létrehozva: ${formattedDate}</div>
+              <h4 class="font-bold text-slate-900 dark:text-white line-clamp-1">${escapeHtml(list.name)}</h4>
+              <div class="text-[11px] text-slate-400">${wordCount} szó &bull; ${sheets.length} munkalap</div>
             </div>
           </div>
-
-          <!-- Kártya menü gombok -->
           <div class="flex items-center gap-1">
-            ${hasGDrive ? `
-            <button class="btn-sync-gdrive p-2 min-w-[44px] min-h-[44px] inline-flex items-center justify-center text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300 rounded-xl hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition-colors" title="Google Táblázat azonnali frissítés">
-              <i data-lucide="refresh-cw" class="w-4 h-4"></i>
-            </button>
-            ` : `
-            <button class="btn-link-gdrive p-2 min-w-[44px] min-h-[44px] inline-flex items-center justify-center text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" title="Összekapcsolás Google Táblázattal">
-              <i data-lucide="file-spreadsheet" class="w-4 h-4"></i>
-            </button>
-            `}
-            <button class="btn-rename-list p-2 min-w-[44px] min-h-[44px] inline-flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" title="Átnevezés">
-              <i data-lucide="pencil" class="w-4 h-4"></i>
-            </button>
-            <button class="btn-delete-list p-2 min-w-[44px] min-h-[44px] inline-flex items-center justify-center text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 rounded-xl hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors" title="Lista törlése">
+            <button class="btn-delete-list p-2 min-w-[40px] min-h-[40px] inline-flex items-center justify-center text-slate-400 hover:text-rose-600 rounded-xl transition-colors">
               <i data-lucide="trash-2" class="w-4 h-4"></i>
             </button>
           </div>
         </div>
-
-        <!-- Munkalapok előnézete & haladás -->
-        <div class="my-3 space-y-2">
-          <div class="flex items-center justify-between text-xs">
-            <div class="flex items-center gap-1.5 flex-wrap">
-              <span class="text-slate-500 dark:text-slate-400 font-medium">${wordCount} szó &bull; ${sheetsCount} munkalap</span>
-              ${hasGDrive ? `
-              <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-semibold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800" title="Google Drive szinkronizált lista">
-                <i data-lucide="file-spreadsheet" class="w-3 h-3 text-emerald-600 dark:text-emerald-400"></i> Google Sheets
-              </span>
-              ` : ''}
-              ${hasNewWords ? `
-              <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-amber-100 dark:bg-amber-950/70 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-700/60 animate-pulse" title="${newWordsCount} új szó gyakorlási prioritásban">
-                ✨ ${newWordsCount} új szó
-              </span>
-              ` : ''}
-            </div>
-            <span class="text-brand-600 dark:text-brand-400 font-semibold">${masteredCount}/${sheetsCount} elsajátítva ⭐</span>
-          </div>
-
-          <div class="w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-            <div class="h-full bg-gradient-to-r from-brand-500 to-indigo-500 rounded-full" style="width: ${progressPercent}%"></div>
-          </div>
-
-          <div class="flex flex-wrap gap-1 pt-1">
-            ${sheetsBadgesHtml}
-            ${sheets.length > 4 ? `<span class="text-[11px] text-slate-400 self-center">+${sheets.length - 4} további</span>` : ''}
-          </div>
-        </div>
       </div>
-
-      <!-- Kártya alsó gombok -->
-      <div class="pt-3 border-t border-slate-100 dark:border-slate-800/80 flex items-center gap-2">
-        <button class="btn-start-practice flex-1 min-h-[44px] py-2.5 px-3 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-semibold text-xs sm:text-sm transition-all flex items-center justify-center gap-1.5 shadow-sm active:scale-[0.98]" title="Gyakorlás indítása az aktív munkalapon">
+      <div class="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center gap-2">
+        <button class="btn-start-practice flex-1 min-h-[44px] py-2.5 px-3 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-semibold text-xs sm:text-sm transition-all flex items-center justify-center gap-1.5 shadow-sm">
           <i data-lucide="play" class="w-3.5 h-3.5 fill-current"></i>
           <span>Gyakorlás</span>
-        </button>
-
-        ${canMix ? `
-        <button class="btn-card-mix min-h-[44px] px-3 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-semibold text-xs transition-all flex items-center justify-center gap-1 shadow-sm" title="Mix Gyakorlás az elsajátított munkalapokból">
-          <i data-lucide="shuffle" class="w-3.5 h-3.5"></i>
-          <span>Mix</span>
-        </button>
-        ` : ''}
-
-        <button class="btn-view-words min-w-[44px] min-h-[44px] inline-flex items-center justify-center p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs transition-colors" title="Szavak megtekintése és szerkesztése">
-          <i data-lucide="list" class="w-4 h-4"></i>
-        </button>
-
-        <button class="btn-export-list min-w-[44px] min-h-[44px] inline-flex items-center justify-center p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs transition-colors" title="Exportálás Excelbe">
-          <i data-lucide="download" class="w-4 h-4"></i>
         </button>
       </div>
     `;
 
-    // Eseménykezelők kártyán belül
-    if (hasGDrive) {
-      const syncBtn = card.querySelector('.btn-sync-gdrive');
-      if (syncBtn) {
-        syncBtn.addEventListener('click', async (e) => {
-          e.stopPropagation();
-          const icon = syncBtn.querySelector('i');
-          if (icon) icon.classList.add('animate-spin');
-          syncBtn.disabled = true;
-          try {
-            const res = await syncGoogleDriveList(list.id, { force: true });
-            if (res.success) {
-              await renderDashboard();
-              showToast(res.message || 'A táblázat sikeresen szinkronizálva!', 'success');
-            } else {
-              showToast(res.message || 'Nem sikerült a szinkronizáció.', 'danger');
-            }
-          } catch (err) {
-            showToast('Hiba a szinkronizálás során: ' + err.message, 'danger');
-          } finally {
-            syncBtn.disabled = false;
-            if (icon) icon.classList.remove('animate-spin');
-          }
-        });
-      }
-    } else {
-      const linkBtn = card.querySelector('.btn-link-gdrive');
-      if (linkBtn) {
-        linkBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          openGDriveModal(list.id, list.googleDriveUrl || '');
-        });
-      }
-    }
-
-    card.querySelector('.btn-start-practice').addEventListener('click', () => {
-      startPractice(list.id);
-    });
-
-    if (canMix) {
-      const cardMixBtn = card.querySelector('.btn-card-mix');
-      if (cardMixBtn) {
-        cardMixBtn.addEventListener('click', () => {
-          startMixPractice(list.id);
-        });
-      }
-    }
-
-    card.querySelector('.btn-view-words').addEventListener('click', () => {
-      openManageModal(list.id);
-    });
-
-    card.querySelector('.btn-export-list').addEventListener('click', () => {
-      openDownloadModal(list.name, list.words || []);
-    });
-
-    card.querySelector('.btn-rename-list').addEventListener('click', async () => {
-      const newName = prompt("Lista új neve:", list.name);
-      if (newName && newName.trim() && newName.trim() !== list.name) {
-        await updateListName(list.id, newName.trim());
-        await renderDashboard();
-      }
-    });
-
-    card.querySelector('.btn-delete-list').addEventListener('click', () => {
-      openDeleteModal(list);
-    });
+    card.querySelector('.btn-start-practice').addEventListener('click', () => startPractice(list.id));
+    card.querySelector('.btn-delete-list').addEventListener('click', () => openDeleteModal(list));
 
     dom.listsGrid.appendChild(card);
   });
@@ -1491,7 +995,7 @@ async function renderDashboard() {
 }
 
 // ==========================================
-// 5. EXCEL FELTÖLTÉS MODAL KEZELÉSE
+// 5. MODÁLOK ÉS GYAKORLÁS LOGIKA
 // ==========================================
 
 function openUploadModal() {
@@ -1513,37 +1017,8 @@ async function handleSelectedExcelFile(file) {
   try {
     const result = await parseExcelFile(file);
     pendingExcelData = result;
-
     dom.uploadListName.value = result.listName;
     dom.uploadWordCountBadge.textContent = result.wordCount;
-
-    if (dom.uploadSheetsCountBadge) {
-      const sheetCount = (result.sheets || []).length;
-      dom.uploadSheetsCountBadge.textContent = `${sheetCount} munkalap`;
-    }
-
-    if (dom.uploadSheetsPreviewTags) {
-      dom.uploadSheetsPreviewTags.innerHTML = '';
-      (result.sheets || []).forEach((s, idx) => {
-        const tag = document.createElement('span');
-        tag.className = 'px-2 py-0.5 rounded-md text-[11px] font-medium bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300';
-        tag.textContent = `${idx === 0 ? '🔓' : '🔒'} ${s.name} (${(s.words || []).length} szó)`;
-        dom.uploadSheetsPreviewTags.appendChild(tag);
-      });
-    }
-
-    dom.uploadPreviewTable.innerHTML = '';
-    result.preview.forEach((item) => {
-      const row = document.createElement('div');
-      row.className = 'flex items-center justify-between py-1 px-2 rounded bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300';
-      row.innerHTML = `
-        <span class="font-medium truncate max-w-[45%]">${escapeHtml(item.english)}</span>
-        <span class="text-slate-400">→</span>
-        <span class="text-slate-500 dark:text-slate-400 truncate max-w-[45%] text-right">${escapeHtml(item.hungarian)}</span>
-      `;
-      dom.uploadPreviewTable.appendChild(row);
-    });
-
     dom.excelDropzone.classList.add('hidden');
     dom.uploadPreviewSection.classList.remove('hidden');
     refreshIcons();
@@ -1552,409 +1027,45 @@ async function handleSelectedExcelFile(file) {
   }
 }
 
-// ==========================================
-// 5.2. GOOGLE DRIVE / SHEETS SZINKRONIZÁCIÓ KEZELÉSE
-// ==========================================
-
-function openGDriveModal(listId = null, defaultUrl = '') {
-  if (!dom.modalGDriveConnect) return;
-  hideGDriveAlert();
-
-  if (listId) {
-    dom.gdriveTargetListId.value = listId;
-    if (dom.gdriveNameGroup) dom.gdriveNameGroup.classList.add('hidden');
-    const modalTitle = document.getElementById('gdrive-modal-title');
-    if (modalTitle) modalTitle.textContent = 'Google Táblázat Szinkronizálás';
-    if (dom.textGDriveSubmit) dom.textGDriveSubmit.textContent = 'Szinkronizálás';
-    if (dom.gdriveLinkInput) dom.gdriveLinkInput.value = defaultUrl || '';
-    if (dom.gdriveSheetNames) {
-      dom.gdriveSheetNames.value = '';
-      getListById(listId).then(target => {
-        if (target && target.googleDriveSheetNames && dom.gdriveSheetNames) {
-          const sNames = target.googleDriveSheetNames;
-          dom.gdriveSheetNames.value = Array.isArray(sNames) ? sNames.join(', ') : (sNames || '');
-        }
-      }).catch(() => {});
-    }
-  } else {
-    dom.gdriveTargetListId.value = '';
-    if (dom.gdriveNameGroup) dom.gdriveNameGroup.classList.remove('hidden');
-    const modalTitle = document.getElementById('gdrive-modal-title');
-    if (modalTitle) modalTitle.textContent = 'Google Drive / Sheets Szinkron';
-    if (dom.textGDriveSubmit) dom.textGDriveSubmit.textContent = 'Csatlakozás és Szinkronizáció';
-    if (dom.gdriveLinkInput) dom.gdriveLinkInput.value = defaultUrl || '';
-    if (dom.gdriveCustomName) dom.gdriveCustomName.value = '';
-    if (dom.gdriveSheetNames) dom.gdriveSheetNames.value = '';
-  }
-
+function openGDriveModal() {
   dom.modalGDriveConnect.classList.remove('hidden');
   dom.modalGDriveConnect.classList.add('flex');
-  setTimeout(() => dom.gdriveLinkInput?.focus(), 50);
-  refreshIcons();
 }
 
 function closeGDriveModal() {
-  if (!dom.modalGDriveConnect) return;
   dom.modalGDriveConnect.classList.add('hidden');
   dom.modalGDriveConnect.classList.remove('flex');
-  hideGDriveAlert();
-}
-
-function showGDriveAlert(message, type = 'error') {
-  if (!dom.gdriveModalAlert) return;
-  dom.gdriveModalAlert.className = type === 'error'
-    ? 'p-3 rounded-xl text-xs flex items-center gap-2 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 text-rose-700 dark:text-rose-300'
-    : 'p-3 rounded-xl text-xs flex items-center gap-2 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900/60 text-emerald-700 dark:text-emerald-300';
-  if (dom.gdriveAlertIcon) {
-    dom.gdriveAlertIcon.innerHTML = type === 'error'
-      ? '<i data-lucide="alert-circle" class="w-4 h-4 text-rose-500 shrink-0"></i>'
-      : '<i data-lucide="check-circle" class="w-4 h-4 text-emerald-500 shrink-0"></i>';
-  }
-  if (dom.gdriveAlertMessage) {
-    dom.gdriveAlertMessage.textContent = message;
-  }
-  dom.gdriveModalAlert.classList.remove('hidden');
-  refreshIcons();
-}
-
-function hideGDriveAlert() {
-  if (dom.gdriveModalAlert) {
-    dom.gdriveModalAlert.classList.add('hidden');
-  }
 }
 
 async function handleGDriveSubmit(e) {
   e.preventDefault();
   const url = dom.gdriveLinkInput ? dom.gdriveLinkInput.value.trim() : '';
-  const targetListId = dom.gdriveTargetListId ? dom.gdriveTargetListId.value : '';
-  const customName = dom.gdriveCustomName ? dom.gdriveCustomName.value.trim() : null;
-  const sheetNames = dom.gdriveSheetNames ? dom.gdriveSheetNames.value.trim() : '';
-
-  if (!url) {
-    showGDriveAlert("Kérlek, adj meg egy érvényes Google Drive vagy Google Sheets hivatkozást!", "error");
-    return;
-  }
-
-  // Gomb állapotának frissítése (loading)
-  if (dom.btnSubmitGDrive) dom.btnSubmitGDrive.disabled = true;
-  if (dom.iconGDriveSubmit) dom.iconGDriveSubmit.classList.add('animate-spin');
-  if (dom.textGDriveSubmit) dom.textGDriveSubmit.textContent = 'Szinkronizálás folyamatban...';
+  if (!url) return;
 
   try {
-    if (targetListId) {
-      // Meglévő lista összekapcsolása / frissítése
-      const result = await linkExistingListToGoogleDrive(targetListId, url, sheetNames);
-      if (result.success) {
-        closeGDriveModal();
-        await renderDashboard();
-        showToast(result.message || `Sikeres frissítés: ${result.newWordsCount} új szó hozzáadva!`, 'success');
-      } else {
-        showGDriveAlert(result.message || 'Hiba történt a szinkronizálás során.', 'error');
-      }
-    } else {
-      // Új lista csatlakoztatása Google Drive-ról
-      const newList = await connectGoogleDriveList(url, customName, sheetNames);
-      closeGDriveModal();
-      await renderDashboard();
-      const count = newList.words?.length || 0;
-      showToast(`Sikeres frissítés: ${count} új szó hozzáadva!`, 'success');
-    }
+    const newList = await connectGoogleDriveList(url, null, '');
+    closeGDriveModal();
+    await renderDashboard();
+    showToast(`Sikeres szinkronizáció!`, 'success');
   } catch (err) {
-    console.error("Google Drive szinkron hiba:", err);
-    showGDriveAlert(err.message || 'Nem sikerült letölteni vagy feldolgozni a Google Táblázatot.', 'error');
-  } finally {
-    if (dom.btnSubmitGDrive) dom.btnSubmitGDrive.disabled = false;
-    if (dom.iconGDriveSubmit) dom.iconGDriveSubmit.classList.remove('animate-spin');
-    if (dom.textGDriveSubmit) {
-      dom.textGDriveSubmit.textContent = targetListId ? 'Szinkronizálás' : 'Csatlakozás és Szinkronizáció';
-    }
+    showToast(err.message || "Hiba történt a Google Drive elérésekor!", 'danger');
   }
-}
-
-// ==========================================
-// 5.5. LETÖLTÉS / EXPORT PANEL (MODAL)
-// ==========================================
-
-let activeDownloadData = null;
-
-function openDownloadModal(listName, words) {
-  activeDownloadData = { name: listName, words: words || [] };
-  if (dom.downloadListNameBadge) {
-    dom.downloadListNameBadge.textContent = `${listName} — ${activeDownloadData.words.length} szó`;
-  }
-  if (dom.downloadWordCounter) {
-    dom.downloadWordCounter.textContent = `${activeDownloadData.words.length} szó`;
-  }
-  if (dom.downloadWordsPreviewList) {
-    dom.downloadWordsPreviewList.innerHTML = '';
-    if (activeDownloadData.words.length === 0) {
-      dom.downloadWordsPreviewList.innerHTML = '<div class="text-xs text-slate-400 py-3 text-center whitespace-nowrap">Nincsenek szavak ebben a listában.</div>';
-    } else {
-      activeDownloadData.words.slice(0, 40).forEach(w => {
-        const item = document.createElement('div');
-        item.className = 'download-word-item flex items-center justify-between gap-3 px-3 py-1.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800 text-xs shadow-xs';
-        item.innerHTML = `
-          <span class="font-semibold text-slate-900 dark:text-slate-100 whitespace-nowrap shrink-0" style="white-space: nowrap !important; word-break: keep-all !important;">${escapeHtml(w.english || '')}</span>
-          <span class="text-slate-400 text-[10px] shrink-0">→</span>
-          <span class="text-slate-600 dark:text-slate-300 whitespace-nowrap shrink-0" style="white-space: nowrap !important; word-break: keep-all !important;">${escapeHtml(w.hungarian || '')}</span>
-        `;
-        dom.downloadWordsPreviewList.appendChild(item);
-      });
-      if (activeDownloadData.words.length > 40) {
-        const more = document.createElement('div');
-        more.className = 'text-center text-[11px] text-slate-400 py-1 whitespace-nowrap';
-        more.textContent = `...és további ${activeDownloadData.words.length - 40} szó a letöltendő fájlban`;
-        dom.downloadWordsPreviewList.appendChild(more);
-      }
-    }
-  }
-
-  if (dom.modalDownloadExport) {
-    dom.modalDownloadExport.classList.remove('hidden');
-    dom.modalDownloadExport.classList.add('flex');
-  }
-  refreshIcons();
-}
-
-function closeDownloadModal() {
-  activeDownloadData = null;
-  if (dom.modalDownloadExport) {
-    dom.modalDownloadExport.classList.add('hidden');
-    dom.modalDownloadExport.classList.remove('flex');
-  }
-}
-
-// ==========================================
-// 6. SZÓLISTA SZERKESZTŐ (MANAGE) MODAL
-// ==========================================
-
-async function openManageModal(listId) {
-  activeManageListId = listId;
-  await renderManageModal(listId);
-  dom.modalManageList.classList.remove('hidden');
-  dom.modalManageList.classList.add('flex');
-  refreshIcons();
-}
-
-function closeManageModal() {
-  activeManageListId = null;
-  dom.modalManageList.classList.add('hidden');
-  dom.modalManageList.classList.remove('flex');
-}
-
-async function renderManageModal(listId) {
-  const list = await getListById(listId);
-  if (!list) return;
-
-  dom.manageModalTitle.textContent = `${list.name} — Szavak`;
-  dom.manageModalSubtitle.textContent = `Összesen ${list.words ? list.words.length : 0} szó rögzítve`;
-  dom.manageWordCounter.textContent = `${list.words ? list.words.length : 0} szó`;
-  dom.manageSearchInput.value = '';
-
-  renderWordsListRows(list.words || []);
-}
-
-function renderWordsListRows(words) {
-  dom.manageWordsTable.innerHTML = '';
-
-  if (words.length === 0) {
-    dom.manageWordsTable.innerHTML = `
-      <div class="text-center py-8 text-xs text-slate-400">
-        Nincsenek szavak ebben a listában. Használd a fenti űrlapot új szó hozzáadásához!
-      </div>
-    `;
-    return;
-  }
-
-  words.forEach(word => {
-    const item = document.createElement('div');
-    item.className = 'group flex items-center justify-between p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200/60 dark:border-slate-700/60 text-sm sm:text-xs transition-colors';
-    item.dataset.english = word.english.toLowerCase();
-    item.dataset.hungarian = word.hungarian.toLowerCase();
-
-    item.innerHTML = `
-      <div class="flex-1 grid grid-cols-2 gap-2 mr-2 min-w-0" style="white-space: nowrap;">
-        <span class="font-semibold text-slate-900 dark:text-slate-100 truncate whitespace-nowrap" style="white-space: nowrap !important; word-break: keep-all !important;">${escapeHtml(word.english)}</span>
-        <span class="text-slate-600 dark:text-slate-300 truncate whitespace-nowrap" style="white-space: nowrap !important; word-break: keep-all !important;">${escapeHtml(word.hungarian)}</span>
-      </div>
-      <div class="flex items-center gap-1 shrink-0">
-        <button class="btn-edit-word p-2 min-w-[44px] min-h-[44px] inline-flex items-center justify-center text-slate-400 hover:text-brand-600 rounded-xl transition-colors" title="Szerkesztés">
-          <i data-lucide="pencil" class="w-4 h-4"></i>
-        </button>
-        <button class="btn-delete-word p-2 min-w-[44px] min-h-[44px] inline-flex items-center justify-center text-slate-400 hover:text-rose-600 rounded-xl transition-colors" title="Törlés">
-          <i data-lucide="trash" class="w-4 h-4"></i>
-        </button>
-      </div>
-    `;
-
-    item.querySelector('.btn-edit-word').addEventListener('click', async () => {
-      const newEn = prompt("Angol kifejezés módosítása:", word.english);
-      if (newEn === null) return;
-      const newHu = prompt("Magyar jelentés módosítása:", word.hungarian);
-      if (newHu === null) return;
-
-      if (newEn.trim() && newHu.trim()) {
-        await updateWordInList(activeManageListId, word.id, newEn.trim(), newHu.trim());
-        await renderManageModal(activeManageListId);
-        await renderDashboard();
-      }
-    });
-
-    item.querySelector('.btn-delete-word').addEventListener('click', async () => {
-      if (confirm(`Biztosan törlöd a(z) "${word.english}" szót ebből a listából?`)) {
-        await deleteWordFromList(activeManageListId, word.id);
-        await renderManageModal(activeManageListId);
-        await renderDashboard();
-      }
-    });
-
-    dom.manageWordsTable.appendChild(item);
-  });
-
-  refreshIcons();
-}
-
-function filterManageWords(query) {
-  const q = query.trim().toLowerCase();
-  const rows = dom.manageWordsTable.querySelectorAll('div[data-english]');
-  rows.forEach(row => {
-    const en = row.dataset.english || '';
-    const hu = row.dataset.hungarian || '';
-    if (!q || en.includes(q) || hu.includes(q)) {
-      row.classList.remove('hidden');
-    } else {
-      row.classList.add('hidden');
-    }
-  });
-}
-
-// ==========================================
-// 7. GYAKORLÁSI ÉS KIKÉRDEZÉSI MÓD ENGINE (Munkalap & Mix Támogatással)
-// ==========================================
-
-async function startSheetPractice(listId, sheetId) {
-  const list = await getListById(listId);
-  if (!list || !list.sheets) {
-    alert("Ez a lista nem található vagy nem tartalmaz munkalapokat!");
-    return;
-  }
-
-  const sheet = list.sheets.find(s => s.id === sheetId);
-  if (!sheet) {
-    alert("A kiválasztott munkalap nem található!");
-    return;
-  }
-
-  if (!sheet.isUnlocked) {
-    alert("Ez a szint még zárolva van! Teljesítsd az előző munkalapot 2 egymást követő alkalommal 100%-os eredménnyel a feloldásához.");
-    return;
-  }
-
-  if (!sheet.words || sheet.words.length === 0) {
-    alert("Ez a munkalap nem tartalmaz szavakat a gyakorláshoz!");
-    return;
-  }
-
-  currentActivePracticeConfig = { listId, sheetId, isMix: false };
-  nextUnlockedSheetData = null;
-
-  currentPracticeSession = new PracticeSession(list, {
-    reverse: isReversePractice,
-    soundEnabled: isSoundEnabled,
-    sheetId: sheetId,
-    isMix: false
-  });
-
-  dom.practiceCurrentListTitle.textContent = list.name;
-  if (dom.practiceCurrentSheetTitle) dom.practiceCurrentSheetTitle.textContent = sheet.name;
-  if (dom.practiceSheetBadge) dom.practiceSheetBadge.classList.remove('hidden');
-
-  dom.practicePromptHint.textContent = isReversePractice 
-    ? "Írd be a megfelelő angol kifejezést:" 
-    : "Írd be a megfelelő magyar jelentést:";
-
-  navigateTo('#practice');
-  renderCurrentQuizWord();
-}
-
-async function startMixPractice(listId) {
-  const list = await getListById(listId);
-  if (!list || !list.sheets) {
-    alert("A lista nem található!");
-    return;
-  }
-
-  // Ellenőrizzük, hogy van-e legalább egy elsajátított (vagy feloldott) munkalap
-  const masteredSheets = list.sheets.filter(s => 
-    (s.consecutivePerfectScores >= 2) || ((s.timesPassed || 0) >= 2) || s.isUnlocked
-  );
-
-  if (masteredSheets.length === 0) {
-    alert("A Mix gyakorláshoz először teljesíts legalább egy szintet 2x egymás után 100%-kal!");
-    return;
-  }
-
-  currentActivePracticeConfig = { listId, sheetId: null, isMix: true };
-  nextUnlockedSheetData = null;
-
-  currentPracticeSession = new PracticeSession(list, {
-    reverse: isReversePractice,
-    soundEnabled: isSoundEnabled,
-    sheetId: null,
-    isMix: true
-  });
-
-  dom.practiceCurrentListTitle.textContent = list.name;
-  if (dom.practiceCurrentSheetTitle) dom.practiceCurrentSheetTitle.textContent = "Mix (Mesterelt szintek)";
-  if (dom.practiceSheetBadge) dom.practiceSheetBadge.classList.remove('hidden');
-
-  dom.practicePromptHint.textContent = isReversePractice 
-    ? "Írd be a megfelelő angol kifejezést:" 
-    : "Írd be a megfelelő magyar jelentést:";
-
-  navigateTo('#practice');
-  renderCurrentQuizWord();
 }
 
 async function startPractice(listId) {
   const list = await getListById(listId);
-  if (!list) {
-    alert("A lista nem található!");
-    return;
-  }
-
-  // Ha a lista rendelkezik munkalapokkal (új struktúra)
-  if (list.sheets && list.sheets.length > 0) {
-    // Keressük meg az első feloldott munkalapot, ami még nincs mesterelve (consecutivePerfectScores < 2)
-    let targetSheet = list.sheets.find(s => s.isUnlocked && (s.consecutivePerfectScores || 0) < 2);
-    // Ha mindegyik mesterelt, válasszuk az utolsó feloldottat vagy a legelsőt
-    if (!targetSheet) {
-      const unlockedSheets = list.sheets.filter(s => s.isUnlocked);
-      targetSheet = unlockedSheets[unlockedSheets.length - 1] || list.sheets[0];
-    }
-    return startSheetPractice(listId, targetSheet.id);
-  }
-
-  // Hagyományos kompatibilitási ág (ha nem lennének munkalapok)
-  if (!list.words || list.words.length === 0) {
-    alert("Ez a lista nem tartalmaz szavakat a gyakorláshoz! Tölts fel vagy adj hozzá szavakat.");
+  if (!list || !list.words || list.words.length === 0) {
+    alert("Ez a lista nem tartalmaz szavakat!");
     return;
   }
 
   currentActivePracticeConfig = { listId, sheetId: null, isMix: false };
-  nextUnlockedSheetData = null;
-
   currentPracticeSession = new PracticeSession(list, {
     reverse: isReversePractice,
     soundEnabled: isSoundEnabled
   });
 
   dom.practiceCurrentListTitle.textContent = list.name;
-  if (dom.practiceSheetBadge) dom.practiceSheetBadge.classList.add('hidden');
-  dom.practicePromptHint.textContent = isReversePractice 
-    ? "Írd be a megfelelő angol kifejezést:" 
-    : "Írd be a megfelelő magyar jelentést:";
-
   navigateTo('#practice');
   renderCurrentQuizWord();
 }
@@ -1968,28 +1079,14 @@ function renderCurrentQuizWord() {
     if (currentPracticeSession.isRoundComplete()) {
       onPracticeRoundFinished();
     } else {
-      alert("A kör véget ért!");
       navigateTo('#dashboard');
     }
     return;
   }
 
-  resetQuizCardState();
-
-  const promptText = isReversePractice ? word.hungarian : word.english;
-  dom.practicePromptWord.textContent = promptText;
-
-  // Új szó jelvény megjelenítése ha kiemelt prioritású új szó
-  if (dom.practiceNewWordBadge) {
-    if (word.isNew === true) {
-      dom.practiceNewWordBadge.classList.remove('hidden');
-    } else {
-      dom.practiceNewWordBadge.classList.add('hidden');
-    }
-  }
-
-  updatePracticeStatsUI();
-
+  dom.practiceFeedbackContainer.classList.add('hidden');
+  dom.practiceBtnText.textContent = 'Ellenőrzés';
+  dom.practicePromptWord.textContent = isReversePractice ? word.hungarian : word.english;
   dom.practiceAnswerInput.value = '';
   dom.practiceAnswerInput.disabled = false;
   setTimeout(() => dom.practiceAnswerInput.focus(), 50);
@@ -1999,19 +1096,9 @@ function renderCurrentQuizWord() {
   }
 }
 
-function resetQuizCardState() {
-  dom.quizCard.className = 'quiz-card bg-white dark:bg-slate-900 rounded-3xl border-2 border-slate-200 dark:border-slate-800 p-6 sm:p-12 shadow-xl shadow-slate-200/40 dark:shadow-none text-center relative overflow-hidden transition-all duration-300';
-  dom.practiceFeedbackContainer.classList.add('hidden');
-  dom.practiceFeedbackContainer.innerHTML = '';
-  if (dom.practiceNewWordBadge) dom.practiceNewWordBadge.classList.add('hidden');
-  dom.practiceBtnText.textContent = 'Ellenőrzés';
-  dom.btnPracticeSubmit.className = 'w-full min-h-[50px] py-3.5 px-6 rounded-2xl bg-brand-600 hover:bg-brand-700 text-white font-bold text-base shadow-lg shadow-brand-500/25 active:scale-[0.98] transition-all flex items-center justify-center gap-2';
-}
-
 async function handlePracticeAction() {
   if (!currentPracticeSession) return;
 
-  // Ha épp a kiértékelést nézi a felhasználó (CORRECT vagy INCORRECT állapot), a gombnyomás a következő szóra / lezárásra visz
   if (currentPracticeSession.state === 'INCORRECT' || currentPracticeSession.state === 'CORRECT') {
     clearAutoAdvance();
     if (currentPracticeSession.isRoundComplete()) {
@@ -2023,284 +1110,38 @@ async function handlePracticeAction() {
   }
 
   const answer = dom.practiceAnswerInput.value.trim();
-  if (!answer) {
-    dom.practiceAnswerInput.focus();
-    return;
-  }
+  if (!answer) return;
 
   dom.practiceAnswerInput.disabled = true;
   const result = await currentPracticeSession.checkAnswer(answer);
-  if (!result) {
-    dom.practiceAnswerInput.disabled = false;
-    return;
-  }
-
-  updatePracticeStatsUI();
 
   if (result.isCorrect) {
-    // === HELYES VÁLASZ ===
-    if (result.learnedNewWord) {
-      showToast(`✨ Új szó sikeresen elsajátítva: "${result.promptWord}"!`, 'success');
-      if (dom.practiceNewWordBadge) dom.practiceNewWordBadge.classList.add('hidden');
-    }
-
-    dom.quizCard.classList.remove('border-slate-200', 'dark:border-slate-800');
-    dom.quizCard.classList.add('border-emerald-500', 'dark:border-emerald-500', 'animate-bounce-success');
-
-    if (result.hasTypo) {
-      dom.practiceFeedbackContainer.className = 'p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/50 border border-amber-300 dark:border-amber-700/70 text-amber-900 dark:text-amber-200 animate-pop-in flex flex-col sm:flex-row sm:items-center justify-between gap-2';
-      dom.practiceFeedbackContainer.innerHTML = `
-        <div class="flex flex-wrap items-center gap-2 font-bold text-amber-800 dark:text-amber-300">
-          <span class="text-xl">👌</span>
-          <span>Elfogadva (apró elütés)!</span>
-          <span class="text-xs font-normal text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/60 px-2 py-0.5 rounded-lg border border-amber-200 dark:border-amber-800">
-            Pontosan: <strong>${escapeHtml(result.correctAnswer)}</strong>
-          </span>
-        </div>
-        <div class="text-xs text-amber-700 dark:text-amber-400 font-semibold flex items-center gap-1 shrink-0">
-          <span>Továbbugrás...</span>
-          <kbd class="px-1.5 py-0.5 text-[10px] bg-amber-200/60 dark:bg-amber-800/60 rounded">Enter</kbd>
-        </div>
-      `;
-    } else {
-      dom.practiceFeedbackContainer.className = 'p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800/70 text-emerald-800 dark:text-emerald-200 animate-pop-in flex items-center justify-between';
-      dom.practiceFeedbackContainer.innerHTML = `
-        <div class="flex items-center gap-2.5 font-bold">
-          <span class="text-xl">🎉</span>
-          <span>Helyes válasz!</span>
-        </div>
-        <div class="text-xs text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">
-          <span>Továbbugrás...</span>
-          <kbd class="px-1.5 py-0.5 text-[10px] bg-emerald-200/60 dark:bg-emerald-800/60 rounded">Enter</kbd>
-        </div>
-      `;
-    }
-
-    dom.btnPracticeSubmit.className = 'w-full min-h-[50px] py-3.5 px-6 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-base shadow-lg shadow-emerald-500/25 active:scale-[0.98] transition-all flex items-center justify-center gap-2';
+    dom.practiceFeedbackContainer.className = 'p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 text-emerald-800 dark:text-emerald-200 flex items-center justify-between';
+    dom.practiceFeedbackContainer.innerHTML = `<span>🎉 Helyes válasz!</span>`;
+    dom.practiceFeedbackContainer.classList.remove('hidden');
     dom.practiceBtnText.textContent = result.isRoundFinished ? 'Kör befejezése' : 'Következő szó';
 
-    if (result.stats.streak > 0 && result.stats.streak % 5 === 0 && window.confetti) {
-      window.confetti({
-        particleCount: 50,
-        spread: 60,
-        origin: { y: 0.7 }
-      });
-    }
-
-    clearAutoAdvance();
-    autoAdvanceTimeout = setTimeout(async () => {
+    autoAdvanceTimeout = setTimeout(() => {
       if (currentPracticeSession && currentPracticeSession.state === 'CORRECT') {
         if (currentPracticeSession.isRoundComplete()) {
-          await onPracticeRoundFinished();
+          onPracticeRoundFinished();
         } else {
           renderCurrentQuizWord();
         }
       }
-    }, result.hasTypo ? 1500 : 900);
-
+    }, 900);
   } else {
-    // === HELYTELEN VÁLASZ ===
-    dom.quizCard.classList.remove('border-slate-200', 'dark:border-slate-800');
-    dom.quizCard.classList.add('border-rose-500', 'dark:border-rose-500', 'animate-shake');
-
-    dom.practiceFeedbackContainer.className = 'p-4 rounded-2xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800/70 text-rose-900 dark:text-rose-100 animate-pop-in space-y-2';
-    dom.practiceFeedbackContainer.innerHTML = `
-      <div class="flex items-center justify-between">
-        <div class="font-bold flex items-center gap-2 text-rose-700 dark:text-rose-300">
-          <i data-lucide="x-circle" class="w-5 h-5"></i>
-          <span>Nem egészen...</span>
-        </div>
-      </div>
-      <div class="text-xs pt-1 border-t border-rose-200 dark:border-rose-900/60 flex flex-col gap-1">
-        <div>A te válaszod: <span class="line-through text-rose-600 dark:text-rose-400 font-medium">${escapeHtml(result.userAnswer)}</span></div>
-        <div>Pontos helyes jelentés: <strong class="text-sm font-bold text-slate-900 dark:text-white bg-white/80 dark:bg-slate-900 px-2 py-0.5 rounded border border-rose-200 dark:border-rose-800 inline-block">${escapeHtml(result.correctAnswer)}</strong></div>
-      </div>
-    `;
-
-    dom.btnPracticeSubmit.className = 'w-full min-h-[50px] py-3.5 px-6 rounded-2xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 font-bold text-base shadow-lg active:scale-[0.98] transition-all flex items-center justify-center gap-2';
+    dom.practiceFeedbackContainer.className = 'p-4 rounded-2xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 text-rose-900 dark:text-rose-100 space-y-1';
+    dom.practiceFeedbackContainer.innerHTML = `<div>Helyes válasz: <strong>${escapeHtml(result.correctAnswer)}</strong></div>`;
+    dom.practiceFeedbackContainer.classList.remove('hidden');
     dom.practiceBtnText.textContent = result.isRoundFinished ? 'Kör befejezése' : 'Következő szó';
-
-    refreshIcons();
-    dom.btnPracticeSubmit.focus();
   }
 }
 
 async function onPracticeRoundFinished() {
   clearAutoAdvance();
-  if (!currentPracticeSession) return;
-
-  const isPerfect = currentPracticeSession.isPerfectScore();
-  const stats = currentPracticeSession.stats;
-  const { listId, sheetId } = currentActivePracticeConfig;
-
-  let sheetProgressResult = null;
-  if (listId && sheetId) {
-    sheetProgressResult = await updateSheetProgress(listId, sheetId, {
-      correctCount: stats.correctCount,
-      incorrectCount: stats.incorrectCount,
-      isPerfect: isPerfect
-    });
-  }
-
-  await showRoundCompletedModal(sheetProgressResult);
-}
-
-async function showRoundCompletedModal(sheetProgressResult) {
-  if (!dom.modalRoundCompleted) return;
-
-  const stats = currentPracticeSession ? currentPracticeSession.stats : { correctCount: 0, totalAnswered: 0 };
-  const pct = stats.totalAnswered > 0 ? Math.round((stats.correctCount / stats.totalAnswered) * 100) : 0;
-  const isPerfect = currentPracticeSession ? currentPracticeSession.isPerfectScore() : false;
-
-  dom.roundScorePercent.textContent = `${pct}%`;
-  dom.roundScoreRatio.textContent = `${stats.correctCount} / ${stats.totalAnswered}`;
-
-  if (sheetProgressResult) {
-    if (sheetProgressResult.unlockedNextSheet) {
-      // 2 egymást követő 100% elérve és következő szint feloldva!
-      dom.roundCompletedBadgeIcon.textContent = '🏆';
-      dom.roundCompletedTitle.textContent = 'Szint Feloldva! 🎉';
-      dom.roundCompletedSubtitle.textContent = 'Kétszer egymás után 100%-os eredménnyel zártad a munkalapot!';
-      
-      dom.roundProgressionBox.className = 'p-4 rounded-2xl text-left text-xs space-y-1.5 border border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-900 dark:text-emerald-100';
-      dom.roundProgressionBox.innerHTML = `
-        <div class="font-bold flex items-center gap-1.5 text-sm mb-1 text-emerald-700 dark:text-emerald-300">
-          <i data-lucide="unlock" class="w-4 h-4"></i>
-          <span>Új szint elérhető: <strong>${escapeHtml(sheetProgressResult.nextSheetName)}</strong></span>
-        </div>
-        <p class="leading-relaxed">Sikeresen teljesítetted a feloldási feltételt (2 egymást követő 100%-os kör). A következő munkalap zárolása feloldódott és azonnal gyakorolható!</p>
-      `;
-
-      // Következő munkalap beállítása
-      const list = await getListById(currentActivePracticeConfig.listId);
-      if (list && list.sheets) {
-        const nextSheet = list.sheets.find(s => s.name === sheetProgressResult.nextSheetName);
-        if (nextSheet) {
-          nextUnlockedSheetData = { listId: list.id, sheetId: nextSheet.id };
-        }
-      }
-
-      if (dom.btnRoundNextLevel) {
-        dom.btnRoundNextLevel.classList.remove('hidden');
-        const btnSpan = dom.btnRoundNextLevel.querySelector('span');
-        if (btnSpan) btnSpan.textContent = `Következő szint: ${sheetProgressResult.nextSheetName}`;
-      }
-
-      if (window.confetti) {
-        window.confetti({ particleCount: 90, spread: 80, origin: { y: 0.6 } });
-      }
-
-    } else if (sheetProgressResult.consecutivePerfectScores === 1) {
-      // 1 db 100%-os kör teljesítve
-      dom.roundCompletedBadgeIcon.textContent = '🔥';
-      dom.roundCompletedTitle.textContent = 'Hibátlan Kör! (1 / 2)';
-      dom.roundCompletedSubtitle.textContent = 'Már csak 1 hibátlan kör kell a következő szint feloldásához!';
-
-      dom.roundProgressionBox.className = 'p-4 rounded-2xl text-left text-xs space-y-1.5 border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-100';
-      dom.roundProgressionBox.innerHTML = `
-        <div class="font-bold flex items-center gap-1.5 text-sm mb-1 text-amber-700 dark:text-amber-300">
-          <i data-lucide="flame" class="w-4 h-4"></i>
-          <span>Hibátlan sorozat: <strong>1 / 2 teljesítve</strong></span>
-        </div>
-        <p class="leading-relaxed">Kiváló! A következő szint feloldásához még egy egymást követő hibátlan (100%) gyakorlás szükséges.</p>
-      `;
-
-      if (dom.btnRoundNextLevel) dom.btnRoundNextLevel.classList.add('hidden');
-      nextUnlockedSheetData = null;
-
-    } else if (isPerfect && sheetProgressResult.isMastered) {
-      // Korábban már elsajátított szint újbóli 100%-os teljesítése
-      dom.roundCompletedBadgeIcon.textContent = '⭐';
-      dom.roundCompletedTitle.textContent = 'Mesterelt Munkalap!';
-      dom.roundCompletedSubtitle.textContent = 'Ezt a munkalapot már sikeresen elsajátítottad!';
-
-      dom.roundProgressionBox.className = 'p-4 rounded-2xl text-left text-xs space-y-1.5 border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-900 dark:text-indigo-100';
-      dom.roundProgressionBox.innerHTML = `
-        <div class="font-bold flex items-center gap-1.5 text-sm mb-1 text-indigo-700 dark:text-indigo-300">
-          <i data-lucide="award" class="w-4 h-4"></i>
-          <span>Elsajátított munkalap</span>
-        </div>
-        <p class="leading-relaxed">A munkalap szavai szerepelnek az összesített Mix Gyakorlásban is.</p>
-      `;
-
-      if (dom.btnRoundNextLevel) dom.btnRoundNextLevel.classList.add('hidden');
-      nextUnlockedSheetData = null;
-
-    } else {
-      // Volt legalább 1 hiba -> sorozat nullázódott (0/2)
-      dom.roundCompletedBadgeIcon.textContent = '💪';
-      dom.roundCompletedTitle.textContent = 'Kör Befejezve';
-      dom.roundCompletedSubtitle.textContent = 'Gyakorolj újra a 100%-os eredményért!';
-
-      dom.roundProgressionBox.className = 'p-4 rounded-2xl text-left text-xs space-y-1.5 border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 text-slate-700 dark:text-slate-300';
-      dom.roundProgressionBox.innerHTML = `
-        <div class="font-bold flex items-center gap-1.5 text-sm mb-1 text-slate-900 dark:text-white">
-          <i data-lucide="info" class="w-4 h-4 text-amber-500"></i>
-          <span>A feloldáshoz 2 egymást követő 100% szükséges</span>
-        </div>
-        <p class="leading-relaxed">Mivel hiba történt a körben, a számláló 0-ra állt vissza (0 / 2). Fuss neki újra a hibátlan eredményért!</p>
-      `;
-
-      if (dom.btnRoundNextLevel) dom.btnRoundNextLevel.classList.add('hidden');
-      nextUnlockedSheetData = null;
-    }
-  } else {
-    // Mix mód vagy általános lista
-    if (isPerfect) {
-      dom.roundCompletedBadgeIcon.textContent = '🌟';
-      dom.roundCompletedTitle.textContent = 'Tökéletes Mix Kör!';
-      dom.roundCompletedSubtitle.textContent = 'Minden szót hibátlanul megválaszoltál a feladatokból!';
-
-      dom.roundProgressionBox.className = 'p-4 rounded-2xl text-left text-xs space-y-1.5 border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-900 dark:text-emerald-100';
-      dom.roundProgressionBox.innerHTML = `
-        <div class="font-bold flex items-center gap-1.5 text-sm mb-1 text-emerald-700 dark:text-emerald-300">
-          <i data-lucide="sparkles" class="w-4 h-4"></i>
-          <span>Kiváló tudásmélyítés!</span>
-        </div>
-        <p class="leading-relaxed">Az elsajátított munkalapok szavait biztosan tudod.</p>
-      `;
-    } else {
-      dom.roundCompletedBadgeIcon.textContent = '🎯';
-      dom.roundCompletedTitle.textContent = 'Mix Gyakorlás Befejezve';
-      dom.roundCompletedSubtitle.textContent = 'Átismételted az aktív munkalapok szavait!';
-
-      dom.roundProgressionBox.className = 'p-4 rounded-2xl text-left text-xs space-y-1.5 border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 text-slate-700 dark:text-slate-300';
-      dom.roundProgressionBox.innerHTML = `
-        <div class="font-bold flex items-center gap-1.5 text-sm mb-1 text-slate-900 dark:text-white">
-          <i data-lucide="rotate-ccw" class="w-4 h-4 text-brand-500"></i>
-          <span>Gyakorlás teszi a mestert</span>
-        </div>
-        <p class="leading-relaxed">Bármikor újrakezdheted a mixelést az ismeretek felfrissítéséhez.</p>
-      `;
-    }
-
-    if (dom.btnRoundNextLevel) dom.btnRoundNextLevel.classList.add('hidden');
-    nextUnlockedSheetData = null;
-  }
-
-  dom.modalRoundCompleted.classList.remove('hidden');
-  dom.modalRoundCompleted.classList.add('flex');
-  refreshIcons();
-}
-
-function closeRoundCompletedModal() {
-  if (dom.modalRoundCompleted) {
-    dom.modalRoundCompleted.classList.add('hidden');
-    dom.modalRoundCompleted.classList.remove('flex');
-  }
-}
-
-function updatePracticeStatsUI() {
-  if (!currentPracticeSession) return;
-  const stats = currentPracticeSession.stats;
-  dom.practiceStreakCounter.textContent = stats.streak;
-  dom.practiceCorrectCount.textContent = stats.correctCount;
-  dom.practiceTotalCount.textContent = stats.totalAnswered;
-
-  const prog = currentPracticeSession.getProgress();
-  if (dom.practiceRoundProgress) {
-    dom.practiceRoundProgress.textContent = `${prog.current} / ${prog.total}`;
-  }
+  alert("A gyakorlási kör véget ért!");
+  navigateTo('#dashboard');
 }
 
 function clearAutoAdvance() {
@@ -2311,277 +1152,32 @@ function clearAutoAdvance() {
 }
 
 // ==========================================
-// 7.5. MUNKALAP-SZINTŰ STATISZTIKA NÉZET
+// 6. STATISZTIKA NÉZET
 // ==========================================
 
 async function renderStatsView() {
   if (!dom.statsListsContainer) return;
-
-  const allLists = await getUserLists();
-  // Kizárólag a betöltött Excel fájlok és munkalapjaik (a próba/minta tesztadatok szigorú kizárásával)
-  const lists = (allLists || []).filter(l => !l.isStarter && !l.id?.startsWith('starter_pack'));
+  const lists = await getUserLists();
 
   if (!lists || lists.length === 0) {
     dom.statsEmptyState.classList.remove('hidden');
     dom.statsListsContainer.innerHTML = '';
-    if (dom.statsTotalFiles) dom.statsTotalFiles.textContent = '0';
-    if (dom.statsTotalSheets) dom.statsTotalSheets.textContent = '0';
-    if (dom.statsMasteredSheets) dom.statsMasteredSheets.textContent = '0';
-    if (dom.statsAvgAccuracy) dom.statsAvgAccuracy.textContent = '0%';
-    refreshIcons();
     return;
   }
 
   dom.statsEmptyState.classList.add('hidden');
   dom.statsListsContainer.innerHTML = '';
 
-  let totalFiles = lists.length;
-  let totalSheets = 0;
-  let masteredCount = 0;
-  let grandCorrect = 0;
-  let grandIncorrect = 0;
-
-  lists.forEach((list) => {
-    const sheets = list.sheets || [];
-    totalSheets += sheets.length;
-
-    const listCard = document.createElement('div');
-    listCard.className = 'bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 p-6 sm:p-8 space-y-6 shadow-sm';
-
-    listCard.innerHTML = `
-      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-4 border-b border-slate-100 dark:border-slate-800">
-        <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold shrink-0">
-            <i data-lucide="file-spreadsheet" class="w-5 h-5"></i>
-          </div>
-          <div>
-            <h3 class="text-lg font-bold text-slate-900 dark:text-white">${escapeHtml(list.name)}</h3>
-            <div class="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              <span>${sheets.length} munkalap</span>
-              <span>&bull;</span>
-              <span>${list.words?.length || 0} szó összesen</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="flex items-center gap-2 self-start sm:self-auto">
-          <button class="btn-stats-start-all min-h-[40px] px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-semibold text-xs transition-all flex items-center gap-1.5 shadow-sm active:scale-95" title="Gyakorlás indítása a teljes szólistával">
-            <i data-lucide="play" class="w-3.5 h-3.5 fill-current"></i>
-            <span>Gyakorlás indítása</span>
-          </button>
-        </div>
-      </div>
-
-      <!-- Munkalapok rácsa -->
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sheets-grid">
-      </div>
+  lists.forEach(list => {
+    const div = document.createElement('div');
+    div.className = 'p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm';
+    div.innerHTML = `
+      <h3 class="font-bold text-lg text-slate-900 dark:text-white">${escapeHtml(list.name)}</h3>
+      <p class="text-xs text-slate-500">${list.words ? list.words.length : 0} szó rögzítve</p>
     `;
-
-    const sheetsGrid = listCard.querySelector('.sheets-grid');
-
-    sheets.forEach((sheet, idx) => {
-      const correct = sheet.totalCorrect || 0;
-      const incorrect = sheet.totalIncorrect || 0;
-      const totalAnswers = correct + incorrect;
-      const accuracy = totalAnswers > 0 ? Math.round((correct / totalAnswers) * 100) : 0;
-      const timesPassed100 = sheet.timesPassed || 0;
-      const streak = sheet.consecutivePerfectScores || 0;
-      const isMastered = (streak >= 2) || (timesPassed100 >= 2);
-
-      if (isMastered) masteredCount++;
-      grandCorrect += correct;
-      grandIncorrect += incorrect;
-
-      const isUnlocked = !!sheet.isUnlocked;
-
-      let badgeHtml = '';
-      if (!isUnlocked) {
-        badgeHtml = `<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700"><i data-lucide="lock" class="w-3 h-3"></i> Zárolva</span>`;
-      } else if (isMastered) {
-        badgeHtml = `<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60"><i data-lucide="award" class="w-3 h-3"></i> Elsajátítva</span>`;
-      } else {
-        badgeHtml = `<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60"><i data-lucide="flame" class="w-3 h-3"></i> Sorozat: ${streak}/2</span>`;
-      }
-
-      const sheetCard = document.createElement('div');
-      sheetCard.className = `p-4 rounded-2xl border transition-all flex flex-col justify-between gap-3 ${
-        !isUnlocked 
-          ? 'bg-slate-50/70 dark:bg-slate-900/40 border-slate-200 dark:border-slate-800 opacity-75' 
-          : 'bg-white dark:bg-slate-800/70 border-slate-200 dark:border-slate-700 shadow-sm hover:border-brand-300 dark:hover:border-brand-700'
-      }`;
-
-      sheetCard.innerHTML = `
-        <div class="space-y-3">
-          <div class="flex items-center justify-between gap-2">
-            <div class="flex items-center gap-2 truncate">
-              <span class="text-xs font-bold text-slate-400 font-mono">#${idx + 1}</span>
-              <h4 class="font-bold text-slate-900 dark:text-white text-sm truncate" title="${escapeHtml(sheet.name)}">${escapeHtml(sheet.name)}</h4>
-            </div>
-            ${badgeHtml}
-          </div>
-
-          <!-- 1. Elért pontosság / eltalálási arány százalékban -->
-          <div class="space-y-1">
-            <div class="flex items-center justify-between text-xs text-slate-600 dark:text-slate-300 font-medium">
-              <span>Eltalálási arány:</span>
-              <span class="font-bold text-sm ${accuracy >= 80 ? 'text-emerald-600 dark:text-emerald-400' : 'text-brand-600 dark:text-brand-400'}">${accuracy}%</span>
-            </div>
-            <div class="w-full h-2 rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden">
-              <div class="h-full rounded-full transition-all duration-500 ${accuracy >= 80 ? 'bg-emerald-500' : 'bg-brand-500'}" style="width: ${accuracy}%"></div>
-            </div>
-          </div>
-
-          <!-- 2. Helyes és hibás válaszok száma -->
-          <div class="grid grid-cols-2 gap-2 p-2 rounded-xl bg-slate-50 dark:bg-slate-900/50 text-xs border border-slate-100 dark:border-slate-800/80">
-            <div class="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-semibold">
-              <i data-lucide="check-circle-2" class="w-3.5 h-3.5"></i>
-              <span>Helyes: ${correct} db</span>
-            </div>
-            <div class="flex items-center gap-1.5 text-rose-600 dark:text-rose-400 font-semibold">
-              <i data-lucide="x-circle" class="w-3.5 h-3.5"></i>
-              <span>Hibás: ${incorrect} db</span>
-            </div>
-          </div>
-
-          <!-- 3. Szint teljesítettségi állapota (hányszor sikerült 100%-ra) -->
-          <div class="pt-1 text-xs text-slate-600 dark:text-slate-300 space-y-1">
-            <div class="flex items-center justify-between">
-              <span class="text-slate-500 dark:text-slate-400">100%-os szint:</span>
-              <strong class="${timesPassed100 > 0 ? 'text-emerald-600 dark:text-emerald-400 font-bold' : 'text-slate-600 dark:text-slate-400'}">${timesPassed100}x sikerült</strong>
-            </div>
-            <div class="flex items-center justify-between">
-              <span class="text-slate-500 dark:text-slate-400">Hibátlan sorozat:</span>
-              <strong>${streak} / 2</strong>
-            </div>
-          </div>
-        </div>
-
-        <div class="pt-2">
-          ${isUnlocked ? `
-          <button class="btn-sheet-practice w-full min-h-[40px] py-2 px-3 rounded-xl bg-slate-100 hover:bg-brand-600 hover:text-white dark:bg-slate-700/80 dark:hover:bg-brand-600 text-slate-800 dark:text-slate-200 font-semibold text-xs transition-all flex items-center justify-center gap-1.5 active:scale-[0.98]">
-            <i data-lucide="play" class="w-3.5 h-3.5 fill-current"></i>
-            <span>Munkalap gyakorlása</span>
-          </button>
-          ` : `
-          <div class="w-full min-h-[40px] py-2 px-3 rounded-xl bg-slate-100 dark:bg-slate-800/40 text-slate-400 dark:text-slate-500 font-medium text-xs flex items-center justify-center gap-1.5 cursor-not-allowed">
-            <i data-lucide="lock" class="w-3.5 h-3.5"></i>
-            <span>Zárolt (Előző szint 2x 100%)</span>
-          </div>
-          `}
-        </div>
-      `;
-
-      if (isUnlocked) {
-        sheetCard.querySelector('.btn-sheet-practice').addEventListener('click', () => {
-          startSheetPractice(list.id, sheet.id);
-        });
-      }
-
-      sheetsGrid.appendChild(sheetCard);
-    });
-
-    listCard.querySelector('.btn-stats-start-all').addEventListener('click', () => {
-      startPractice(list.id);
-    });
-
-    dom.statsListsContainer.appendChild(listCard);
+    dom.statsListsContainer.appendChild(div);
   });
-
-  // Összesített statisztikai kártyák frissítése
-  if (dom.statsTotalFiles) dom.statsTotalFiles.textContent = totalFiles;
-  if (dom.statsTotalSheets) dom.statsTotalSheets.textContent = totalSheets;
-  if (dom.statsMasteredSheets) dom.statsMasteredSheets.textContent = masteredCount;
-  
-  const grandTotal = grandCorrect + grandIncorrect;
-  const overallAvg = grandTotal > 0 ? Math.round((grandCorrect / grandTotal) * 100) : 0;
-  if (dom.statsAvgAccuracy) dom.statsAvgAccuracy.textContent = `${overallAvg}%`;
-
-  refreshIcons();
 }
-
-// ==========================================
-// 7.6. DINAMIKUS FEJLÉC ELREJTÉSE GÖRGETÉSKOR
-// ==========================================
-
-function setupHeaderScrollHide() {
-  const header = document.getElementById('app-header') || document.querySelector('header');
-  if (!header) return;
-
-  function getScrollPosition(e) {
-    let y = window.scrollY || 
-            window.pageYOffset || 
-            document.documentElement.scrollTop || 
-            document.body.scrollTop || 
-            0;
-
-    if (e && e.target && e.target !== document && e.target !== window && typeof e.target.scrollTop === 'number') {
-      y = Math.max(y, e.target.scrollTop);
-    }
-    return Math.max(0, y);
-  }
-
-  let lastScrollY = getScrollPosition();
-
-  function handleScroll(e) {
-    const currentScrollY = getScrollPosition(e);
-    const delta = currentScrollY - lastScrollY;
-
-    // 1. Lap tetején (scrollY <= 10) mindig legyen látható
-    if (currentScrollY <= 10) {
-      header.classList.remove('header-hidden');
-    } 
-    // 2. Lefelé görgetés: ha lefelé haladunk és meghaladtuk a fejléc magasságát (50px)
-    else if (delta > 4 && currentScrollY > 50) {
-      header.classList.add('header-hidden');
-    } 
-    // 3. Felfelé görgetés: azonnal csússzon vissza
-    else if (delta < -4) {
-      header.classList.remove('header-hidden');
-    }
-
-    lastScrollY = currentScrollY;
-  }
-
-  // Eseményfigyelők regisztrálása capture fázissal is, hogy bármely belső tároló görgetését is érzékelje
-  window.addEventListener('scroll', handleScroll, { passive: true, capture: true });
-  document.addEventListener('scroll', handleScroll, { passive: true, capture: true });
-  if (document.body) {
-    document.body.addEventListener('scroll', handleScroll, { passive: true });
-  }
-
-  const mainEl = document.querySelector('main');
-  if (mainEl) {
-    mainEl.addEventListener('scroll', handleScroll, { passive: true });
-  }
-}
-
-
-
-// ==========================================
-// 8. FIREBASE BEÁLLÍTÁSOK MODAL
-// ==========================================
-
-function openFirebaseModal() {
-  const cfg = getSavedFirebaseConfig() || {};
-  dom.cfgApiKey.value = cfg.apiKey || '';
-  dom.cfgAuthDomain.value = cfg.authDomain || '';
-  dom.cfgProjectId.value = cfg.projectId || '';
-  dom.cfgStorageBucket.value = cfg.storageBucket || '';
-  dom.cfgAppId.value = cfg.appId || '';
-
-  dom.modalFirebaseSettings.classList.remove('hidden');
-  dom.modalFirebaseSettings.classList.add('flex');
-  refreshIcons();
-}
-
-function closeFirebaseModal() {
-  dom.modalFirebaseSettings.classList.add('hidden');
-  dom.modalFirebaseSettings.classList.remove('flex');
-}
-
-// ==========================================
-// 9. SEGÉDFÜGGVÉNYEK
-// ==========================================
 
 function escapeHtml(str) {
   if (!str) return '';

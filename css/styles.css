@@ -844,3 +844,18 @@ html.dark #btn-theme-toggle svg.lucide-moon,
     display: none !important;
   }
 }
+
+/* Szigorú nézetszétválasztás CSS szinten is */
+body.logged-out #view-dashboard,
+body:not(.logged-in) #view-dashboard,
+body.logged-out #view-practice,
+body:not(.logged-in) #view-practice,
+body.logged-out #view-stats,
+body:not(.logged-in) #view-stats {
+  display: none !important;
+}
+
+body.logged-in #view-landing {
+  display: none !important;
+}
+

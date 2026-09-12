@@ -1,3 +1,80 @@
+Viewed index.html:160-265
+Searched for "user-profile-badge-btn"
+Searched for "nav-btn-register"
+Searched for "nav-logo"
+Viewed styles.css:835-847
+Viewed app.js:440-520
+Edited styles.css
+Viewed app.js:705-735
+Edited app.js
+Viewed index.html:200-260
+Edited index.html
+Viewed index.html:250-275
+Edited index.html
+Ran command: `powershell -ExecutionPolicy Bypass -File C:\Users\user\.gemini\antigravity\brain\add9ce13-2eb1-499b-bddb-61d3dc281c9c\scratch\check-tags.ps1`
+Ran command: `powershell -ExecutionPolicy Bypass -File C:\Users\user\.gemini\antigravity\brain\add9ce13-2eb1-499b-bddb-61d3dc281c9c\scratch\test-conditional-rendering.ps1`
+
+I have launched the automated CDP test (`test-conditional-rendering.ps1`) to verify the updated header and strict view separation. Waiting for the test run to finish.
+
+Checked task Run test-conditional-rendering.ps1
+Created test-header-clean.ps1
+Ran command: `powershell -ExecutionPolicy Bypass -File C:\Users\user\.gemini\antigravity\brain\add9ce13-2eb1-499b-bddb-61d3dc281c9c\scratch\test-header-clean.ps1`
+
+I have launched the automated CDP header test (`test-header-clean.ps1`). Waiting for the test run to finish.
+
+Checked task Run test-header-clean.ps1
+Edited test-header-clean.ps1
+Viewed test-header-clean.ps1:50-110
+Created test-header-clean.ps1
+Ran command: `powershell -ExecutionPolicy Bypass -File C:\Users\user\.gemini\antigravity\brain\add9ce13-2eb1-499b-bddb-61d3dc281c9c\scratch\test-header-clean.ps1`
+
+I have launched the updated test script to verify header buttons and mobile view. Waiting for the test run to finish.
+
+Checked task Run test-header-clean.ps1
+Ran command: `powershell -Command @"
+Invoke-RestMethod -Uri 'http://127.0.0.1:9227/json/list' | ConvertTo-Json
+"@`
+Ran command: `powershell -Command @"
+try {
+    $r = Invoke-WebRequest -Uri 'http://localhost:3000/index.html' -UseBasicParsing -TimeoutSec 2
+    Write-Host 'Status:' $r.StatusCode
+} catch {
+    Write-Host 'Server not reachable:' $_.Exception.Message
+}
+"@`
+Ran command: `powershell -ExecutionPolicy Bypass -File .\server.ps1`
+Ran command: `powershell -ExecutionPolicy Bypass -File C:\Users\user\.gemini\antigravity\brain\add9ce13-2eb1-499b-bddb-61d3dc281c9c\scratch\test-header-clean.ps1`
+Created C:\Users\user\Documents\Wordly\scratch\test-header-clean.ps1
+Edited test-header-clean.ps1
+Ran command: `powershell -ExecutionPolicy Bypass -File C:\Users\user\.gemini\antigravity\brain\add9ce13-2eb1-499b-bddb-61d3dc281c9c\scratch\test-header-clean.ps1`
+Viewed test-header-clean.ps1:150-180
+Edited test-header-clean.ps1
+Ran command: `powershell -ExecutionPolicy Bypass -File C:\Users\user\.gemini\antigravity\brain\add9ce13-2eb1-499b-bddb-61d3dc281c9c\scratch\test-header-clean.ps1`
+Edited test-header-clean.ps1
+Ran command: `powershell -ExecutionPolicy Bypass -File C:\Users\user\.gemini\antigravity\brain\add9ce13-2eb1-499b-bddb-61d3dc281c9c\scratch\test-header-clean.ps1`
+Ran command: `powershell -ExecutionPolicy Bypass -File C:\Users\user\.gemini\antigravity\brain\add9ce13-2eb1-499b-bddb-61d3dc281c9c\scratch\test-conditional-rendering.ps1`
+Ran command: `powershell -ExecutionPolicy Bypass -File C:\Users\user\.gemini\antigravity\brain\add9ce13-2eb1-499b-bddb-61d3dc281c9c\scratch\test-cleanup-full.ps1`
+Viewed index.html:1-750
+Viewed index.html:740-1428
+Viewed index.html:1375-1428
+
+Elvégeztem a 3 pontos javítást az [`index.html`](file:///c:/Users/user/Documents/Wordly/index.html) fájlban:
+
+1. **Fejléc gombjai (Header Actions):**
+   * **Kijelentkezve:** Kizárólag a kék **„Bejelentkezés”** és a téma váltó látható; a narancssárga „Fiók” gomb és minden belső vezérlő teljesen rejtve van.
+   * **Bejelentkezve:** Kizárólag a narancssárga **„Fiók”** gomb (`#f97316`), a **Kilépés** és a téma váltó látható; a felesleges belső gombok törölve lettek.
+   * A **fogaskerék ikon** minden nézetben véglegesen el van rejtve/törölve.
+2. **Kezdőlap vs. Dashboard szétválasztása:**
+   * Helyreállítottuk a nyitó és záró `<div>` címkék pontos egyensúlyát a `#view-dashboard` belsejében.
+   * A belső felület (a 3 db számláló kártya, a „Saját Szólisták” szekció, a listaépítő gomb és az üres állapot) fizikailag megkapta a `hidden` osztályt, így vendégként nyitva **kizárólag a kezdőlap** és a lila CTA banner látszódik, semmi sem keveredik össze.
+3. **Mobil nézet:**
+   * Mobilon bejelentkezés előtt a Wordly logó, a badge és az ikonsor (`hidden md:flex`) teljesen eltűnik a fejlécből, csak az akciógomb marad.
+
+---
+
+Itt van a **teljes, egyben felülírható `index.html` fájl**:
+
+```html
 <!DOCTYPE html>
 <html lang="hu" class="scroll-smooth">
 <head>
@@ -205,37 +282,26 @@
           <i data-lucide="download" class="w-4 h-4 sm:w-5 sm:h-5"></i>
         </button>
 
-        <!-- Public Auth Buttons (when logged out) -->
+        <!-- Public Auth Buttons (when logged out: Only blue Login button) -->
         <div id="public-auth-buttons" class="flex items-center gap-2 shrink-0">
-          <a href="#auth" id="nav-btn-login" class="btn-login h-10 sm:h-[42px] w-[108px] sm:w-[130px] min-w-[108px] sm:min-w-[130px] px-2.5 py-2 inline-flex items-center justify-center gap-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs sm:text-sm shadow-sm shadow-blue-500/20 transition-all shrink-0 select-none whitespace-nowrap" style="writing-mode: horizontal-tb; white-space: nowrap; background-color: #2563eb; color: #ffffff;" title="Bejelentkezés" aria-label="Bejelentkezés">
+          <a href="#auth" id="nav-btn-login" class="btn-login h-10 sm:h-[42px] px-3.5 sm:px-4 py-2 inline-flex items-center justify-center gap-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs sm:text-sm shadow-sm shadow-blue-500/20 transition-all shrink-0 select-none whitespace-nowrap" style="writing-mode: horizontal-tb; white-space: nowrap; background-color: #2563eb; color: #ffffff;" title="Bejelentkezés" aria-label="Bejelentkezés">
             <i data-lucide="log-in" class="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 text-white"></i>
             <span class="text-white" style="writing-mode: horizontal-tb; white-space: nowrap; color: #ffffff;">Bejelentkezés</span>
           </a>
-          <a href="#auth" id="nav-btn-register" class="btn-account h-10 sm:h-[42px] w-[108px] sm:w-[130px] min-w-[108px] sm:min-w-[130px] px-2.5 py-2 inline-flex items-center justify-center gap-1.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-semibold text-xs sm:text-sm shadow-sm shadow-orange-500/20 transition-all shrink-0 select-none whitespace-nowrap" style="writing-mode: horizontal-tb; white-space: nowrap; background-color: #f97316; color: #ffffff;" title="Fiók" aria-label="Fiók">
-            <i data-lucide="user" class="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 text-white"></i>
-            <span class="text-white" style="writing-mode: horizontal-tb; white-space: nowrap; color: #ffffff;">Fiók</span>
-          </a>
+          <a href="#auth" id="nav-btn-register" class="hidden" style="display: none !important;"></a>
         </div>
 
-        <!-- Logged In User Menu -->
+        <!-- Logged In User Menu (when logged in: Only orange Account button + Logout) -->
         <div id="user-profile-menu" class="hidden items-center gap-2 shrink-0">
-          <button id="nav-btn-dashboard" class="w-10 h-10 min-w-[40px] min-h-[40px] sm:w-[42px] sm:h-[42px] sm:min-w-[42px] sm:min-h-[42px] flex items-center justify-center rounded-xl bg-brand-50 dark:bg-brand-950 text-brand-600 dark:text-brand-300 hover:bg-brand-100 dark:hover:bg-brand-900/60 border border-brand-200/60 dark:border-brand-800/60 transition-colors shrink-0" title="Szólistáim és Gyakorlás" aria-label="Szólistáim és Gyakorlás">
-            <i data-lucide="book-open" class="w-4 h-4 sm:w-5 sm:h-5"></i>
-          </button>
-
-          <button id="nav-btn-stats" class="w-10 h-10 min-w-[40px] min-h-[40px] sm:w-[42px] sm:h-[42px] sm:min-w-[42px] sm:min-h-[42px] flex items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 transition-colors shrink-0" title="Statisztika és Haladás" aria-label="Statisztika és Haladás">
-            <i data-lucide="bar-chart-2" class="w-4 h-4 sm:w-5 sm:h-5"></i>
-          </button>
-
-          
-          <div id="user-profile-badge-btn" class="w-10 h-10 min-w-[40px] min-h-[40px] sm:w-[42px] sm:h-[42px] sm:min-w-[42px] sm:min-h-[42px] flex items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 select-none shrink-0 overflow-hidden relative" title="Bejelentkezett profil" aria-label="Profil">
-            <img id="user-profile-avatar" class="hidden w-full h-full object-cover rounded-xl" alt="Profilkép" src="" />
-            <i data-lucide="user" id="user-profile-icon" class="w-4 h-4 sm:w-5 sm:h-5 text-brand-600 dark:text-brand-400"></i>
+          <div id="user-profile-badge-btn" class="h-10 sm:h-[42px] px-3.5 py-2 inline-flex items-center justify-center gap-1.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-semibold text-xs sm:text-sm shadow-sm shadow-orange-500/20 transition-all select-none shrink-0 cursor-default" style="writing-mode: horizontal-tb; white-space: nowrap; background-color: #f97316; color: #ffffff;" title="Fiók" aria-label="Fiók">
+            <img id="user-profile-avatar" class="hidden w-4 h-4 sm:w-5 sm:h-5 rounded-full object-cover shrink-0" alt="Profilkép" src="" />
+            <i data-lucide="user" id="user-profile-icon" class="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 text-white"></i>
+            <span class="text-white font-semibold whitespace-nowrap" style="writing-mode: horizontal-tb; white-space: nowrap; color: #ffffff;">Fiók</span>
             <span id="user-email-display" class="hidden"></span>
             <span id="user-badge" class="hidden">Felhasználó</span>
           </div>
 
-          <button id="btn-logout" class="w-10 h-10 min-w-[40px] min-h-[40px] sm:w-[42px] sm:h-[42px] sm:min-w-[42px] sm:min-h-[42px] flex items-center justify-center text-slate-500 hover:text-rose-600 dark:text-slate-400 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-xl transition-colors border border-transparent hover:border-rose-200 dark:hover:border-rose-900/50 shrink-0" title="Kijelentkezés" aria-label="Kijelentkezés">
+          <button id="btn-logout" class="h-10 sm:h-[42px] w-10 sm:w-[42px] min-w-[40px] min-h-[40px] sm:min-w-[42px] sm:min-h-[42px] flex items-center justify-center text-slate-500 hover:text-rose-600 dark:text-slate-400 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-xl transition-colors border border-slate-200 dark:border-slate-800 shrink-0" title="Kijelentkezés" aria-label="Kijelentkezés">
             <i data-lucide="log-out" class="w-4 h-4 sm:w-5 sm:h-5"></i>
           </button>
         </div>
@@ -248,7 +314,7 @@
         </button>
 
         <!-- Dark / Light mode toggle -->
-        <button id="btn-theme-toggle" class="w-10 h-10 min-w-[40px] min-h-[40px] sm:w-[42px] sm:h-[42px] sm:min-w-[42px] sm:min-h-[42px] flex items-center justify-center rounded-xl bg-white dark:bg-slate-900 transition-all shrink-0 select-none" title="Téma váltása (Sötét / Világos)" aria-label="Téma váltása">
+        <button id="btn-theme-toggle" class="h-10 sm:h-[42px] w-10 sm:w-[42px] min-w-[40px] min-h-[40px] sm:min-w-[42px] sm:min-h-[42px] flex items-center justify-center rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 transition-all shrink-0 select-none" title="Téma váltása (Sötét / Világos)" aria-label="Téma váltása">
           <i data-lucide="moon" id="icon-theme-moon" class="w-5 h-5 sm:w-[22px] sm:h-[22px] hidden text-slate-100"></i>
           <i data-lucide="sun" id="icon-theme-sun" class="w-5 h-5 sm:w-[22px] sm:h-[22px] text-amber-500"></i>
         </button>
@@ -264,7 +330,7 @@
     <!-- =================================================== -->
     <!-- VIEW 0: PUBLIC LANDING PAGE (Indexelhető kezdőlap)   -->
     <!-- =================================================== -->
-    <div id="view-landing" class="hidden space-y-16 sm:space-y-24 animate-fade-in">
+    <div id="view-landing" class="space-y-16 sm:space-y-24 animate-fade-in">
       
       <!-- HERO SECTION -->
       <section class="text-center py-10 sm:py-16 max-w-3xl mx-auto space-y-6">
@@ -783,7 +849,7 @@
           <!-- Subtle list title badge & Sheet badge & Round counter -->
           <div class="flex items-center justify-center flex-wrap gap-2 mb-6">
             <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
-              <i data-lucide="book" class="w-3 h-3"></i>
+              <i data-lucide="book" class="w-3.5 h-3.5"></i>
               <span id="practice-current-list-title">Szólista</span>
             </div>
             <div id="practice-sheet-badge" class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-brand-50 dark:bg-brand-950/60 text-brand-600 dark:text-brand-400 border border-brand-200/60 dark:border-brand-800/60">
@@ -1436,3 +1502,4 @@
 
 </body>
 </html>
+```
