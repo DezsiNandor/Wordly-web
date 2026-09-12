@@ -7,13 +7,13 @@ import { recordWordPractice } from './storage.js';
 /**
  * Szöveg normalizálása az összehasonlításhoz:
  * 1. Kis- és nagybetű függetlenség (toLowerCase)
- * 2. Ékezetmentesítés (Diakritikus jelek eltávolítása NFD segítségével: alma = álma, kutya = kútya)
+ * 2. Ékezetmentesítés (Diakritikus jelek eltávolítása NFD segítségével: alma = álma, kutya = kútya, almafa = álmafá, szék = szek)
  * 3. Alapvető írásjelek eltávolítása/figyelmen kívül hagyása (pont, vessző, kötőjel, kérdőjel, felkiáltójel stb.)
  * 4. Felesleges kezdő, záró és többszörös belső szóközök tisztítása (trim, replace(/\s+/g, ' '))
  */
-export function normalizeText(str) {
-  if (!str) return '';
-  return String(str)
+export function normalizeAnswer(text) {
+  if (!text) return '';
+  return String(text)
     .toLowerCase()
     // Ékezetmentesítés: NFD dekompozíció és a kombináló diakritikus jelek eltávolítása
     .normalize('NFD')
@@ -27,6 +27,8 @@ export function normalizeText(str) {
     // Kezdő és záró szóközök levágása
     .trim();
 }
+
+export const normalizeText = normalizeAnswer;
 
 /**
  * Két karakterlánc közötti Levenshtein-távolság kiszámítása (dinamikus programozás, O(min(m, n)) memória)
@@ -266,14 +268,14 @@ export class PracticeSession {
    * 3. Apró elütések tolerálása (legalább 5 karakteres szavaknál legfeljebb 1 Levenshtein eltérés)
    */
   isAnswerMatching(userAnswer, targetAnswer) {
-    const cleanUser = this.normalizeText(userAnswer);
+    const cleanUser = this.normalizeAnswer(userAnswer);
     if (!cleanUser) return { isCorrect: false, hasTypo: false };
 
     const candidates = this.extractAnswerCandidates(targetAnswer);
 
     // 1. Kör: Pontos normalizált egyezés (ékezet- és írásjelfüggetlen)
     for (const candidate of candidates) {
-      const cleanTarget = this.normalizeText(candidate);
+      const cleanTarget = this.normalizeAnswer(candidate);
       if (cleanTarget && cleanUser === cleanTarget) {
         return { isCorrect: true, hasTypo: false, matchedCandidate: candidate };
       }
@@ -282,7 +284,7 @@ export class PracticeSession {
     // 2. Kör: Apró elütés tolerálása (Levenshtein távolság <= 1)
     // Csak ha a cél-kifejezés legalább 5 karakter hosszú
     for (const candidate of candidates) {
-      const cleanTarget = this.normalizeText(candidate);
+      const cleanTarget = this.normalizeAnswer(candidate);
       if (cleanTarget && cleanTarget.length >= 5 && Math.abs(cleanUser.length - cleanTarget.length) <= 1) {
         const dist = levenshteinDistance(cleanUser, cleanTarget);
         if (dist <= 1) {
@@ -324,8 +326,12 @@ export class PracticeSession {
     return Array.from(candidates);
   }
 
+  normalizeAnswer(text) {
+    return normalizeAnswer(text);
+  }
+
   normalizeText(str) {
-    return normalizeText(str);
+    return normalizeAnswer(str);
   }
 
   getAccuracyPercentage() {
