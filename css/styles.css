@@ -125,7 +125,7 @@ select,
 
   /* Header vezérlők mobilon kényelmesen nyomhatók legyenek (40–44px) */
   header button,
-  header a {
+  header a:not(.btn-login):not(.btn-account):not(#nav-logo) {
     min-height: 40px;
     min-width: 40px;
     display: inline-flex;
@@ -134,9 +134,29 @@ select,
     padding: 0;
   }
 
+  /* Fejléc cím (Wordly felirat) eltüntetése mobil nézetben */
+  #nav-logo .header-title,
+  #nav-logo .header-brand-name,
+  .header-title {
+    display: none !important;
+  }
+
+  /* Bejelentkezés és Fiók gombok mobilon */
+  #nav-btn-login,
+  #nav-btn-register,
+  .btn-login,
+  .btn-account {
+    min-height: 40px !important;
+    padding: 6px 12px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 6px !important;
+  }
+
   @media (min-width: 640px) {
     header button,
-    header a {
+    header a:not(.btn-login):not(.btn-account):not(#nav-logo) {
       min-height: 44px;
       min-width: 44px;
     }
@@ -381,4 +401,65 @@ input[type=number]::-webkit-outer-spin-button {
 @keyframes wave {
   0% { transform: scaleY(0.4); }
   100% { transform: scaleY(1); }
+}
+
+/* ======================================================== */
+/* 5. RESZPONZÍV FEJLÉC ÉS AUTH GOMBOK (FIÓK, BEJELENTKEZÉS) */
+/* ======================================================== */
+
+/* Fiók gomb szövegelrendezése: vízszintes, nem törik több sorba */
+#nav-btn-register,
+.btn-account,
+a[href="#auth"] span,
+nav.md\:hidden a[href="#auth"] span {
+  writing-mode: horizontal-tb !important;
+  white-space: nowrap !important;
+  word-break: keep-all !important;
+  overflow-wrap: normal !important;
+}
+
+#nav-btn-register span,
+.btn-account span {
+  writing-mode: horizontal-tb !important;
+  white-space: nowrap !important;
+  word-break: keep-all !important;
+  overflow-wrap: normal !important;
+  display: inline-block !important;
+}
+
+/* Bejelentkezés gomb: vízszintes szöveg, kék háttér, fehér felirat */
+#nav-btn-login,
+.btn-login {
+  background-color: #2563eb !important; /* Kék szín */
+  color: #ffffff !important;           /* Fehér szövegszín */
+  writing-mode: horizontal-tb !important;
+  white-space: nowrap !important;
+  word-break: keep-all !important;
+  overflow-wrap: normal !important;
+  border: 1px solid #1d4ed8 !important;
+  box-shadow: 0 1px 3px 0 rgba(37, 99, 235, 0.3) !important;
+}
+
+#nav-btn-login:hover,
+.btn-login:hover {
+  background-color: #1d4ed8 !important;
+  color: #ffffff !important;
+}
+
+#nav-btn-login span,
+.btn-login span {
+  writing-mode: horizontal-tb !important;
+  white-space: nowrap !important;
+  word-break: keep-all !important;
+  overflow-wrap: normal !important;
+  color: #ffffff !important;
+  display: inline-block !important;
+}
+
+#nav-btn-login i,
+#nav-btn-login svg,
+.btn-login i,
+.btn-login svg {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
 }
