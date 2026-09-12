@@ -238,9 +238,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateNavForUser(user);
 
     if (user) {
-      // Ha belépett, és épp az auth oldalon van, vigyük a dashboardra
-      const currentHash = window.location.hash;
-      if (currentHash === '#auth' || !currentHash || currentHash === '#') {
+      // Sikeres bejelentkezéskor vagy aktív munkamenet észlelésekor
+      // a kezdőlapról (/) és az auth oldalról azonnal a fő munkafelületre (#dashboard) irányítunk
+      let hash = window.location.hash || '';
+      if (hash.startsWith('#/')) hash = '#' + hash.substring(2);
+      if (hash === '#') hash = '';
+
+      const isLandingOrAuth = !hash || hash === '#landing' || hash === '#home' || hash === '#auth' || hash === '#how-it-works' || hash === '#features' || hash === '#faq';
+
+      if (isLandingOrAuth) {
         navigateTo('#dashboard');
       } else {
         handleRouting();
@@ -305,6 +311,14 @@ function updateFirebaseStatusUI(isFirebase) {
 function updateNavForUser(user) {
   if (user) {
     dom.publicAuthButtons.classList.add('hidden');
+    dom.publicAuthButtons.classList.remove('flex');
+    if (dom.publicNavLinks) {
+      dom.publicNavLinks.classList.add('hidden');
+      dom.publicNavLinks.classList.remove('md:flex');
+    }
+    const footerLinks = document.getElementById('footer-public-links');
+    if (footerLinks) footerLinks.classList.add('hidden');
+
     dom.userProfileMenu.classList.remove('hidden');
     dom.userProfileMenu.classList.add('flex');
     dom.userEmailDisplay.textContent = user.email || 'Vendég';
@@ -314,22 +328,37 @@ function updateNavForUser(user) {
       badgeBtn.title = `${user.email || 'Vendég'} (${user.isGuest ? 'Vendég mód' : (user.isFirebase ? 'Firebase fiók' : 'Helyi profil')})`;
     }
 
-    // Alsó navigációs sáv bekapcsolása bejelentkezett állapotban
+    // Alsó navigációs sáv véglegesen kikapcsolva / eltávolítva a DOM-ból
     if (dom.mobileBottomNav) {
-      dom.mobileBottomNav.classList.remove('hidden');
+      dom.mobileBottomNav.remove();
+      dom.mobileBottomNav = null;
     }
-    document.body.classList.remove('no-bottom-nav');
-    document.body.classList.add('has-bottom-nav');
+    const bottomNavEl = document.getElementById('mobile-bottom-nav');
+    if (bottomNavEl) bottomNavEl.remove();
+
+    document.body.classList.remove('has-bottom-nav');
+    document.body.classList.add('no-bottom-nav');
   } else {
     dom.publicAuthButtons.classList.remove('hidden');
     dom.publicAuthButtons.classList.add('flex');
+    if (dom.publicNavLinks) {
+      dom.publicNavLinks.classList.remove('hidden');
+      dom.publicNavLinks.classList.add('md:flex');
+    }
+    const footerLinks = document.getElementById('footer-public-links');
+    if (footerLinks) footerLinks.classList.remove('hidden');
+
     dom.userProfileMenu.classList.add('hidden');
     dom.userProfileMenu.classList.remove('flex');
 
-    // Alsó navigációs sáv elrejtése kijelentkezett állapotban (0 helyfoglalás)
+    // Alsó navigációs sáv véglegesen kikapcsolva / eltávolítva
     if (dom.mobileBottomNav) {
-      dom.mobileBottomNav.classList.add('hidden');
+      dom.mobileBottomNav.remove();
+      dom.mobileBottomNav = null;
     }
+    const bottomNavEl = document.getElementById('mobile-bottom-nav');
+    if (bottomNavEl) bottomNavEl.remove();
+
     document.body.classList.remove('has-bottom-nav');
     document.body.classList.add('no-bottom-nav');
   }
@@ -348,10 +377,74 @@ function navigateTo(hash) {
 }
 
 function handleRouting() {
-  const hash = window.location.hash || '#landing';
+  let hash = window.location.hash || '';
+  // Normalizálás (#/szolistak -> #szolistak, #/ -> üres, # -> üres)
+  if (hash.startsWith('#/')) {
+    hash = '#' + hash.substring(2);
+  }
+  if (hash === '#') hash = '';
+
   updateActiveBottomNav(hash);
 
-  // Sima anchor linkek a landing page-en belül (pl. #how-it-works, #features, #faq)
+  const isHomeOrLanding = !hash || hash === '#landing' || hash === '#home' || hash === '#how-it-works' || hash === '#features' || hash === '#faq';
+
+  // 1. BEJELENTKEZETT FELHASZNÁLÓK ÚTVÁLASZTÁSA ÉS ROUTE GUARD:
+  // Bejelentkezett állapotban a „Kezdőlap” felület nem érhető el vagy látható.
+  // Ha a bejelentkezett felhasználó manuálisan a gyökér útvonalra (/), a kezdőlapra (#landing / #home)
+  // vagy a bejelentkező felületre navigál, azonnal átirányítjuk a fő munkafelületre (#dashboard / #szolistak).
+  if (activeUser) {
+    if (isHomeOrLanding || hash === '#auth') {
+      navigateTo('#dashboard');
+      return;
+    }
+  }
+
+  // 2. Szólisták / Fő munkafelület és Gyakorlás (#dashboard, #szolistak, #lists, #practice)
+  if (hash === '#dashboard' || hash === '#szolistak' || hash === '#lists' || hash === '#practice') {
+    if (!activeUser) {
+      // Nem bejelentkezett látogató védett útvonalra lépne -> átirányítás az Auth nézetre
+      dom.authProtectedNotice.classList.remove('hidden');
+      showView('auth');
+      return;
+    }
+
+    if (hash === '#practice' && !currentPracticeSession) {
+      navigateTo('#dashboard');
+      return;
+    }
+
+    if (hash === '#szolistak' || hash === '#lists') {
+      showView('dashboard');
+      return;
+    }
+
+    showView(hash.substring(1));
+    return;
+  }
+
+  // 3. Statisztika menüpont (#stats, #statistics, #statisztika)
+  if (hash === '#stats' || hash === '#statistics' || hash === '#statisztika') {
+    if (!activeUser) {
+      dom.authProtectedNotice.classList.remove('hidden');
+      showView('auth');
+      return;
+    }
+    showView('stats');
+    return;
+  }
+
+  // 4. Auth nézet (bejelentkezés / regisztráció nem bejelentkezett felhasználóknak)
+  if (hash === '#auth') {
+    if (activeUser) {
+      navigateTo('#dashboard');
+      return;
+    }
+    dom.authProtectedNotice.classList.add('hidden');
+    showView('auth');
+    return;
+  }
+
+  // 5. Landing page szekciói (csak nem bejelentkezett látogatóknak)
   if (hash === '#how-it-works' || hash === '#features' || hash === '#faq') {
     if (!dom.viewLanding.classList.contains('hidden')) {
       const targetEl = document.querySelector(hash);
@@ -366,52 +459,18 @@ function handleRouting() {
     return;
   }
 
-  // Statisztika menüpont kezelése
-  if (hash === '#stats' || hash === '#statistics') {
-    if (!activeUser) {
-      dom.authProtectedNotice.classList.remove('hidden');
-      showView('auth');
-      return;
-    }
-    showView('stats');
-    return;
+  // 6. Alapértelmezett navigáció:
+  // Bejelentkezett állapotban a fő munkafelületre (#dashboard), vendégként a Kezdőlapra irányít.
+  if (activeUser) {
+    navigateTo('#dashboard');
+  } else {
+    showView('landing');
   }
-
-  // Védett útvonalak ellenőrzése (Route Guard)
-  if (hash === '#dashboard' || hash === '#practice') {
-    if (!activeUser) {
-      // Nem bejelentkezett látogató védett útvonalra lépne -> átirányítás az Auth nézetre
-      dom.authProtectedNotice.classList.remove('hidden');
-      showView('auth');
-      return;
-    }
-
-    if (hash === '#practice' && !currentPracticeSession) {
-      navigateTo('#dashboard');
-      return;
-    }
-
-    showView(hash.substring(1));
-    return;
-  }
-
-  if (hash === '#auth') {
-    if (activeUser) {
-      navigateTo('#dashboard');
-      return;
-    }
-    dom.authProtectedNotice.classList.add('hidden');
-    showView('auth');
-    return;
-  }
-
-  // Alapértelmezett: Landing Page
-  showView('landing');
 }
 
 function updateActiveBottomNav(hash) {
   const current = hash || window.location.hash || '#landing';
-  const navItems = document.querySelectorAll('#mobile-bottom-nav a.bottom-nav-item, #public-nav-links a');
+  const navItems = document.querySelectorAll('#public-nav-links a');
   navItems.forEach(item => {
     const href = item.getAttribute('href');
     if (href && (href === current || (current === '' && href === '#landing'))) {
@@ -425,6 +484,12 @@ function updateActiveBottomNav(hash) {
 }
 
 function showView(viewName) {
+  // Bejelentkezett állapotban a Kezdőlap (landing) semmilyen körülmények között nem renderelődhet:
+  if (viewName === 'landing' && activeUser) {
+    navigateTo('#dashboard');
+    return;
+  }
+
   dom.viewLanding.classList.add('hidden');
   dom.viewAuth.classList.add('hidden');
   dom.viewDashboard.classList.add('hidden');

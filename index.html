@@ -1221,7 +1221,7 @@
   </div>
 
   <!-- FOOTER -->
-  <footer class="mt-auto py-8 pb-24 md:pb-8 border-t border-slate-200/80 dark:border-slate-800 text-xs text-slate-500 dark:text-slate-400 bg-white/40 dark:bg-slate-900/40">
+  <footer class="mt-auto py-6 sm:py-8 border-t border-slate-200/80 dark:border-slate-800 text-xs text-slate-500 dark:text-slate-400 bg-white/40 dark:bg-slate-900/40">
     <div class="max-w-[1000px] w-full mx-auto px-4 sm:px-6 lg:px-8 space-y-4">
       <div class="flex flex-col sm:flex-row items-center justify-between gap-3">
         <div class="flex items-center gap-2">
@@ -1229,7 +1229,7 @@
           <span class="font-bold text-slate-800 dark:text-slate-200">WL Wordly</span>
           <span>— Excel Alapú Szótanuló és Angol Szókincs Gyakorló</span>
         </div>
-        <div class="flex items-center space-x-4">
+        <div id="footer-public-links" class="flex items-center space-x-4">
           <a href="#landing" class="hover:text-brand-600 transition-colors">Kezdőlap</a>
           <a href="#how-it-works" class="hover:text-brand-600 transition-colors">Működés</a>
           <a href="#features" class="hover:text-brand-600 transition-colors">Funkciók</a>
@@ -1243,31 +1243,8 @@
     </div>
   </footer>
 
-  <!-- MOBILE BOTTOM NAVIGATION (Phone only - 3 buttons: Kezdőlap, Szólisták, Statisztika - Shown only when logged in) -->
-  <nav id="mobile-bottom-nav" class="hidden md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-lg border-t border-slate-200 dark:border-slate-800 px-2 py-1.5 safe-area-bottom shadow-lg transition-all">
-    
-    <!-- 1. Kezdőlap -->
-    <a href="#landing" id="bottom-nav-home" class="bottom-nav-item flex flex-col items-center justify-center min-h-[48px] p-1 text-slate-600 dark:text-slate-400 hover:text-brand-600 dark:hover:text-brand-400 transition-colors">
-      <i data-lucide="home" class="w-5 h-5"></i>
-      <span class="text-xs font-semibold mt-0.5 whitespace-nowrap">Kezdőlap</span>
-    </a>
-
-    <!-- 2. Szólisták -->
-    <a href="#dashboard" id="bottom-nav-lists" class="bottom-nav-item flex flex-col items-center justify-center min-h-[48px] p-1 text-slate-600 dark:text-slate-400 hover:text-brand-600 dark:hover:text-brand-400 transition-colors">
-      <i data-lucide="book-open" class="w-5 h-5"></i>
-      <span class="text-xs font-semibold mt-0.5 whitespace-nowrap">Szólisták</span>
-    </a>
-
-    <!-- 3. Statisztika -->
-    <a href="#stats" id="bottom-nav-stats" class="bottom-nav-item flex flex-col items-center justify-center min-h-[48px] p-1 text-slate-600 dark:text-slate-400 hover:text-brand-600 dark:hover:text-brand-400 transition-colors">
-      <i data-lucide="bar-chart-2" class="w-5 h-5"></i>
-      <span class="text-xs font-semibold mt-0.5 whitespace-nowrap">Statisztika</span>
-    </a>
-
-  </nav>
-
   <!-- Offline Status Badge -->
-  <div id="offline-indicator-badge" class="hidden fixed bottom-20 md:bottom-6 right-4 z-50 px-3.5 py-1.5 rounded-full bg-amber-500 text-white text-xs font-semibold shadow-lg flex items-center gap-2 animate-bounce">
+  <div id="offline-indicator-badge" class="hidden fixed bottom-6 right-4 z-50 px-3.5 py-1.5 rounded-full bg-amber-500 text-white text-xs font-semibold shadow-lg flex items-center gap-2 animate-bounce">
     <i data-lucide="wifi-off" class="w-3.5 h-3.5"></i>
     <span>Offline mód</span>
   </div>
