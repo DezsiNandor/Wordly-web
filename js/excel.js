@@ -23,53 +23,73 @@ export async function parseExcelFile(file) {
           throw new Error("Az Excel fájl nem tartalmaz munkalapot!");
         }
 
-        const firstSheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[firstSheetName];
+        const sheets = [];
+        const allWords = [];
+        let globalWordCounter = 0;
 
-        // Munkalap átalakítása 2 dimenziós tömbbé (header nélkül)
-        const rows = window.XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: false, defval: '' });
+        workbook.SheetNames.forEach((sheetName, sheetIndex) => {
+          const worksheet = workbook.Sheets[sheetName];
+          if (!worksheet) return;
 
-        if (!rows || rows.length === 0) {
-          throw new Error("Az Excel fájl üres!");
-        }
+          // Munkalap átalakítása 2 dimenziós tömbbé
+          const rows = window.XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: false, defval: '' });
+          if (!rows || rows.length === 0) return;
 
-        const words = [];
-        let startIndex = 0;
+          let startIndex = 0;
+          // Fejléc felismerési logika
+          if (rows.length > 0) {
+            const firstRowCol1 = String(rows[0][0] || '').trim().toLowerCase();
+            const firstRowCol2 = String(rows[0][1] || '').trim().toLowerCase();
 
-        // Fejléc felismerési logika
-        if (rows.length > 0) {
-          const firstRowCol1 = String(rows[0][0] || '').trim().toLowerCase();
-          const firstRowCol2 = String(rows[0][1] || '').trim().toLowerCase();
+            const commonHeadersCol1 = ['english', 'angol', 'word', 'szó', 'kifejezés', 'phrase', 'en'];
+            const commonHeadersCol2 = ['hungarian', 'magyar', 'jelentés', 'meaning', 'fordítás', 'hu'];
 
-          const commonHeadersCol1 = ['english', 'angol', 'word', 'szó', 'kifejezés', 'phrase', 'en'];
-          const commonHeadersCol2 = ['hungarian', 'magyar', 'jelentés', 'meaning', 'fordítás', 'hu'];
-
-          if (commonHeadersCol1.some(h => firstRowCol1.includes(h)) || 
-              commonHeadersCol2.some(h => firstRowCol2.includes(h))) {
-            startIndex = 1; // Átugorjuk a fejlécet
+            if (commonHeadersCol1.some(h => firstRowCol1.includes(h)) || 
+                commonHeadersCol2.some(h => firstRowCol2.includes(h))) {
+              startIndex = 1; // Átugorjuk a fejlécet
+            }
           }
-        }
 
-        for (let i = startIndex; i < rows.length; i++) {
-          const row = rows[i];
-          if (!row || row.length === 0) continue;
+          const sheetWords = [];
+          for (let i = startIndex; i < rows.length; i++) {
+            const row = rows[i];
+            if (!row || row.length === 0) continue;
 
-          const col1 = String(row[0] || '').trim();
-          const col2 = String(row[1] || '').trim();
+            const col1 = String(row[0] || '').trim();
+            const col2 = String(row[1] || '').trim();
 
-          // Csak akkor adjuk hozzá, ha mindkét oszlopban van tartalom
-          if (col1 && col2) {
-            words.push({
-              id: `w_${i}_${Date.now()}`,
-              english: col1,
-              hungarian: col2,
+            // Csak akkor adjuk hozzá, ha mindkét oszlopban van tartalom
+            if (col1 && col2) {
+              globalWordCounter++;
+              const wordObj = {
+                id: `w_${sheetIndex}_${i}_${Date.now()}_${globalWordCounter}`,
+                english: col1,
+                hungarian: col2,
+                timesPracticed: 0,
+                timesCorrect: 0
+              };
+              sheetWords.push(wordObj);
+              allWords.push(wordObj);
+            }
+          }
+
+          if (sheetWords.length > 0) {
+            sheets.push({
+              id: `sheet_${sheetIndex}_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+              name: sheetName || `Munkalap ${sheetIndex + 1}`,
+              order: sheets.length,
+              isUnlocked: sheets.length === 0, // Első munkalap alapértelmezetten fel van oldva
+              consecutivePerfectScores: 0,
               timesPracticed: 0,
-              timesCorrect: 0
+              timesPassed: 0,
+              totalCorrect: 0,
+              totalIncorrect: 0,
+              words: sheetWords
             });
           }
-        }
+        });
 
-        if (words.length === 0) {
+        if (sheets.length === 0 || allWords.length === 0) {
           throw new Error("Nem sikerült érvényes szópárokat kinyerni az Excel fájlból! Ellenőrizze, hogy az 1. oszlopban az angol szó, a 2. oszlopban a magyar jelentés található-e.");
         }
 
@@ -80,9 +100,10 @@ export async function parseExcelFile(file) {
         resolve({
           fileName: file.name,
           listName: defaultName,
-          wordCount: words.length,
-          words: words,
-          preview: words.slice(0, 5) // első 5 szó előnézethez
+          wordCount: allWords.length,
+          words: allWords,
+          sheets: sheets,
+          preview: allWords.slice(0, 6)
         });
       } catch (err) {
         reject(err);
@@ -136,7 +157,7 @@ export function exportListToExcel(listName, words) {
 }
 
 /**
- * Minta Excel sablon letöltése a felhasználónak
+ * Minta Excel sablon letöltése a felhasználónak (több munkalappal a progresszió teszteléséhez)
  */
 export function downloadSampleExcel() {
   if (!window.XLSX) {
@@ -144,37 +165,43 @@ export function downloadSampleExcel() {
     return;
   }
 
-  const sampleData = [
+  // 1. Munkalap: Alapszavak (1. Szint)
+  const sheet1Data = [
     ["Angol szó", "Magyar jelentés"],
-    ["abandon", "elhagy, felad"],
-    ["ability", "képesség, tehetség"],
-    ["abundant", "bőséges"],
+    ["achievement", "teljesítmény, eredmény"],
+    ["opportunity", "lehetőség"],
+    ["development", "fejlesztés, fejlődés"],
+    ["challenge", "kihívás"],
+    ["environment", "környezet"],
+    ["experience", "tapasztalat, élmény"],
+    ["knowledge", "tudás, ismeret"],
+    ["successful", "sikeres"]
+  ];
+
+  // 2. Munkalap: Haladó kifejezések (2. Szint - zárolt a 2x 100% eléréséig)
+  const sheet2Data = [
+    ["Angol szó", "Magyar jelentés"],
     ["accurate", "pontos, szabatos"],
     ["achieve", "elér, megvalósít"],
     ["acquire", "megszerez, elsajátít"],
     ["adapt", "alkalmazkodik"],
     ["adequate", "megfelelő, elegendő"],
-    ["advocate", "támogat, szószóló"],
     ["affordable", "megfizethető"],
-    ["allocate", "kioszt, kiutal"],
-    ["alternative", "választási lehetőség"],
     ["ambitious", "törekvő, ambiciózus"],
-    ["analyze", "elemez"],
-    ["apparent", "nyilvánvaló, látszólagos"],
-    ["appreciate", "értékel, méltányol"],
-    ["approach", "megközelítés, közeledik"],
-    ["appropriate", "helyénvaló, megfelelő"],
-    ["artificial", "mesterséges"],
-    ["aspire", "törekszik valamire"]
+    ["appreciate", "értékel, méltányol"]
   ];
 
-  const ws = window.XLSX.utils.aoa_to_sheet(sampleData);
   const wb = window.XLSX.utils.book_new();
-  window.XLSX.utils.book_append_sheet(wb, ws, "MintaSzavak");
 
-  ws['!cols'] = [{ wch: 20 }, { wch: 25 }];
+  const ws1 = window.XLSX.utils.aoa_to_sheet(sheet1Data);
+  ws1['!cols'] = [{ wch: 20 }, { wch: 25 }];
+  window.XLSX.utils.book_append_sheet(wb, ws1, "1. Lecke - Alapszavak");
 
-  window.XLSX.writeFile(wb, "WL_Minta_Szolista.xlsx");
+  const ws2 = window.XLSX.utils.aoa_to_sheet(sheet2Data);
+  ws2['!cols'] = [{ wch: 20 }, { wch: 25 }];
+  window.XLSX.utils.book_append_sheet(wb, ws2, "2. Lecke - Haladó");
+
+  window.XLSX.writeFile(wb, "WL_Minta_Szolista_Tobb_Munkalappal.xlsx");
 }
 
 /**

@@ -21,7 +21,8 @@ import {
   deleteList, 
   addWordToList, 
   deleteWordFromList, 
-  updateWordInList 
+  updateWordInList,
+  updateSheetProgress
 } from './storage.js';
 
 import { 
@@ -50,6 +51,8 @@ let pendingExcelData = null;
 let autoAdvanceTimeout = null;
 let isReversePractice = false;
 let isSoundEnabled = true;
+let currentActivePracticeConfig = { listId: null, sheetId: null, isMix: false };
+let nextUnlockedSheetData = null;
 
 // DOM Elemek gyors elérése
 const dom = {
@@ -58,6 +61,7 @@ const dom = {
   viewAuth: document.getElementById('view-auth'),
   viewDashboard: document.getElementById('view-dashboard'),
   viewPractice: document.getElementById('view-practice'),
+  viewStats: document.getElementById('view-stats'),
 
   // Header Nav
   navLogo: document.getElementById('nav-logo'),
@@ -66,6 +70,8 @@ const dom = {
   navBtnLogin: document.getElementById('nav-btn-login'),
   navBtnRegister: document.getElementById('nav-btn-register'),
   navBtnDashboard: document.getElementById('nav-btn-dashboard'),
+  navBtnStats: document.getElementById('nav-btn-stats'),
+  navLinkStats: document.getElementById('nav-link-stats'),
   btnOpenFirebaseSettings: document.getElementById('btn-open-firebase-settings'),
   firebaseStatusDot: document.getElementById('firebase-status-dot'),
   firebaseStatusText: document.getElementById('firebase-status-text'),
@@ -76,6 +82,12 @@ const dom = {
   userEmailDisplay: document.getElementById('user-email-display'),
   userBadge: document.getElementById('user-badge'),
   btnLogout: document.getElementById('btn-logout'),
+
+  // Mobile Bottom Nav
+  mobileBottomNav: document.getElementById('mobile-bottom-nav'),
+  bottomNavHome: document.getElementById('bottom-nav-home'),
+  bottomNavLists: document.getElementById('bottom-nav-lists'),
+  bottomNavStats: document.getElementById('bottom-nav-stats'),
 
   // Landing Page Buttons
   btnLandingSampleExcel: document.getElementById('btn-landing-sample-excel'),
@@ -109,6 +121,14 @@ const dom = {
   btnEmptyUpload: document.getElementById('btn-empty-upload'),
   btnEmptySample: document.getElementById('btn-empty-sample'),
 
+  // Stats View
+  statsListsContainer: document.getElementById('stats-lists-container'),
+  statsEmptyState: document.getElementById('stats-empty-state'),
+  statsTotalFiles: document.getElementById('stats-total-files'),
+  statsTotalSheets: document.getElementById('stats-total-sheets'),
+  statsMasteredSheets: document.getElementById('stats-mastered-sheets'),
+  statsAvgAccuracy: document.getElementById('stats-avg-accuracy'),
+
   // Practice View
   btnExitPractice: document.getElementById('btn-exit-practice'),
   btnToggleDirection: document.getElementById('btn-toggle-direction'),
@@ -121,6 +141,10 @@ const dom = {
   practiceTotalCount: document.getElementById('practice-total-count'),
   quizCard: document.getElementById('quiz-card'),
   practiceCurrentListTitle: document.getElementById('practice-current-list-title'),
+  practiceSheetBadge: document.getElementById('practice-sheet-badge'),
+  practiceCurrentSheetTitle: document.getElementById('practice-current-sheet-title'),
+  practiceRoundCounterBadge: document.getElementById('practice-round-counter-badge'),
+  practiceRoundProgress: document.getElementById('practice-round-progress'),
   practicePromptWord: document.getElementById('practice-prompt-word'),
   practicePromptHint: document.getElementById('practice-prompt-hint'),
   btnSpeakWord: document.getElementById('btn-speak-word'),
@@ -137,9 +161,23 @@ const dom = {
   uploadPreviewSection: document.getElementById('upload-preview-section'),
   uploadListName: document.getElementById('upload-list-name'),
   uploadWordCountBadge: document.getElementById('upload-word-count-badge'),
+  uploadSheetsCountBadge: document.getElementById('upload-sheets-count-badge'),
+  uploadSheetsPreviewTags: document.getElementById('upload-sheets-preview-tags'),
   uploadPreviewTable: document.getElementById('upload-preview-table'),
   btnCancelUpload: document.getElementById('btn-cancel-upload'),
   btnSaveUploadedList: document.getElementById('btn-save-uploaded-list'),
+
+  // Round Completed Modal
+  modalRoundCompleted: document.getElementById('modal-round-completed'),
+  roundCompletedBadgeIcon: document.getElementById('round-completed-badge-icon'),
+  roundCompletedTitle: document.getElementById('round-completed-title'),
+  roundCompletedSubtitle: document.getElementById('round-completed-subtitle'),
+  roundScorePercent: document.getElementById('round-score-percent'),
+  roundScoreRatio: document.getElementById('round-score-ratio'),
+  roundProgressionBox: document.getElementById('round-progression-box'),
+  btnRoundNextLevel: document.getElementById('btn-round-next-level'),
+  btnRoundRetry: document.getElementById('btn-round-retry'),
+  btnRoundExit: document.getElementById('btn-round-exit'),
 
   modalManageList: document.getElementById('modal-manage-list'),
   btnCloseManageModal: document.getElementById('btn-close-manage-modal'),
@@ -318,17 +356,7 @@ function handleRouting() {
       showView('auth');
       return;
     }
-    showView('dashboard');
-    setTimeout(() => {
-      const statsSection = document.getElementById('dashboard-metrics-summary');
-      if (statsSection) {
-        statsSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        statsSection.classList.add('ring-2', 'ring-brand-500', 'ring-offset-2');
-        setTimeout(() => {
-          statsSection.classList.remove('ring-2', 'ring-brand-500', 'ring-offset-2');
-        }, 2000);
-      }
-    }, 120);
+    showView('stats');
     return;
   }
 
@@ -366,7 +394,7 @@ function handleRouting() {
 
 function updateActiveBottomNav(hash) {
   const current = hash || window.location.hash || '#landing';
-  const navItems = document.querySelectorAll('#mobile-bottom-nav a.bottom-nav-item');
+  const navItems = document.querySelectorAll('#mobile-bottom-nav a.bottom-nav-item, #public-nav-links a');
   navItems.forEach(item => {
     const href = item.getAttribute('href');
     if (href && (href === current || (current === '' && href === '#landing'))) {
@@ -384,6 +412,7 @@ function showView(viewName) {
   dom.viewAuth.classList.add('hidden');
   dom.viewDashboard.classList.add('hidden');
   dom.viewPractice.classList.add('hidden');
+  if (dom.viewStats) dom.viewStats.classList.add('hidden');
 
   if (viewName === 'landing') {
     dom.viewLanding.classList.remove('hidden');
@@ -392,6 +421,11 @@ function showView(viewName) {
   } else if (viewName === 'dashboard') {
     dom.viewDashboard.classList.remove('hidden');
     renderDashboard();
+  } else if (viewName === 'stats') {
+    if (dom.viewStats) {
+      dom.viewStats.classList.remove('hidden');
+      renderStatsView();
+    }
   } else if (viewName === 'practice') {
     dom.viewPractice.classList.remove('hidden');
   }
@@ -419,6 +453,12 @@ function setupEventListeners() {
   dom.navBtnDashboard.addEventListener('click', () => {
     navigateTo('#dashboard');
   });
+
+  if (dom.navBtnStats) {
+    dom.navBtnStats.addEventListener('click', () => {
+      navigateTo('#stats');
+    });
+  }
 
   // Landing Page Buttons
   if (dom.btnLandingSampleExcel) {
@@ -541,7 +581,7 @@ function setupEventListeners() {
     try {
       dom.btnSaveUploadedList.disabled = true;
       dom.btnSaveUploadedList.textContent = "Mentés...";
-      await saveNewList(customName, pendingExcelData.words);
+      await saveNewList(customName, pendingExcelData.words, pendingExcelData.sheets);
       closeUploadModal();
       await renderDashboard();
     } catch (err) {
@@ -680,6 +720,39 @@ function setupEventListeners() {
     }
   });
 
+  // Round Completed Modal Controls
+  if (dom.btnRoundRetry) {
+    dom.btnRoundRetry.addEventListener('click', () => {
+      closeRoundCompletedModal();
+      if (currentActivePracticeConfig.sheetId) {
+        startSheetPractice(currentActivePracticeConfig.listId, currentActivePracticeConfig.sheetId);
+      } else if (currentActivePracticeConfig.isMix) {
+        startMixPractice(currentActivePracticeConfig.listId);
+      } else if (currentActivePracticeConfig.listId) {
+        startPractice(currentActivePracticeConfig.listId);
+      }
+    });
+  }
+
+  if (dom.btnRoundNextLevel) {
+    dom.btnRoundNextLevel.addEventListener('click', () => {
+      closeRoundCompletedModal();
+      if (nextUnlockedSheetData) {
+        startSheetPractice(nextUnlockedSheetData.listId, nextUnlockedSheetData.sheetId);
+      }
+    });
+  }
+
+  if (dom.btnRoundExit) {
+    dom.btnRoundExit.addEventListener('click', () => {
+      closeRoundCompletedModal();
+      navigateTo('#stats');
+    });
+  }
+
+  // Dinamikus fejléc elrejtése görgetéskor
+  setupHeaderScrollHide();
+
   // Firebase Settings Modal
   dom.btnOpenFirebaseSettings.addEventListener('click', openFirebaseModal);
   dom.btnCloseFirebaseModal.addEventListener('click', closeFirebaseModal);
@@ -768,9 +841,27 @@ async function renderDashboard() {
       day: 'numeric'
     });
 
+    const sheets = list.sheets || [];
+    const sheetsCount = sheets.length;
+    const masteredCount = sheets.filter(s => (s.consecutivePerfectScores >= 2) || (s.timesPassed >= 2)).length;
+    const canMix = masteredCount > 0;
+
     const wordsWithPractice = (list.words || []).filter(w => (w.timesPracticed || 0) > 0);
     const practicedCount = wordsWithPractice.length;
     const progressPercent = wordCount > 0 ? Math.round((practicedCount / wordCount) * 100) : 0;
+
+    // Sheet preview badges HTML
+    const sheetsBadgesHtml = sheets.slice(0, 4).map((s, idx) => {
+      const isUnl = s.isUnlocked;
+      const isMast = (s.consecutivePerfectScores >= 2) || (s.timesPassed >= 2);
+      const badgeClass = isMast 
+        ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
+        : (isUnl 
+            ? 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800' 
+            : 'bg-slate-100 dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700');
+      const icon = isMast ? '⭐' : (isUnl ? '🔓' : '🔒');
+      return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium border ${badgeClass}" title="${escapeHtml(s.name)}">${icon} ${escapeHtml(s.name)}</span>`;
+    }).join('');
 
     card.innerHTML = `
       <div>
@@ -798,24 +889,37 @@ async function renderDashboard() {
           </div>
         </div>
 
-        <!-- Szavak száma és haladás -->
-        <div class="my-4 space-y-2">
+        <!-- Munkalapok előnézete & haladás -->
+        <div class="my-3 space-y-2">
           <div class="flex items-center justify-between text-xs">
-            <span class="text-slate-500 dark:text-slate-400 font-medium">${wordCount} szó</span>
-            <span class="text-brand-600 dark:text-brand-400 font-semibold">${progressPercent}% átvéve</span>
+            <span class="text-slate-500 dark:text-slate-400 font-medium">${wordCount} szó &bull; ${sheetsCount} munkalap</span>
+            <span class="text-brand-600 dark:text-brand-400 font-semibold">${masteredCount}/${sheetsCount} elsajátítva ⭐</span>
           </div>
+
           <div class="w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
             <div class="h-full bg-gradient-to-r from-brand-500 to-indigo-500 rounded-full" style="width: ${progressPercent}%"></div>
+          </div>
+
+          <div class="flex flex-wrap gap-1 pt-1">
+            ${sheetsBadgesHtml}
+            ${sheets.length > 4 ? `<span class="text-[11px] text-slate-400 self-center">+${sheets.length - 4} további</span>` : ''}
           </div>
         </div>
       </div>
 
       <!-- Kártya alsó gombok -->
       <div class="pt-3 border-t border-slate-100 dark:border-slate-800/80 flex items-center gap-2">
-        <button class="btn-start-practice flex-1 min-h-[44px] py-2.5 px-3 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-semibold text-xs sm:text-sm transition-all flex items-center justify-center gap-1.5 shadow-sm active:scale-[0.98]">
+        <button class="btn-start-practice flex-1 min-h-[44px] py-2.5 px-3 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-semibold text-xs sm:text-sm transition-all flex items-center justify-center gap-1.5 shadow-sm active:scale-[0.98]" title="Gyakorlás indítása az aktív munkalapon">
           <i data-lucide="play" class="w-3.5 h-3.5 fill-current"></i>
           <span>Gyakorlás</span>
         </button>
+
+        ${canMix ? `
+        <button class="btn-card-mix min-h-[44px] px-3 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-semibold text-xs transition-all flex items-center justify-center gap-1 shadow-sm" title="Mix Gyakorlás az elsajátított munkalapokból">
+          <i data-lucide="shuffle" class="w-3.5 h-3.5"></i>
+          <span>Mix</span>
+        </button>
+        ` : ''}
 
         <button class="btn-view-words min-w-[44px] min-h-[44px] inline-flex items-center justify-center p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs transition-colors" title="Szavak megtekintése és szerkesztése">
           <i data-lucide="list" class="w-4 h-4"></i>
@@ -831,6 +935,15 @@ async function renderDashboard() {
     card.querySelector('.btn-start-practice').addEventListener('click', () => {
       startPractice(list.id);
     });
+
+    if (canMix) {
+      const cardMixBtn = card.querySelector('.btn-card-mix');
+      if (cardMixBtn) {
+        cardMixBtn.addEventListener('click', () => {
+          startMixPractice(list.id);
+        });
+      }
+    }
 
     card.querySelector('.btn-view-words').addEventListener('click', () => {
       openManageModal(list.id);
@@ -887,6 +1000,21 @@ async function handleSelectedExcelFile(file) {
 
     dom.uploadListName.value = result.listName;
     dom.uploadWordCountBadge.textContent = result.wordCount;
+
+    if (dom.uploadSheetsCountBadge) {
+      const sheetCount = (result.sheets || []).length;
+      dom.uploadSheetsCountBadge.textContent = `${sheetCount} munkalap`;
+    }
+
+    if (dom.uploadSheetsPreviewTags) {
+      dom.uploadSheetsPreviewTags.innerHTML = '';
+      (result.sheets || []).forEach((s, idx) => {
+        const tag = document.createElement('span');
+        tag.className = 'px-2 py-0.5 rounded-md text-[11px] font-medium bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300';
+        tag.textContent = `${idx === 0 ? '🔓' : '🔒'} ${s.name} (${(s.words || []).length} szó)`;
+        dom.uploadSheetsPreviewTags.appendChild(tag);
+      });
+    }
 
     dom.uploadPreviewTable.innerHTML = '';
     result.preview.forEach((item) => {
@@ -1066,15 +1194,120 @@ function filterManageWords(query) {
 }
 
 // ==========================================
-// 7. GYAKORLÁSI ÉS KIKÉRDEZÉSI MÓD ENGINE
+// 7. GYAKORLÁSI ÉS KIKÉRDEZÉSI MÓD ENGINE (Munkalap & Mix Támogatással)
 // ==========================================
+
+async function startSheetPractice(listId, sheetId) {
+  const list = await getListById(listId);
+  if (!list || !list.sheets) {
+    alert("Ez a lista nem található vagy nem tartalmaz munkalapokat!");
+    return;
+  }
+
+  const sheet = list.sheets.find(s => s.id === sheetId);
+  if (!sheet) {
+    alert("A kiválasztott munkalap nem található!");
+    return;
+  }
+
+  if (!sheet.isUnlocked) {
+    alert("Ez a szint még zárolva van! Teljesítsd az előző munkalapot 2 egymást követő alkalommal 100%-os eredménnyel a feloldásához.");
+    return;
+  }
+
+  if (!sheet.words || sheet.words.length === 0) {
+    alert("Ez a munkalap nem tartalmaz szavakat a gyakorláshoz!");
+    return;
+  }
+
+  currentActivePracticeConfig = { listId, sheetId, isMix: false };
+  nextUnlockedSheetData = null;
+
+  currentPracticeSession = new PracticeSession(list, {
+    reverse: isReversePractice,
+    soundEnabled: isSoundEnabled,
+    sheetId: sheetId,
+    isMix: false
+  });
+
+  dom.practiceCurrentListTitle.textContent = list.name;
+  if (dom.practiceCurrentSheetTitle) dom.practiceCurrentSheetTitle.textContent = sheet.name;
+  if (dom.practiceSheetBadge) dom.practiceSheetBadge.classList.remove('hidden');
+
+  dom.practicePromptHint.textContent = isReversePractice 
+    ? "Írd be a megfelelő angol kifejezést:" 
+    : "Írd be a megfelelő magyar jelentést:";
+
+  navigateTo('#practice');
+  renderCurrentQuizWord();
+}
+
+async function startMixPractice(listId) {
+  const list = await getListById(listId);
+  if (!list || !list.sheets) {
+    alert("A lista nem található!");
+    return;
+  }
+
+  // Ellenőrizzük, hogy van-e legalább egy elsajátított (vagy feloldott) munkalap
+  const masteredSheets = list.sheets.filter(s => 
+    (s.consecutivePerfectScores >= 2) || ((s.timesPassed || 0) >= 2) || s.isUnlocked
+  );
+
+  if (masteredSheets.length === 0) {
+    alert("A Mix gyakorláshoz először teljesíts legalább egy szintet 2x egymás után 100%-kal!");
+    return;
+  }
+
+  currentActivePracticeConfig = { listId, sheetId: null, isMix: true };
+  nextUnlockedSheetData = null;
+
+  currentPracticeSession = new PracticeSession(list, {
+    reverse: isReversePractice,
+    soundEnabled: isSoundEnabled,
+    sheetId: null,
+    isMix: true
+  });
+
+  dom.practiceCurrentListTitle.textContent = list.name;
+  if (dom.practiceCurrentSheetTitle) dom.practiceCurrentSheetTitle.textContent = "Mix (Mesterelt szintek)";
+  if (dom.practiceSheetBadge) dom.practiceSheetBadge.classList.remove('hidden');
+
+  dom.practicePromptHint.textContent = isReversePractice 
+    ? "Írd be a megfelelő angol kifejezést:" 
+    : "Írd be a megfelelő magyar jelentést:";
+
+  navigateTo('#practice');
+  renderCurrentQuizWord();
+}
 
 async function startPractice(listId) {
   const list = await getListById(listId);
-  if (!list || !list.words || list.words.length === 0) {
+  if (!list) {
+    alert("A lista nem található!");
+    return;
+  }
+
+  // Ha a lista rendelkezik munkalapokkal (új struktúra)
+  if (list.sheets && list.sheets.length > 0) {
+    // Keressük meg az első feloldott munkalapot, ami még nincs mesterelve (consecutivePerfectScores < 2)
+    let targetSheet = list.sheets.find(s => s.isUnlocked && (s.consecutivePerfectScores || 0) < 2);
+    // Ha mindegyik mesterelt, válasszuk az utolsó feloldottat vagy a legelsőt
+    if (!targetSheet) {
+      const unlockedSheets = list.sheets.filter(s => s.isUnlocked);
+      targetSheet = unlockedSheets[unlockedSheets.length - 1] || list.sheets[0];
+    }
+    return startSheetPractice(listId, targetSheet.id);
+  }
+
+  // Hagyományos kompatibilitási ág (ha nem lennének munkalapok)
+  if (!list.words || list.words.length === 0) {
     alert("Ez a lista nem tartalmaz szavakat a gyakorláshoz! Tölts fel vagy adj hozzá szavakat.");
     return;
   }
+
+  currentActivePracticeConfig = { listId, sheetId: null, isMix: false };
+  nextUnlockedSheetData = null;
 
   currentPracticeSession = new PracticeSession(list, {
     reverse: isReversePractice,
@@ -1082,6 +1315,7 @@ async function startPractice(listId) {
   });
 
   dom.practiceCurrentListTitle.textContent = list.name;
+  if (dom.practiceSheetBadge) dom.practiceSheetBadge.classList.add('hidden');
   dom.practicePromptHint.textContent = isReversePractice 
     ? "Írd be a megfelelő angol kifejezést:" 
     : "Írd be a megfelelő magyar jelentést:";
@@ -1092,10 +1326,16 @@ async function startPractice(listId) {
 
 function renderCurrentQuizWord() {
   clearAutoAdvance();
+  if (!currentPracticeSession) return;
+
   const word = currentPracticeSession.nextWord();
   if (!word) {
-    alert("A lista összes szava átismételve!");
-    navigateTo('#dashboard');
+    if (currentPracticeSession.isRoundComplete()) {
+      onPracticeRoundFinished();
+    } else {
+      alert("A kör véget ért!");
+      navigateTo('#dashboard');
+    }
     return;
   }
 
@@ -1116,19 +1356,24 @@ function renderCurrentQuizWord() {
 }
 
 function resetQuizCardState() {
-  dom.quizCard.className = 'quiz-card bg-white dark:bg-slate-900 rounded-3xl border-2 border-slate-200 dark:border-slate-800 p-8 sm:p-12 shadow-xl shadow-slate-200/40 dark:shadow-none text-center relative overflow-hidden transition-all duration-300';
+  dom.quizCard.className = 'quiz-card bg-white dark:bg-slate-900 rounded-3xl border-2 border-slate-200 dark:border-slate-800 p-6 sm:p-12 shadow-xl shadow-slate-200/40 dark:shadow-none text-center relative overflow-hidden transition-all duration-300';
   dom.practiceFeedbackContainer.classList.add('hidden');
   dom.practiceFeedbackContainer.innerHTML = '';
   dom.practiceBtnText.textContent = 'Ellenőrzés';
-  dom.btnPracticeSubmit.className = 'w-full py-3.5 px-6 rounded-2xl bg-brand-600 hover:bg-brand-700 text-white font-bold text-base shadow-lg shadow-brand-500/25 active:scale-[0.98] transition-all flex items-center justify-center gap-2';
+  dom.btnPracticeSubmit.className = 'w-full min-h-[50px] py-3.5 px-6 rounded-2xl bg-brand-600 hover:bg-brand-700 text-white font-bold text-base shadow-lg shadow-brand-500/25 active:scale-[0.98] transition-all flex items-center justify-center gap-2';
 }
 
 async function handlePracticeAction() {
   if (!currentPracticeSession) return;
 
+  // Ha épp a kiértékelést nézi a felhasználó (CORRECT vagy INCORRECT állapot), a gombnyomás a következő szóra / lezárásra visz
   if (currentPracticeSession.state === 'INCORRECT' || currentPracticeSession.state === 'CORRECT') {
     clearAutoAdvance();
-    renderCurrentQuizWord();
+    if (currentPracticeSession.isRoundComplete()) {
+      await onPracticeRoundFinished();
+    } else {
+      renderCurrentQuizWord();
+    }
     return;
   }
 
@@ -1138,8 +1383,12 @@ async function handlePracticeAction() {
     return;
   }
 
+  dom.practiceAnswerInput.disabled = true;
   const result = await currentPracticeSession.checkAnswer(answer);
-  if (!result) return;
+  if (!result) {
+    dom.practiceAnswerInput.disabled = false;
+    return;
+  }
 
   updatePracticeStatsUI();
 
@@ -1160,8 +1409,8 @@ async function handlePracticeAction() {
       </div>
     `;
 
-    dom.btnPracticeSubmit.className = 'w-full py-3.5 px-6 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-base shadow-lg shadow-emerald-500/25 active:scale-[0.98] transition-all flex items-center justify-center gap-2';
-    dom.practiceBtnText.textContent = 'Következő szó';
+    dom.btnPracticeSubmit.className = 'w-full min-h-[50px] py-3.5 px-6 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-base shadow-lg shadow-emerald-500/25 active:scale-[0.98] transition-all flex items-center justify-center gap-2';
+    dom.practiceBtnText.textContent = result.isRoundFinished ? 'Kör befejezése' : 'Következő szó';
 
     if (result.stats.streak > 0 && result.stats.streak % 5 === 0 && window.confetti) {
       window.confetti({
@@ -1172,9 +1421,13 @@ async function handlePracticeAction() {
     }
 
     clearAutoAdvance();
-    autoAdvanceTimeout = setTimeout(() => {
+    autoAdvanceTimeout = setTimeout(async () => {
       if (currentPracticeSession && currentPracticeSession.state === 'CORRECT') {
-        renderCurrentQuizWord();
+        if (currentPracticeSession.isRoundComplete()) {
+          await onPracticeRoundFinished();
+        } else {
+          renderCurrentQuizWord();
+        }
       }
     }, 900);
 
@@ -1197,11 +1450,176 @@ async function handlePracticeAction() {
       </div>
     `;
 
-    dom.btnPracticeSubmit.className = 'w-full py-3.5 px-6 rounded-2xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 font-bold text-base shadow-lg active:scale-[0.98] transition-all flex items-center justify-center gap-2';
-    dom.practiceBtnText.textContent = 'Következő szó';
+    dom.btnPracticeSubmit.className = 'w-full min-h-[50px] py-3.5 px-6 rounded-2xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 font-bold text-base shadow-lg active:scale-[0.98] transition-all flex items-center justify-center gap-2';
+    dom.practiceBtnText.textContent = result.isRoundFinished ? 'Kör befejezése' : 'Következő szó';
 
     refreshIcons();
     dom.btnPracticeSubmit.focus();
+  }
+}
+
+async function onPracticeRoundFinished() {
+  clearAutoAdvance();
+  if (!currentPracticeSession) return;
+
+  const isPerfect = currentPracticeSession.isPerfectScore();
+  const stats = currentPracticeSession.stats;
+  const { listId, sheetId } = currentActivePracticeConfig;
+
+  let sheetProgressResult = null;
+  if (listId && sheetId) {
+    sheetProgressResult = await updateSheetProgress(listId, sheetId, {
+      correctCount: stats.correctCount,
+      incorrectCount: stats.incorrectCount,
+      isPerfect: isPerfect
+    });
+  }
+
+  await showRoundCompletedModal(sheetProgressResult);
+}
+
+async function showRoundCompletedModal(sheetProgressResult) {
+  if (!dom.modalRoundCompleted) return;
+
+  const stats = currentPracticeSession ? currentPracticeSession.stats : { correctCount: 0, totalAnswered: 0 };
+  const pct = stats.totalAnswered > 0 ? Math.round((stats.correctCount / stats.totalAnswered) * 100) : 0;
+  const isPerfect = currentPracticeSession ? currentPracticeSession.isPerfectScore() : false;
+
+  dom.roundScorePercent.textContent = `${pct}%`;
+  dom.roundScoreRatio.textContent = `${stats.correctCount} / ${stats.totalAnswered}`;
+
+  if (sheetProgressResult) {
+    if (sheetProgressResult.unlockedNextSheet) {
+      // 2 egymást követő 100% elérve és következő szint feloldva!
+      dom.roundCompletedBadgeIcon.textContent = '🏆';
+      dom.roundCompletedTitle.textContent = 'Szint Feloldva! 🎉';
+      dom.roundCompletedSubtitle.textContent = 'Kétszer egymás után 100%-os eredménnyel zártad a munkalapot!';
+      
+      dom.roundProgressionBox.className = 'p-4 rounded-2xl text-left text-xs space-y-1.5 border border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-900 dark:text-emerald-100';
+      dom.roundProgressionBox.innerHTML = `
+        <div class="font-bold flex items-center gap-1.5 text-sm mb-1 text-emerald-700 dark:text-emerald-300">
+          <i data-lucide="unlock" class="w-4 h-4"></i>
+          <span>Új szint elérhető: <strong>${escapeHtml(sheetProgressResult.nextSheetName)}</strong></span>
+        </div>
+        <p class="leading-relaxed">Sikeresen teljesítetted a feloldási feltételt (2 egymást követő 100%-os kör). A következő munkalap zárolása feloldódott és azonnal gyakorolható!</p>
+      `;
+
+      // Következő munkalap beállítása
+      const list = await getListById(currentActivePracticeConfig.listId);
+      if (list && list.sheets) {
+        const nextSheet = list.sheets.find(s => s.name === sheetProgressResult.nextSheetName);
+        if (nextSheet) {
+          nextUnlockedSheetData = { listId: list.id, sheetId: nextSheet.id };
+        }
+      }
+
+      if (dom.btnRoundNextLevel) {
+        dom.btnRoundNextLevel.classList.remove('hidden');
+        const btnSpan = dom.btnRoundNextLevel.querySelector('span');
+        if (btnSpan) btnSpan.textContent = `Következő szint: ${sheetProgressResult.nextSheetName}`;
+      }
+
+      if (window.confetti) {
+        window.confetti({ particleCount: 90, spread: 80, origin: { y: 0.6 } });
+      }
+
+    } else if (sheetProgressResult.consecutivePerfectScores === 1) {
+      // 1 db 100%-os kör teljesítve
+      dom.roundCompletedBadgeIcon.textContent = '🔥';
+      dom.roundCompletedTitle.textContent = 'Hibátlan Kör! (1 / 2)';
+      dom.roundCompletedSubtitle.textContent = 'Már csak 1 hibátlan kör kell a következő szint feloldásához!';
+
+      dom.roundProgressionBox.className = 'p-4 rounded-2xl text-left text-xs space-y-1.5 border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-100';
+      dom.roundProgressionBox.innerHTML = `
+        <div class="font-bold flex items-center gap-1.5 text-sm mb-1 text-amber-700 dark:text-amber-300">
+          <i data-lucide="flame" class="w-4 h-4"></i>
+          <span>Hibátlan sorozat: <strong>1 / 2 teljesítve</strong></span>
+        </div>
+        <p class="leading-relaxed">Kiváló! A következő szint feloldásához még egy egymást követő hibátlan (100%) gyakorlás szükséges.</p>
+      `;
+
+      if (dom.btnRoundNextLevel) dom.btnRoundNextLevel.classList.add('hidden');
+      nextUnlockedSheetData = null;
+
+    } else if (isPerfect && sheetProgressResult.isMastered) {
+      // Korábban már elsajátított szint újbóli 100%-os teljesítése
+      dom.roundCompletedBadgeIcon.textContent = '⭐';
+      dom.roundCompletedTitle.textContent = 'Mesterelt Munkalap!';
+      dom.roundCompletedSubtitle.textContent = 'Ezt a munkalapot már sikeresen elsajátítottad!';
+
+      dom.roundProgressionBox.className = 'p-4 rounded-2xl text-left text-xs space-y-1.5 border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-900 dark:text-indigo-100';
+      dom.roundProgressionBox.innerHTML = `
+        <div class="font-bold flex items-center gap-1.5 text-sm mb-1 text-indigo-700 dark:text-indigo-300">
+          <i data-lucide="award" class="w-4 h-4"></i>
+          <span>Elsajátított munkalap</span>
+        </div>
+        <p class="leading-relaxed">A munkalap szavai szerepelnek az összesített Mix Gyakorlásban is.</p>
+      `;
+
+      if (dom.btnRoundNextLevel) dom.btnRoundNextLevel.classList.add('hidden');
+      nextUnlockedSheetData = null;
+
+    } else {
+      // Volt legalább 1 hiba -> sorozat nullázódott (0/2)
+      dom.roundCompletedBadgeIcon.textContent = '💪';
+      dom.roundCompletedTitle.textContent = 'Kör Befejezve';
+      dom.roundCompletedSubtitle.textContent = 'Gyakorolj újra a 100%-os eredményért!';
+
+      dom.roundProgressionBox.className = 'p-4 rounded-2xl text-left text-xs space-y-1.5 border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 text-slate-700 dark:text-slate-300';
+      dom.roundProgressionBox.innerHTML = `
+        <div class="font-bold flex items-center gap-1.5 text-sm mb-1 text-slate-900 dark:text-white">
+          <i data-lucide="info" class="w-4 h-4 text-amber-500"></i>
+          <span>A feloldáshoz 2 egymást követő 100% szükséges</span>
+        </div>
+        <p class="leading-relaxed">Mivel hiba történt a körben, a számláló 0-ra állt vissza (0 / 2). Fuss neki újra a hibátlan eredményért!</p>
+      `;
+
+      if (dom.btnRoundNextLevel) dom.btnRoundNextLevel.classList.add('hidden');
+      nextUnlockedSheetData = null;
+    }
+  } else {
+    // Mix mód vagy általános lista
+    if (isPerfect) {
+      dom.roundCompletedBadgeIcon.textContent = '🌟';
+      dom.roundCompletedTitle.textContent = 'Tökéletes Mix Kör!';
+      dom.roundCompletedSubtitle.textContent = 'Minden szót hibátlanul megválaszoltál a feladatokból!';
+
+      dom.roundProgressionBox.className = 'p-4 rounded-2xl text-left text-xs space-y-1.5 border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-900 dark:text-emerald-100';
+      dom.roundProgressionBox.innerHTML = `
+        <div class="font-bold flex items-center gap-1.5 text-sm mb-1 text-emerald-700 dark:text-emerald-300">
+          <i data-lucide="sparkles" class="w-4 h-4"></i>
+          <span>Kiváló tudásmélyítés!</span>
+        </div>
+        <p class="leading-relaxed">Az elsajátított munkalapok szavait biztosan tudod.</p>
+      `;
+    } else {
+      dom.roundCompletedBadgeIcon.textContent = '🎯';
+      dom.roundCompletedTitle.textContent = 'Mix Gyakorlás Befejezve';
+      dom.roundCompletedSubtitle.textContent = 'Átismételted az aktív munkalapok szavait!';
+
+      dom.roundProgressionBox.className = 'p-4 rounded-2xl text-left text-xs space-y-1.5 border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 text-slate-700 dark:text-slate-300';
+      dom.roundProgressionBox.innerHTML = `
+        <div class="font-bold flex items-center gap-1.5 text-sm mb-1 text-slate-900 dark:text-white">
+          <i data-lucide="rotate-ccw" class="w-4 h-4 text-brand-500"></i>
+          <span>Gyakorlás teszi a mestert</span>
+        </div>
+        <p class="leading-relaxed">Bármikor újrakezdheted a mixelést az ismeretek felfrissítéséhez.</p>
+      `;
+    }
+
+    if (dom.btnRoundNextLevel) dom.btnRoundNextLevel.classList.add('hidden');
+    nextUnlockedSheetData = null;
+  }
+
+  dom.modalRoundCompleted.classList.remove('hidden');
+  dom.modalRoundCompleted.classList.add('flex');
+  refreshIcons();
+}
+
+function closeRoundCompletedModal() {
+  if (dom.modalRoundCompleted) {
+    dom.modalRoundCompleted.classList.add('hidden');
+    dom.modalRoundCompleted.classList.remove('flex');
   }
 }
 
@@ -1211,6 +1629,11 @@ function updatePracticeStatsUI() {
   dom.practiceStreakCounter.textContent = stats.streak;
   dom.practiceCorrectCount.textContent = stats.correctCount;
   dom.practiceTotalCount.textContent = stats.totalAnswered;
+
+  const prog = currentPracticeSession.getProgress();
+  if (dom.practiceRoundProgress) {
+    dom.practiceRoundProgress.textContent = `${prog.current} / ${prog.total}`;
+  }
 }
 
 function clearAutoAdvance() {
@@ -1219,6 +1642,229 @@ function clearAutoAdvance() {
     autoAdvanceTimeout = null;
   }
 }
+
+// ==========================================
+// 7.5. MUNKALAP-SZINTŰ STATISZTIKA NÉZET
+// ==========================================
+
+async function renderStatsView() {
+  if (!dom.statsListsContainer) return;
+
+  const lists = await getUserLists();
+  if (!lists || lists.length === 0) {
+    dom.statsEmptyState.classList.remove('hidden');
+    dom.statsListsContainer.innerHTML = '';
+    if (dom.statsTotalFiles) dom.statsTotalFiles.textContent = '0';
+    if (dom.statsTotalSheets) dom.statsTotalSheets.textContent = '0';
+    if (dom.statsMasteredSheets) dom.statsMasteredSheets.textContent = '0';
+    if (dom.statsAvgAccuracy) dom.statsAvgAccuracy.textContent = '0%';
+    return;
+  }
+
+  dom.statsEmptyState.classList.add('hidden');
+  dom.statsListsContainer.innerHTML = '';
+
+  let totalFiles = lists.length;
+  let totalSheets = 0;
+  let masteredCount = 0;
+  let grandCorrect = 0;
+  let grandIncorrect = 0;
+
+  lists.forEach((list) => {
+    const sheets = list.sheets || [];
+    totalSheets += sheets.length;
+
+    // Ellenőrizzük van-e mesterelt lap a Mix gombhoz
+    const canMix = sheets.some(s => (s.consecutivePerfectScores >= 2) || ((s.timesPassed || 0) >= 2));
+
+    const listCard = document.createElement('div');
+    listCard.className = 'bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 p-6 sm:p-8 space-y-6 shadow-sm';
+
+    listCard.innerHTML = `
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-4 border-b border-slate-100 dark:border-slate-800">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold shrink-0">
+            <i data-lucide="file-spreadsheet" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h3 class="text-lg font-bold text-slate-900 dark:text-white">${escapeHtml(list.name)}</h3>
+            <div class="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              <span>${sheets.length} munkalap</span>
+              <span>&bull;</span>
+              <span>${list.words?.length || 0} szó összesen</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2 self-start sm:self-auto">
+          ${canMix ? `
+          <button class="btn-stats-mix min-h-[40px] px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-semibold text-xs transition-all flex items-center gap-1.5 shadow-sm active:scale-95" title="Mix gyakorlás a mesterelt munkalapokból">
+            <i data-lucide="shuffle" class="w-3.5 h-3.5"></i>
+            <span>Mix Gyakorlás</span>
+          </button>
+          ` : ''}
+          <button class="btn-stats-start-all min-h-[40px] px-3.5 py-2 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-semibold text-xs transition-all flex items-center gap-1.5 shadow-sm active:scale-95" title="Gyakorlás indítása az aktuális munkalapon">
+            <i data-lucide="play" class="w-3.5 h-3.5 fill-current"></i>
+            <span>Gyakorlás</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Munkalapok rácsa -->
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sheets-grid">
+        <!-- Sheet kártyák -->
+      </div>
+    `;
+
+    const sheetsGrid = listCard.querySelector('.sheets-grid');
+
+    sheets.forEach((sheet, idx) => {
+      const correct = sheet.totalCorrect || 0;
+      const incorrect = sheet.totalIncorrect || 0;
+      const totalAnswers = correct + incorrect;
+      const accuracy = totalAnswers > 0 ? Math.round((correct / totalAnswers) * 100) : 0;
+      const isMastered = (sheet.consecutivePerfectScores >= 2) || ((sheet.timesPassed || 0) >= 2);
+      
+      if (isMastered) masteredCount++;
+      grandCorrect += correct;
+      grandIncorrect += incorrect;
+
+      const isUnlocked = !!sheet.isUnlocked;
+      const streak = sheet.consecutivePerfectScores || 0;
+
+      let badgeHtml = '';
+      if (!isUnlocked) {
+        badgeHtml = `<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700"><i data-lucide="lock" class="w-3 h-3"></i> Zárolva</span>`;
+      } else if (isMastered) {
+        badgeHtml = `<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60"><i data-lucide="award" class="w-3 h-3"></i> Elsajátítva</span>`;
+      } else {
+        badgeHtml = `<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60"><i data-lucide="flame" class="w-3 h-3"></i> Sorozat: ${streak}/2</span>`;
+      }
+
+      const sheetCard = document.createElement('div');
+      sheetCard.className = `p-4 rounded-2xl border transition-all ${
+        !isUnlocked 
+          ? 'bg-slate-50/70 dark:bg-slate-900/40 border-slate-200 dark:border-slate-800 opacity-75' 
+          : 'bg-white dark:bg-slate-800/70 border-slate-200 dark:border-slate-700 shadow-sm hover:border-brand-300 dark:hover:border-brand-700'
+      }`;
+
+      sheetCard.innerHTML = `
+        <div class="flex items-center justify-between gap-2 mb-3">
+          <div class="flex items-center gap-2 truncate">
+            <span class="text-xs font-bold text-slate-400 font-mono">#${idx + 1}</span>
+            <h4 class="font-bold text-slate-900 dark:text-white text-sm truncate" title="${escapeHtml(sheet.name)}">${escapeHtml(sheet.name)}</h4>
+          </div>
+          ${badgeHtml}
+        </div>
+
+        <div class="space-y-2 mb-3 text-xs">
+          <div>
+            <div class="flex items-center justify-between text-slate-600 dark:text-slate-300 font-medium mb-1">
+              <span>Találati arány:</span>
+              <span class="font-bold ${accuracy >= 80 ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-700 dark:text-slate-300'}">${accuracy}%</span>
+            </div>
+            <div class="w-full h-2 rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden">
+              <div class="h-full rounded-full transition-all duration-500 ${accuracy >= 80 ? 'bg-emerald-500' : 'bg-brand-500'}" style="width: ${accuracy}%"></div>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-2 pt-1 text-[11px] text-slate-500 dark:text-slate-400">
+            <div>Szavak: <strong class="text-slate-700 dark:text-slate-200">${sheet.words?.length || 0} db</strong></div>
+            <div>Gyakorolva: <strong class="text-slate-700 dark:text-slate-200">${sheet.timesPracticed || 0}x</strong></div>
+            <div class="text-emerald-600 dark:text-emerald-400">Helyes: <strong>${correct}</strong></div>
+            <div class="text-rose-600 dark:text-rose-400">Hibás: <strong>${incorrect}</strong></div>
+          </div>
+        </div>
+
+        <div>
+          ${isUnlocked ? `
+          <button class="btn-sheet-practice w-full min-h-[40px] py-2 px-3 rounded-xl bg-slate-100 hover:bg-brand-600 hover:text-white dark:bg-slate-700/80 dark:hover:bg-brand-600 text-slate-800 dark:text-slate-200 font-semibold text-xs transition-all flex items-center justify-center gap-1.5 active:scale-[0.98]">
+            <i data-lucide="play" class="w-3.5 h-3.5 fill-current"></i>
+            <span>Munkalap gyakorlása</span>
+          </button>
+          ` : `
+          <div class="w-full min-h-[40px] py-2 px-3 rounded-xl bg-slate-100 dark:bg-slate-800/40 text-slate-400 dark:text-slate-500 font-medium text-xs flex items-center justify-center gap-1.5 cursor-not-allowed">
+            <i data-lucide="lock" class="w-3.5 h-3.5"></i>
+            <span>Zárolt (Előző szint 2x 100%)</span>
+          </div>
+          `}
+        </div>
+      `;
+
+      if (isUnlocked) {
+        sheetCard.querySelector('.btn-sheet-practice').addEventListener('click', () => {
+          startSheetPractice(list.id, sheet.id);
+        });
+      }
+
+      sheetsGrid.appendChild(sheetCard);
+    });
+
+    // Fejléc gombok eseménykezelői
+    listCard.querySelector('.btn-stats-start-all').addEventListener('click', () => {
+      startPractice(list.id);
+    });
+
+    if (canMix) {
+      const mixBtn = listCard.querySelector('.btn-stats-mix');
+      if (mixBtn) {
+        mixBtn.addEventListener('click', () => {
+          startMixPractice(list.id);
+        });
+      }
+    }
+
+    dom.statsListsContainer.appendChild(listCard);
+  });
+
+  // Összesített statisztikai kártyák frissítése
+  if (dom.statsTotalFiles) dom.statsTotalFiles.textContent = totalFiles;
+  if (dom.statsTotalSheets) dom.statsTotalSheets.textContent = totalSheets;
+  if (dom.statsMasteredSheets) dom.statsMasteredSheets.textContent = masteredCount;
+  
+  const grandTotal = grandCorrect + grandIncorrect;
+  const overallAvg = grandTotal > 0 ? Math.round((grandCorrect / grandTotal) * 100) : 0;
+  if (dom.statsAvgAccuracy) dom.statsAvgAccuracy.textContent = `${overallAvg}%`;
+
+  refreshIcons();
+}
+
+// ==========================================
+// 7.6. DINAMIKUS FEJLÉC ELREJTÉSE GÖRGETÉSKOR
+// ==========================================
+
+function setupHeaderScrollHide() {
+  const header = document.querySelector('header');
+  if (!header) return;
+
+  let lastScrollY = window.scrollY || 0;
+  let ticking = false;
+
+  window.addEventListener('scroll', () => {
+    if (!ticking) {
+      window.requestAnimationFrame(() => {
+        const currentScrollY = window.scrollY || 0;
+
+        // Lap tetején mindig látható
+        if (currentScrollY <= 20) {
+          header.classList.remove('header-hidden');
+        } else if (currentScrollY > lastScrollY && currentScrollY > 70) {
+          // Lefelé görgetés -> elrejtés felcsúszással
+          header.classList.add('header-hidden');
+        } else if (currentScrollY < lastScrollY) {
+          // Felfelé görgetés -> azonnali visszahozás
+          header.classList.remove('header-hidden');
+        }
+
+        lastScrollY = Math.max(0, currentScrollY);
+        ticking = false;
+      });
+      ticking = true;
+    }
+  }, { passive: true });
+}
+
+
 
 // ==========================================
 // 8. FIREBASE BEÁLLÍTÁSOK MODAL

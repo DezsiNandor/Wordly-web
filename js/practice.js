@@ -7,13 +7,45 @@ import { recordWordPractice } from './storage.js';
 export class PracticeSession {
   constructor(list, options = {}) {
     this.list = list;
-    this.words = [...(list.words || [])];
     this.options = {
       reverse: options.reverse || false, // false: EN -> HU, true: HU -> EN
       autoAdvanceMs: options.autoAdvanceMs || 800,
       soundEnabled: options.soundEnabled !== false,
+      sheetId: options.sheetId || null,
+      isMix: options.isMix || false,
       ...options
     };
+
+    // Munkalap vagy Mix mód szavainak előkészítése
+    this.sheet = null;
+    if (this.options.sheetId && list.sheets) {
+      this.sheet = list.sheets.find(s => s.id === this.options.sheetId) || null;
+    }
+
+    if (this.sheet) {
+      this.words = [...(this.sheet.words || [])];
+      this.modeTitle = this.sheet.name;
+    } else if (this.options.isMix && list.sheets) {
+      // Mix mód: a teljesített (vagy feloldott) munkalapok szavaiból válogat
+      const masteredSheets = list.sheets.filter(s => 
+        (s.consecutivePerfectScores >= 2) || ((s.timesPassed || 0) >= 2) || s.isUnlocked
+      );
+      const pool = masteredSheets.length > 0 ? masteredSheets : list.sheets;
+      const collected = [];
+      pool.forEach(s => {
+        if (s.words) collected.push(...s.words);
+      });
+      this.words = collected.length > 0 ? collected : [...(list.words || [])];
+      this.modeTitle = "Mix Gyakorlás (Mesterelt szintek)";
+    } else {
+      this.words = [...(list.words || [])];
+      this.modeTitle = list.name;
+    }
+
+    // Kör előkészítése: a szavak véletlenszerű összekeverése
+    this.roundWords = this.shuffleArray([...this.words]);
+    this.roundTotal = this.roundWords.length;
+    this.currentIndex = 0;
 
     this.currentWord = null;
     this.previousWord = null;
@@ -31,6 +63,15 @@ export class PracticeSession {
 
     // Hangszintetizátor beállítása
     this.initSpeech();
+  }
+
+  shuffleArray(arr) {
+    const array = [...arr];
+    for (let i = array.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [array[i], array[j]] = [array[j], array[i]];
+    }
+    return array;
   }
 
   initSpeech() {
@@ -57,33 +98,55 @@ export class PracticeSession {
   }
 
   /**
-   * Új véletlenszerű szó kiválasztása
+   * Új szó kiválasztása a körből
    */
   nextWord() {
-    if (this.words.length === 0) {
+    if (this.roundWords.length === 0) {
       this.currentWord = null;
       return null;
     }
 
-    if (this.words.length === 1) {
-      this.currentWord = this.words[0];
-      this.state = 'WAITING_INPUT';
-      this.lastUserInput = '';
-      return this.currentWord;
+    // Ha a kör végére értünk
+    if (this.currentIndex >= this.roundWords.length) {
+      this.currentWord = null;
+      return null;
     }
 
-    // Olyan szót választunk véletlenszerűen, ami nem azonos az előzővel
-    let availableWords = this.words.filter(w => !this.previousWord || w.id !== this.previousWord.id);
-    if (availableWords.length === 0) availableWords = this.words;
-
-    // Súlyozás: a még nem vagy ritkábban gyakorolt szavak előnyben részesítése
-    const randomIndex = Math.floor(Math.random() * availableWords.length);
-    this.currentWord = availableWords[randomIndex];
+    this.currentWord = this.roundWords[this.currentIndex];
+    this.currentIndex++;
     this.previousWord = this.currentWord;
     this.state = 'WAITING_INPUT';
     this.lastUserInput = '';
 
     return this.currentWord;
+  }
+
+  /**
+   * Kör előrehaladás lekérése (pl. 3 / 10)
+   */
+  getProgress() {
+    const current = Math.min(this.currentIndex, this.roundTotal);
+    return {
+      current,
+      total: this.roundTotal,
+      percent: this.roundTotal > 0 ? Math.round((current / this.roundTotal) * 100) : 0
+    };
+  }
+
+  /**
+   * Ellenőrzi, hogy a kör véget ért-e
+   */
+  isRoundComplete() {
+    return this.stats.totalAnswered >= this.roundTotal && this.roundTotal > 0;
+  }
+
+  /**
+   * 100%-os hibátlan kör-e
+   */
+  isPerfectScore() {
+    return this.stats.totalAnswered > 0 && 
+           this.stats.incorrectCount === 0 && 
+           this.stats.correctCount === this.stats.totalAnswered;
   }
 
   /**
@@ -113,9 +176,10 @@ export class PracticeSession {
       this.stats.streak = 0;
     }
 
-    // Eredmény mentése az adatbázisba / tárolóba
+    // Eredmény mentése a munkalap és a lista statisztikájába
     try {
-      await recordWordPractice(this.list.id, this.currentWord.id, isCorrect);
+      const sheetId = this.sheet ? this.sheet.id : null;
+      await recordWordPractice(this.list.id, this.currentWord.id, isCorrect, sheetId);
     } catch (e) {
       console.warn("Nem sikerült elmenteni a gyakorlási statisztikát:", e);
     }
@@ -125,7 +189,9 @@ export class PracticeSession {
       userAnswer: this.lastUserInput,
       correctAnswer: targetString,
       promptWord: isReverse ? this.currentWord.hungarian : this.currentWord.english,
-      stats: { ...this.stats }
+      stats: { ...this.stats },
+      isRoundFinished: this.isRoundComplete(),
+      isPerfect: this.isPerfectScore()
     };
   }
 

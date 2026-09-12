@@ -669,6 +669,15 @@ nav.md\:hidden a[href="#auth"] span {
   padding-top: env(safe-area-inset-top, 0px);
 }
 
+/* Dinamikus fejléc elrejtése lefelé görgetéskor */
+header {
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+header.header-hidden {
+  transform: translateY(-100%) !important;
+}
+
 .pwa-standalone .btn-install-pwa,
 .pwa-standalone #modal-ios-install {
   display: none !important;
@@ -678,18 +687,8 @@ nav.md\:hidden a[href="#auth"] span {
   height: 0 !important;
 }
 
-.pwa-standalone #mobile-bottom-nav #bottom-nav-install,
-.pwa-standalone #mobile-bottom-nav .btn-install-pwa,
-.pwa-standalone #mobile-bottom-nav #bottom-nav-account,
-.pwa-standalone #mobile-bottom-nav .btn-account {
-  display: none !important;
-}
-
-.pwa-standalone #mobile-bottom-nav #bottom-nav-stats {
-  display: flex !important;
-}
-
-.pwa-standalone #mobile-bottom-nav {
+/* Alsó navigációs sáv véglegesített 3 gombos elrendezése */
+#mobile-bottom-nav {
   display: grid !important;
   grid-template-columns: repeat(3, 1fr) !important;
   justify-items: center !important;
@@ -698,7 +697,7 @@ nav.md\:hidden a[href="#auth"] span {
   padding: 4px 6px !important;
 }
 
-.pwa-standalone #mobile-bottom-nav .bottom-nav-item {
+#mobile-bottom-nav .bottom-nav-item {
   width: 100% !important;
   display: flex !important;
   flex-direction: column !important;
@@ -706,3 +705,4 @@ nav.md\:hidden a[href="#auth"] span {
   justify-content: center !important;
   min-width: 0 !important;
 }
+

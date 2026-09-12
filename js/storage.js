@@ -19,6 +19,47 @@ const STARTER_WORDS = [
 ];
 
 /**
+ * Segédfüggvény: biztosítja, hogy a lista és minden munkalapja rendelkezzen a progresszív adatokkal
+ */
+export function ensureListSheets(list) {
+  if (!list) return list;
+
+  if (!list.sheets || !Array.isArray(list.sheets) || list.sheets.length === 0) {
+    const listWords = list.words || [];
+    list.sheets = [
+      {
+        id: `sheet_0_${list.id}`,
+        name: '1. Munkalap',
+        order: 0,
+        isUnlocked: true,
+        consecutivePerfectScores: 0,
+        timesPracticed: 0,
+        timesPassed: 0,
+        totalCorrect: listWords.reduce((acc, w) => acc + (w.timesCorrect || 0), 0),
+        totalIncorrect: listWords.reduce((acc, w) => acc + Math.max(0, (w.timesPracticed || 0) - (w.timesCorrect || 0)), 0),
+        words: listWords
+      }
+    ];
+  } else {
+    // Minden meglévő munkalap mezőinek érvényesítése
+    list.sheets.forEach((s, idx) => {
+      if (!s.id) s.id = `sheet_${idx}_${Date.now()}`;
+      if (!s.name) s.name = `Munkalap ${idx + 1}`;
+      if (typeof s.order !== 'number') s.order = idx;
+      if (typeof s.isUnlocked !== 'boolean') s.isUnlocked = (idx === 0);
+      if (typeof s.consecutivePerfectScores !== 'number') s.consecutivePerfectScores = 0;
+      if (typeof s.timesPracticed !== 'number') s.timesPracticed = 0;
+      if (typeof s.timesPassed !== 'number') s.timesPassed = 0;
+      if (typeof s.totalCorrect !== 'number') s.totalCorrect = (s.words || []).reduce((acc, w) => acc + (w.timesCorrect || 0), 0);
+      if (typeof s.totalIncorrect !== 'number') s.totalIncorrect = (s.words || []).reduce((acc, w) => acc + Math.max(0, (w.timesPracticed || 0) - (w.timesCorrect || 0)), 0);
+      if (!Array.isArray(s.words)) s.words = [];
+    });
+  }
+
+  return list;
+}
+
+/**
  * Lekéri a bejelentkezett felhasználó összes szólistáját
  */
 export async function getUserLists() {
@@ -35,12 +76,38 @@ export async function getUserLists() {
 
       const lists = [];
       snapshot.forEach(docSnap => {
-        lists.push({ id: docSnap.id, ...docSnap.data() });
+        const item = { id: docSnap.id, ...docSnap.data() };
+        lists.push(ensureListSheets(item));
       });
 
       if (lists.length === 0) {
-        // Inicializálunk egy minta listát a Firebase-en is
-        const starter = await saveNewList("Kezdő minta szókincs (Starter)", STARTER_WORDS);
+        // Inicializálunk egy minta listát 2 munkalappal a Firebase-en is
+        const starter = await saveNewList("Kezdő minta szókincs (Starter)", STARTER_WORDS, [
+          {
+            id: 'sheet_starter_1',
+            name: '1. Alapszavak (Szint 1)',
+            order: 0,
+            isUnlocked: true,
+            consecutivePerfectScores: 0,
+            timesPracticed: 0,
+            timesPassed: 0,
+            totalCorrect: 0,
+            totalIncorrect: 0,
+            words: STARTER_WORDS.slice(0, 5)
+          },
+          {
+            id: 'sheet_starter_2',
+            name: '2. Haladó szavak (Szint 2)',
+            order: 1,
+            isUnlocked: false,
+            consecutivePerfectScores: 0,
+            timesPracticed: 0,
+            timesPassed: 0,
+            totalCorrect: 0,
+            totalIncorrect: 0,
+            words: STARTER_WORDS.slice(5)
+          }
+        ]);
         return [starter];
       }
 
@@ -61,10 +128,38 @@ export async function getUserLists() {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         wordCount: STARTER_WORDS.length,
-        words: STARTER_WORDS
+        words: STARTER_WORDS,
+        sheets: [
+          {
+            id: 'sheet_starter_1',
+            name: '1. Alapszavak (Szint 1)',
+            order: 0,
+            isUnlocked: true,
+            consecutivePerfectScores: 0,
+            timesPracticed: 0,
+            timesPassed: 0,
+            totalCorrect: 0,
+            totalIncorrect: 0,
+            words: STARTER_WORDS.slice(0, 5)
+          },
+          {
+            id: 'sheet_starter_2',
+            name: '2. Haladó szavak (Szint 2)',
+            order: 1,
+            isUnlocked: false,
+            consecutivePerfectScores: 0,
+            timesPracticed: 0,
+            timesPassed: 0,
+            totalCorrect: 0,
+            totalIncorrect: 0,
+            words: STARTER_WORDS.slice(5)
+          }
+        ]
       };
       lists = [starterList];
       localStorage.setItem(key, JSON.stringify(lists));
+    } else {
+      lists = lists.map(l => ensureListSheets(l));
     }
     return lists;
   } catch (e) {
@@ -78,20 +173,21 @@ export async function getUserLists() {
  */
 export async function getListById(listId) {
   const lists = await getUserLists();
-  return lists.find(l => l.id === listId) || null;
+  const list = lists.find(l => l.id === listId) || null;
+  return list ? ensureListSheets(list) : null;
 }
 
 /**
- * Új szólista mentése
+ * Új szólista mentése munkalap támogatással
  */
-export async function saveNewList(name, words) {
+export async function saveNewList(name, words, sheets = null) {
   const user = getCurrentUser();
   if (!user) throw new Error("Bejelentkezés szükséges a lista mentéséhez!");
 
   const cleanName = (name || "Névtelen lista").trim();
   const listId = 'list_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
 
-  const formattedWords = words.map((w, idx) => ({
+  const formattedWords = (words || []).map((w, idx) => ({
     id: w.id || `w_${idx + 1}_${Date.now()}`,
     english: String(w.english || '').trim(),
     hungarian: String(w.hungarian || '').trim(),
@@ -99,13 +195,51 @@ export async function saveNewList(name, words) {
     timesCorrect: w.timesCorrect || 0
   })).filter(w => w.english.length > 0 && w.hungarian.length > 0);
 
+  let formattedSheets;
+  if (sheets && Array.isArray(sheets) && sheets.length > 0) {
+    formattedSheets = sheets.map((s, idx) => ({
+      id: s.id || `sheet_${idx}_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      name: s.name || `Munkalap ${idx + 1}`,
+      order: typeof s.order === 'number' ? s.order : idx,
+      isUnlocked: typeof s.isUnlocked === 'boolean' ? s.isUnlocked : (idx === 0),
+      consecutivePerfectScores: s.consecutivePerfectScores || 0,
+      timesPracticed: s.timesPracticed || 0,
+      timesPassed: s.timesPassed || 0,
+      totalCorrect: s.totalCorrect || 0,
+      totalIncorrect: s.totalIncorrect || 0,
+      words: (s.words || []).map((w, wIdx) => ({
+        id: w.id || `w_${idx}_${wIdx}_${Date.now()}`,
+        english: String(w.english || '').trim(),
+        hungarian: String(w.hungarian || '').trim(),
+        timesPracticed: w.timesPracticed || 0,
+        timesCorrect: w.timesCorrect || 0
+      })).filter(w => w.english.length > 0 && w.hungarian.length > 0)
+    }));
+  } else {
+    formattedSheets = [
+      {
+        id: `sheet_0_${listId}`,
+        name: '1. Munkalap',
+        order: 0,
+        isUnlocked: true,
+        consecutivePerfectScores: 0,
+        timesPracticed: 0,
+        timesPassed: 0,
+        totalCorrect: 0,
+        totalIncorrect: 0,
+        words: formattedWords
+      }
+    ];
+  }
+
   const listData = {
     id: listId,
     name: cleanName,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     wordCount: formattedWords.length,
-    words: formattedWords
+    words: formattedWords,
+    sheets: formattedSheets
   };
 
   if (isFirebaseActive()) {
@@ -253,26 +387,98 @@ export async function updateWordInList(listId, wordId, english, hungarian) {
 }
 
 /**
- * Gyakorlási eredmény rögzítése egy szónál
+ * Gyakorlási eredmény rögzítése egy szónál (mind a lista szavainál, mind a munkalap szavainál)
  */
-export async function recordWordPractice(listId, wordId, isCorrect) {
+export async function recordWordPractice(listId, wordId, isCorrect, sheetId = null) {
   const user = getCurrentUser();
   if (!user) return;
 
   const targetList = await getListById(listId);
   if (!targetList) return;
 
-  const word = targetList.words.find(w => w.id === wordId);
-  if (!word) return;
-
-  word.timesPracticed = (word.timesPracticed || 0) + 1;
-  if (isCorrect) {
-    word.timesCorrect = (word.timesCorrect || 0) + 1;
+  // Frissítés a lista fő szótömbjében
+  if (targetList.words) {
+    const word = targetList.words.find(w => w.id === wordId);
+    if (word) {
+      word.timesPracticed = (word.timesPracticed || 0) + 1;
+      if (isCorrect) {
+        word.timesCorrect = (word.timesCorrect || 0) + 1;
+      }
+    }
   }
-  targetList.updatedAt = new Date().toISOString();
 
+  // Frissítés a megfelelő munkalap(ok)ban
+  if (targetList.sheets && Array.isArray(targetList.sheets)) {
+    targetList.sheets.forEach(sheet => {
+      if (!sheetId || sheet.id === sheetId) {
+        const sheetWord = (sheet.words || []).find(w => w.id === wordId);
+        if (sheetWord) {
+          sheetWord.timesPracticed = (sheetWord.timesPracticed || 0) + 1;
+          if (isCorrect) {
+            sheetWord.timesCorrect = (sheetWord.timesCorrect || 0) + 1;
+          }
+        }
+      }
+    });
+  }
+
+  targetList.updatedAt = new Date().toISOString();
   await saveExistingList(listId, targetList);
 }
+
+/**
+ * Munkalap-szintű kör lezárása, haladás mentése és szintfeloldás (2 egymást követő 100% esetén)
+ */
+export async function updateSheetProgress(listId, sheetId, sessionStats) {
+  const user = getCurrentUser();
+  if (!user) return null;
+
+  const targetList = await getListById(listId);
+  if (!targetList || !targetList.sheets) return null;
+
+  const sheetIndex = targetList.sheets.findIndex(s => s.id === sheetId);
+  if (sheetIndex === -1) return null;
+
+  const sheet = targetList.sheets[sheetIndex];
+  sheet.timesPracticed = (sheet.timesPracticed || 0) + 1;
+  sheet.totalCorrect = (sheet.totalCorrect || 0) + (sessionStats.correctCount || 0);
+  sheet.totalIncorrect = (sheet.totalIncorrect || 0) + (sessionStats.incorrectCount || 0);
+
+  let unlockedNextSheet = false;
+  let nextSheetName = null;
+
+  if (sessionStats.isPerfect) {
+    sheet.consecutivePerfectScores = (sheet.consecutivePerfectScores || 0) + 1;
+    sheet.timesPassed = (sheet.timesPassed || 0) + 1;
+
+    // Feloldási feltétel: pontosan vagy legalább 2 egymást követő hibátlan (100%-os) kör
+    if (sheet.consecutivePerfectScores >= 2) {
+      const nextIndex = sheetIndex + 1;
+      if (nextIndex < targetList.sheets.length) {
+        if (!targetList.sheets[nextIndex].isUnlocked) {
+          targetList.sheets[nextIndex].isUnlocked = true;
+          unlockedNextSheet = true;
+          nextSheetName = targetList.sheets[nextIndex].name;
+        }
+      }
+    }
+  } else {
+    // Ha nem volt 100%, a feloldási sorozat nullázódik (szigorú 2 egymást követő feltétel)
+    sheet.consecutivePerfectScores = 0;
+  }
+
+  targetList.updatedAt = new Date().toISOString();
+  await saveExistingList(listId, targetList);
+
+  return {
+    sheet,
+    consecutivePerfectScores: sheet.consecutivePerfectScores,
+    isMastered: sheet.consecutivePerfectScores >= 2 || (sheet.timesPassed || 0) >= 2,
+    unlockedNextSheet,
+    nextSheetName
+  };
+}
+
 
 // Belső segédfüggvény a teljes lista felülírására
 async function saveExistingList(listId, listData) {
