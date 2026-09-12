@@ -431,6 +431,8 @@ function showView(viewName) {
   }
 
   window.scrollTo({ top: 0, behavior: 'smooth' });
+  const appHeader = document.getElementById('app-header') || document.querySelector('header');
+  if (appHeader) appHeader.classList.remove('header-hidden');
   refreshIcons();
 }
 
@@ -1834,34 +1836,55 @@ async function renderStatsView() {
 // ==========================================
 
 function setupHeaderScrollHide() {
-  const header = document.querySelector('header');
+  const header = document.getElementById('app-header') || document.querySelector('header');
   if (!header) return;
 
-  let lastScrollY = window.scrollY || 0;
-  let ticking = false;
+  function getScrollPosition(e) {
+    let y = window.scrollY || 
+            window.pageYOffset || 
+            document.documentElement.scrollTop || 
+            document.body.scrollTop || 
+            0;
 
-  window.addEventListener('scroll', () => {
-    if (!ticking) {
-      window.requestAnimationFrame(() => {
-        const currentScrollY = window.scrollY || 0;
-
-        // Lap tetején mindig látható
-        if (currentScrollY <= 20) {
-          header.classList.remove('header-hidden');
-        } else if (currentScrollY > lastScrollY && currentScrollY > 70) {
-          // Lefelé görgetés -> elrejtés felcsúszással
-          header.classList.add('header-hidden');
-        } else if (currentScrollY < lastScrollY) {
-          // Felfelé görgetés -> azonnali visszahozás
-          header.classList.remove('header-hidden');
-        }
-
-        lastScrollY = Math.max(0, currentScrollY);
-        ticking = false;
-      });
-      ticking = true;
+    if (e && e.target && e.target !== document && e.target !== window && typeof e.target.scrollTop === 'number') {
+      y = Math.max(y, e.target.scrollTop);
     }
-  }, { passive: true });
+    return Math.max(0, y);
+  }
+
+  let lastScrollY = getScrollPosition();
+
+  function handleScroll(e) {
+    const currentScrollY = getScrollPosition(e);
+    const delta = currentScrollY - lastScrollY;
+
+    // 1. Lap tetején (scrollY <= 10) mindig legyen látható
+    if (currentScrollY <= 10) {
+      header.classList.remove('header-hidden');
+    } 
+    // 2. Lefelé görgetés: ha lefelé haladunk és meghaladtuk a fejléc magasságát (50px)
+    else if (delta > 4 && currentScrollY > 50) {
+      header.classList.add('header-hidden');
+    } 
+    // 3. Felfelé görgetés: azonnal csússzon vissza
+    else if (delta < -4) {
+      header.classList.remove('header-hidden');
+    }
+
+    lastScrollY = currentScrollY;
+  }
+
+  // Eseményfigyelők regisztrálása capture fázissal is, hogy bármely belső tároló görgetését is érzékelje
+  window.addEventListener('scroll', handleScroll, { passive: true, capture: true });
+  document.addEventListener('scroll', handleScroll, { passive: true, capture: true });
+  if (document.body) {
+    document.body.addEventListener('scroll', handleScroll, { passive: true });
+  }
+
+  const mainEl = document.querySelector('main');
+  if (mainEl) {
+    mainEl.addEventListener('scroll', handleScroll, { passive: true });
+  }
 }
 
 

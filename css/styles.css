@@ -27,6 +27,7 @@ body {
   overflow-x: hidden;
   width: 100%;
   max-width: 100%;
+  min-height: 100vh;
   margin: 0;
   padding: 0;
   word-break: break-word;
@@ -670,12 +671,19 @@ nav.md\:hidden a[href="#auth"] span {
 }
 
 /* Dinamikus fejléc elrejtése lefelé görgetéskor */
-header {
-  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+header,
+#app-header {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 50 !important;
+  transition: transform 0.3s ease-in-out, background-color 0.2s ease, border-color 0.2s ease !important;
+  will-change: transform;
 }
 
-header.header-hidden {
+header.header-hidden,
+#app-header.header-hidden {
   transform: translateY(-100%) !important;
+  pointer-events: none !important;
 }
 
 .pwa-standalone .btn-install-pwa,
