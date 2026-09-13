@@ -1102,17 +1102,27 @@ function renderCurrentQuestion() {
   dom.practiceFeedbackContainer.classList.add('hidden');
   dom.practiceFeedbackContainer.innerHTML = '';
 
-  // Kiejtés gombok állapotának és tooltipjének beállítása (No-Spoiler Audio védelem)
+  // Kiejtés gombok állapotának beállítása (Szigorú Spoiler-Védelem: írós/begépelős feladatoknál teljesen rejtve & inaktív)
   const isSpoiler = isAudioSpoilerExercise(exercise, currentSession.options);
   if (dom.btnSpeakWord) {
-    dom.btnSpeakWord.title = isSpoiler
-      ? "Példamondat meghallgatása (a szó helyén sípolással/szünettel)"
-      : "Normál kiejtés (1.0x)";
+    if (isSpoiler) {
+      dom.btnSpeakWord.classList.add('hidden');
+      dom.btnSpeakWord.disabled = true;
+    } else {
+      dom.btnSpeakWord.classList.remove('hidden');
+      dom.btnSpeakWord.disabled = false;
+      dom.btnSpeakWord.title = "Normál kiejtés (0.65x)";
+    }
   }
   if (dom.btnSpeakWordSlow) {
-    dom.btnSpeakWordSlow.title = isSpoiler
-      ? "Lassú példamondat meghallgatása (a szó helyén sípolással/szünettel)"
-      : "Lassú kiejtés (0.55x)";
+    if (isSpoiler) {
+      dom.btnSpeakWordSlow.classList.add('hidden');
+      dom.btnSpeakWordSlow.disabled = true;
+    } else {
+      dom.btnSpeakWordSlow.classList.remove('hidden');
+      dom.btnSpeakWordSlow.disabled = false;
+      dom.btnSpeakWordSlow.title = "Lassú kiejtés (0.4x)";
+    }
   }
 
   // Formátum specifikus felület aktiválása
@@ -1211,13 +1221,13 @@ async function submitPracticeAnswer(userAnswer, targetBtn = null) {
           <span class="text-emerald-300">${escapeHtml(currentWord.hungarian || result.correctAnswer)}</span>
         </div>
         <div class="inline-flex items-center gap-1.5">
-          <button type="button" class="btn-post-speak p-1.5 px-2 rounded-lg bg-emerald-900/80 hover:bg-emerald-800 text-white font-medium transition-all active:scale-95 flex items-center gap-1 text-xs" title="Normál kiejtés (1.0x)">
+          <button type="button" class="btn-post-speak p-1.5 px-2 rounded-lg bg-emerald-900/80 hover:bg-emerald-800 text-white font-medium transition-all active:scale-95 flex items-center gap-1 text-xs" title="Normál kiejtés (0.65x)">
             <i data-lucide="volume-2" class="w-3.5 h-3.5"></i>
-            <span class="text-[10px] font-mono">1.0x</span>
+            <span class="text-[10px] font-mono">0.65x</span>
           </button>
-          <button type="button" class="btn-post-speak-slow p-1.5 px-2 rounded-lg bg-emerald-900/80 hover:bg-emerald-800 text-amber-300 font-medium transition-all active:scale-95 flex items-center gap-1 text-xs" title="Lassú kiejtés (0.55x)">
+          <button type="button" class="btn-post-speak-slow p-1.5 px-2 rounded-lg bg-emerald-900/80 hover:bg-emerald-800 text-amber-300 font-medium transition-all active:scale-95 flex items-center gap-1 text-xs" title="Lassú kiejtés (0.4x)">
             <span class="text-xs">🐌</span>
-            <span class="text-[10px] font-mono">0.55x</span>
+            <span class="text-[10px] font-mono">0.4x</span>
           </button>
         </div>
       </div>
@@ -1227,11 +1237,11 @@ async function submitPracticeAnswer(userAnswer, targetBtn = null) {
           <div class="text-xs text-emerald-300/90 italic mt-0.5">${escapeHtml(post.sentenceTranslation || '')}</div>
         </div>
       ` : ''}
-      <div class="mt-3 flex items-center justify-end">
-        <button id="btn-next-question" class="px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white font-bold text-xs flex items-center gap-1.5 shadow transition-all active:scale-95">
-          <span>Következő</span>
-          <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
-          <kbd class="hidden sm:inline-block px-1.5 py-0.5 text-[10px] font-mono bg-black/30 rounded">Enter / Space</kbd>
+      <div class="mt-4 pt-3.5 border-t border-emerald-850/70 flex items-center justify-end">
+        <button id="btn-next-question" class="w-full sm:w-auto px-7 py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-base flex items-center justify-center gap-2.5 shadow-lg shadow-emerald-950/60 hover:shadow-emerald-600/30 transition-all active:scale-95 cursor-pointer">
+          <span>Következő feladat</span>
+          <i data-lucide="arrow-right" class="w-5 h-5"></i>
+          <kbd class="hidden sm:inline-block px-2.5 py-1 text-xs font-mono font-bold bg-black/40 text-emerald-200 rounded-lg border border-emerald-500/30">Enter ↵</kbd>
         </button>
       </div>
     `;
@@ -1252,13 +1262,13 @@ async function submitPracticeAnswer(userAnswer, targetBtn = null) {
           ${escapeHtml(currentWord.english || '')} = <strong class="text-emerald-300">${escapeHtml(currentWord.hungarian || '')}</strong>
         </div>
         <div class="inline-flex items-center gap-1.5">
-          <button type="button" class="btn-post-speak p-1.5 px-2 rounded-lg bg-rose-900/80 hover:bg-rose-800 text-white font-medium transition-all active:scale-95 flex items-center gap-1 text-xs" title="Normál kiejtés (1.0x)">
+          <button type="button" class="btn-post-speak p-1.5 px-2 rounded-lg bg-rose-900/80 hover:bg-rose-800 text-white font-medium transition-all active:scale-95 flex items-center gap-1 text-xs" title="Normál kiejtés (0.65x)">
             <i data-lucide="volume-2" class="w-3.5 h-3.5"></i>
-            <span class="text-[10px] font-mono">1.0x</span>
+            <span class="text-[10px] font-mono">0.65x</span>
           </button>
-          <button type="button" class="btn-post-speak-slow p-1.5 px-2 rounded-lg bg-rose-900/80 hover:bg-rose-800 text-amber-300 font-medium transition-all active:scale-95 flex items-center gap-1 text-xs" title="Lassú kiejtés (0.55x)">
+          <button type="button" class="btn-post-speak-slow p-1.5 px-2 rounded-lg bg-rose-900/80 hover:bg-rose-800 text-amber-300 font-medium transition-all active:scale-95 flex items-center gap-1 text-xs" title="Lassú kiejtés (0.4x)">
             <span class="text-xs">🐌</span>
-            <span class="text-[10px] font-mono">0.55x</span>
+            <span class="text-[10px] font-mono">0.4x</span>
           </button>
         </div>
       </div>
@@ -1268,22 +1278,26 @@ async function submitPracticeAnswer(userAnswer, targetBtn = null) {
           <div class="text-xs text-rose-200/90 italic mt-0.5">${escapeHtml(post.sentenceTranslation || '')}</div>
         </div>
       ` : ''}
-      <div class="mt-3 flex items-center justify-end">
-        <button id="btn-next-question" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs flex items-center gap-1.5 shadow border border-slate-700 transition-all active:scale-95">
-          <span>Tovább</span>
-          <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
-          <kbd class="hidden sm:inline-block px-1.5 py-0.5 text-[10px] font-mono bg-white/20 rounded">Enter / Space</kbd>
+      <div class="mt-4 pt-3.5 border-t border-rose-850/70 flex items-center justify-end">
+        <button id="btn-next-question" class="w-full sm:w-auto px-7 py-3.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-white font-extrabold text-base flex items-center justify-center gap-2.5 shadow-lg border border-slate-700 hover:border-slate-600 transition-all active:scale-95 cursor-pointer">
+          <span>Következő feladat</span>
+          <i data-lucide="arrow-right" class="w-5 h-5"></i>
+          <kbd class="hidden sm:inline-block px-2.5 py-1 text-xs font-mono font-bold bg-white/20 text-white rounded-lg border border-white/20">Enter ↵</kbd>
         </button>
       </div>
     `;
   }
 
-  // Fő kiejtés gombok aktiválása a helyes szó kimondására
+  // Fő kiejtés gombok megjelenítése és aktiválása az ellenőrzés után
   if (dom.btnSpeakWord) {
-    dom.btnSpeakWord.title = "Normál kiejtés (1.0x)";
+    dom.btnSpeakWord.classList.remove('hidden');
+    dom.btnSpeakWord.disabled = false;
+    dom.btnSpeakWord.title = "Normál kiejtés (0.65x)";
   }
   if (dom.btnSpeakWordSlow) {
-    dom.btnSpeakWordSlow.title = "Lassú kiejtés (0.55x)";
+    dom.btnSpeakWordSlow.classList.remove('hidden');
+    dom.btnSpeakWordSlow.disabled = false;
+    dom.btnSpeakWordSlow.title = "Lassú kiejtés (0.4x)";
   }
 
   if (window.lucide) window.lucide.createIcons();
@@ -1292,8 +1306,7 @@ async function submitPracticeAnswer(userAnswer, targetBtn = null) {
   if (postSpeakBtn && currentWord.english) {
     postSpeakBtn.addEventListener('click', (e) => {
       e.stopPropagation();
-      clearTimeout(autoAdvanceTimer);
-      playAudio(currentWord.english, 1.0);
+      playAudio(currentWord.english, 0.65);
     });
   }
 
@@ -1301,22 +1314,20 @@ async function submitPracticeAnswer(userAnswer, targetBtn = null) {
   if (postSpeakSlowBtn && currentWord.english) {
     postSpeakSlowBtn.addEventListener('click', (e) => {
       e.stopPropagation();
-      clearTimeout(autoAdvanceTimer);
-      playAudio(currentWord.english, 0.55);
+      playAudio(currentWord.english, 0.4);
     });
   }
 
   const nextBtn = dom.practiceFeedbackContainer.querySelector('#btn-next-question');
   if (nextBtn) {
     nextBtn.addEventListener('click', advanceToNextQuestion);
+    setTimeout(() => {
+      try { nextBtn.focus(); } catch (e) {}
+    }, 50);
   }
 
-  // Automatikus továbblépési időzítő (1.0–1.5 másodperc)
-  clearTimeout(autoAdvanceTimer);
-  const autoDelay = result.isCorrect ? 1200 : 1500;
-  autoAdvanceTimer = setTimeout(() => {
-    advanceToNextQuestion();
-  }, autoDelay);
+  // Szigorú 3. Szabály: Nincs automatikus időzített léptetés (setTimeout autoAdvance törölve)!
+  // Az oldal megáll és vár, amíg a felhasználó kifejezetten a "Következő feladat" gombra kattint vagy Entert nyom.
 }
 
 /**
@@ -1681,7 +1692,7 @@ function renderManageWordsList(list) {
 }
 
 /**
- * Hang lejátszás és szó felolvasás kezelése (Normál / Lassú)
+ * Hang lejátszás és szó felolvasás kezelése (Normál: 0.65x / Lassú: 0.4x)
  */
 function handleSpeakPromptWord(isSlow = false, event = null) {
   if (event) {
@@ -1691,11 +1702,13 @@ function handleSpeakPromptWord(isSlow = false, event = null) {
     } catch (e) {}
   }
 
+  const rate = isSlow ? 0.4 : 0.65;
+
   if (!currentSession || !currentSession.currentWord) {
     const promptEl = dom.practicePromptWord;
     const promptText = promptEl ? promptEl.textContent.trim() : '';
     if (promptText && promptText !== 'word') {
-      playAudio(promptText, isSlow ? 0.55 : 1.0);
+      playAudio(promptText, rate);
     }
     return;
   }
@@ -1703,31 +1716,14 @@ function handleSpeakPromptWord(isSlow = false, event = null) {
   const word = currentSession.currentWord;
   const exercise = currentSession.currentExercise;
   const isWaitingInput = currentSession.state === 'WAITING_INPUT';
-  const rate = isSlow ? 0.55 : 1.0;
 
-  // 2. Szabály: Írásos / betűkirakós / kitöltős feladatoknál válaszadás előtt TILOS a szót kimondani!
+  // 2. Szabály: Írásos / begépelős feladatoknál válaszadás előtt szigorúan ZÉRÓ hang, azonnali kilépés!
   if (isWaitingInput && isAudioSpoilerExercise(exercise, currentSession.options)) {
-    let sentence = exercise?.sentenceWithBlank;
-    if (!sentence && exercise?.fullSentence) {
-      try {
-        const escaped = String(word.english).trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        sentence = exercise.fullSentence.replace(new RegExp(escaped, 'gi'), 'blank');
-      } catch (e) {
-        sentence = exercise.fullSentence;
-      }
-    }
-
-    if (sentence) {
-      speakSentenceWithBlank(sentence, { slow: isSlow, rate: isSlow ? 0.55 : 0.95 }, word.english);
-      showToast("💡 Írásos feladat: a kitalálandó szó helyén sípolás és 'blank' hangzik el!", "info");
-    } else {
-      playBlankBeep();
-      showToast("🔒 A szó pontos kiejtése az ellenőrzés után hallgatható meg!", "warning");
-    }
+    showToast("🔒 A szó kiejtése a feladat ellenőrzése után érhető el!", "warning");
     return;
   }
 
-  // Normál vagy ellenőrzés utáni kiejtés (1.0x normál vagy 0.55x lassú)
+  // Normál vagy ellenőrzés utáni kiejtés (0.65x normál vagy 0.4x lassú)
   playAudio(word.english, rate);
 }
 
@@ -1742,7 +1738,7 @@ window.playListeningAudio = (isSlow = false, e = null) => {
   }
   const audioWord = currentSession?.currentExercise?.audioWord || currentSession?.currentWord?.english;
   if (audioWord) {
-    playAudio(audioWord, isSlow ? 0.55 : 1.0);
+    playAudio(audioWord, isSlow ? 0.4 : 0.65);
   }
 };
 

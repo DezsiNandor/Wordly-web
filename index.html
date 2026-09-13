@@ -383,10 +383,10 @@
                   word
                 </h2>
                 <div class="flex items-center gap-2">
-                  <button id="btn-speak-word" onclick="window.playWordlyNormalAudio && window.playWordlyNormalAudio(event)" class="p-3 min-w-[44px] min-h-[44px] inline-flex items-center justify-center rounded-full bg-slate-800 hover:bg-slate-700 text-brand-400 transition-transform active:scale-95 shadow-sm" title="Normál kiejtés (1.0x)">
+                  <button id="btn-speak-word" onclick="window.playWordlyNormalAudio && window.playWordlyNormalAudio(event)" class="p-3 min-w-[44px] min-h-[44px] inline-flex items-center justify-center rounded-full bg-slate-800 hover:bg-slate-700 text-brand-400 transition-transform active:scale-95 shadow-sm" title="Normál kiejtés (0.65x)">
                     <i data-lucide="volume-2" class="w-5 h-5 pointer-events-none"></i>
                   </button>
-                  <button id="btn-speak-word-slow" onclick="window.playWordlySlowAudio && window.playWordlySlowAudio(event)" class="p-3 min-w-[44px] min-h-[44px] inline-flex items-center justify-center rounded-full bg-slate-800 hover:bg-slate-700 text-amber-400 transition-transform active:scale-95 shadow-sm" title="Lassú kiejtés (0.55x)">
+                  <button id="btn-speak-word-slow" onclick="window.playWordlySlowAudio && window.playWordlySlowAudio(event)" class="p-3 min-w-[44px] min-h-[44px] inline-flex items-center justify-center rounded-full bg-slate-800 hover:bg-slate-700 text-amber-400 transition-transform active:scale-95 shadow-sm" title="Lassú kiejtés (0.4x)">
                     <span class="text-xl leading-none select-none pointer-events-none" role="img" aria-label="Lassú kiejtés">🐌</span>
                   </button>
                 </div>
@@ -481,7 +481,7 @@
                     <i data-lucide="volume-2" class="w-6 h-6 animate-pulse pointer-events-none"></i>
                     <span>Szó újrahallgatása</span>
                   </button>
-                  <button id="btn-listening-replay-slow" onclick="window.playListeningAudio && window.playListeningAudio(true, event)" class="px-4 py-4 rounded-3xl bg-slate-800 hover:bg-slate-750 text-amber-300 font-bold text-base shadow-lg active:scale-95 transition-all flex items-center gap-2 border border-slate-700" title="Lassú újrahallgatás (0.55x)">
+                  <button id="btn-listening-replay-slow" onclick="window.playListeningAudio && window.playListeningAudio(true, event)" class="px-4 py-4 rounded-3xl bg-slate-800 hover:bg-slate-750 text-amber-300 font-bold text-base shadow-lg active:scale-95 transition-all flex items-center gap-2 border border-slate-700" title="Lassú újrahallgatás (0.4x)">
                     <span class="text-xl leading-none select-none pointer-events-none">🐌</span>
                     <span class="text-xs font-semibold">Lassú</span>
                   </button>

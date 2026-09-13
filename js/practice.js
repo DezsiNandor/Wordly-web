@@ -125,10 +125,10 @@ export function playBlankBeep() {
 /**
  * Közvetlen hang lejátszó függvény (Web Speech API)
  * - Mindig meghívja a cancel()-t a beragadt hangsorok feloldására
- * - Normál: rate = 1.0
- * - Lassú (Csiga): rate = 0.55
+ * - Normál: rate = 0.65 (kényelmes, jól artikulált tempó)
+ * - Lassú (Csiga): rate = 0.4 (nagyon kimért, fonetikusan követhető tempó)
  */
-export function playAudio(textToSpeak, rate = 1.0) {
+export function playAudio(textToSpeak, rate = 0.65) {
   if (typeof window === 'undefined' || !('speechSynthesis' in window) || !textToSpeak) return;
   try {
     window.speechSynthesis.cancel(); // Előző hang törlése azonnal!
@@ -140,7 +140,7 @@ export function playAudio(textToSpeak, rate = 1.0) {
 
     const utterance = new SpeechSynthesisUtterance(cleanText);
     utterance.lang = 'en-US';
-    utterance.rate = Number(rate) || 1.0;
+    utterance.rate = Number(rate) || 0.65;
     utterance.pitch = 1.0;
 
     const voices = window.speechSynthesis.getVoices();
@@ -158,16 +158,16 @@ export function playAudio(textToSpeak, rate = 1.0) {
 }
 
 /**
- * Angol szó kiejtése beállításokkal (Normál / Lassú)
+ * Angol szó kiejtése beállításokkal (Normál: 0.65x / Lassú: 0.4x)
  */
 export function speakEnglishWord(text, options = {}) {
-  let rate = 1.0;
+  let rate = 0.65;
   if (typeof options === 'number') {
     rate = options;
   } else if (options && typeof options.rate === 'number') {
     rate = options.rate;
   } else if (options && options.slow) {
-    rate = 0.55;
+    rate = 0.4;
   }
   playAudio(text, rate);
 }
@@ -185,13 +185,13 @@ export function speakSentenceWithBlank(sentence, options = {}, targetWord = '') 
     }
     playBlankBeep();
 
-    let rate = 0.95;
+    let rate = 0.65;
     if (typeof options === 'number') {
       rate = options;
     } else if (options && typeof options.rate === 'number') {
       rate = options.rate;
     } else if (options && options.slow) {
-      rate = 0.55;
+      rate = 0.4;
     }
 
     // A hiányzó rész és a cél szó helyére tiszta 'blank' szót teszünk a mondatban
@@ -347,7 +347,7 @@ export class PracticeSession {
     // Semmilyen más feladatnál (írásos/gépelős/scramble/fordított/stb.) NEM futhat auto-speak!
     if (this.options.soundEnabled && this.currentWord && this.currentWord.english) {
       if (this.currentExercise && this.currentExercise.type === 'LISTENING') {
-        playAudio(this.currentWord.english, 1.0);
+        playAudio(this.currentWord.english, 0.65);
       }
     }
 
