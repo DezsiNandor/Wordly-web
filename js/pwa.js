@@ -25,17 +25,58 @@ export function updatePWAStandaloneUI() {
     document.documentElement.classList.add('pwa-standalone');
     document.body.classList.add('pwa-standalone');
     
-    // Telepítés gombok azonnali eltüntetése a fejlécből és láblécből
-    document.querySelectorAll('.btn-install-pwa').forEach(btn => {
-      btn.classList.add('hidden');
-      btn.classList.remove('inline-flex', 'flex');
-    });
-
-    const banner = document.getElementById('pwa-install-banner');
-    if (banner) banner.classList.add('hidden');
+    // Telepítés gombok elrejtése ha már telepítve van
+    const headerPwaBtn = document.getElementById('btn-header-pwa-install');
+    if (headerPwaBtn) {
+      headerPwaBtn.classList.add('hidden');
+    }
   } else {
     document.documentElement.classList.remove('pwa-standalone');
     document.body.classList.remove('pwa-standalone');
+  }
+}
+
+/**
+ * PWA Útmutató Modális ablak megjelenítése
+ */
+export function showPwaGuideModal() {
+  const modal = document.getElementById('modal-pwa-guide');
+  if (modal) {
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+
+    // Platform detektálás: iOS fül vagy Android/Desktop fül kiemelése
+    const isIos = /iphone|ipad|ipod/.test(window.navigator.userAgent.toLowerCase());
+    const tabIos = document.getElementById('pwa-tab-ios');
+    const tabAndroid = document.getElementById('pwa-tab-android');
+    const contentIos = document.getElementById('pwa-content-ios');
+    const contentAndroid = document.getElementById('pwa-content-android');
+
+    if (tabIos && tabAndroid && contentIos && contentAndroid) {
+      if (isIos) {
+        tabIos.classList.add('bg-brand-600', 'text-white');
+        tabIos.classList.remove('text-slate-400');
+        tabAndroid.classList.remove('bg-brand-600', 'text-white');
+        tabAndroid.classList.add('text-slate-400');
+        contentIos.classList.remove('hidden');
+        contentAndroid.classList.add('hidden');
+      } else {
+        tabAndroid.classList.add('bg-brand-600', 'text-white');
+        tabAndroid.classList.remove('text-slate-400');
+        tabIos.classList.remove('bg-brand-600', 'text-white');
+        tabIos.classList.add('text-slate-400');
+        contentAndroid.classList.remove('hidden');
+        contentIos.classList.add('hidden');
+      }
+    }
+  }
+}
+
+export function closePwaGuideModal() {
+  const modal = document.getElementById('modal-pwa-guide');
+  if (modal) {
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
   }
 }
 
@@ -43,130 +84,86 @@ export function initPWA() {
   updatePWAStandaloneUI();
   registerServiceWorker();
   setupInstallPrompt();
-  setupNetworkStatusListeners();
 
-  // Standalone mód váltásának figyelése futásidőben
+  // Modal bezárás gombok bekötése
+  const btnClose = document.getElementById('btn-close-pwa-guide');
+  if (btnClose) {
+    btnClose.addEventListener('click', closePwaGuideModal);
+  }
+
+  // PWA Tab váltók
+  const tabIos = document.getElementById('pwa-tab-ios');
+  const tabAndroid = document.getElementById('pwa-tab-android');
+  const contentIos = document.getElementById('pwa-content-ios');
+  const contentAndroid = document.getElementById('pwa-content-android');
+
+  if (tabIos && tabAndroid && contentIos && contentAndroid) {
+    tabIos.addEventListener('click', () => {
+      tabIos.classList.add('bg-brand-600', 'text-white');
+      tabIos.classList.remove('text-slate-400');
+      tabAndroid.classList.remove('bg-brand-600', 'text-white');
+      tabAndroid.classList.add('text-slate-400');
+      contentIos.classList.remove('hidden');
+      contentAndroid.classList.add('hidden');
+    });
+
+    tabAndroid.addEventListener('click', () => {
+      tabAndroid.classList.add('bg-brand-600', 'text-white');
+      tabAndroid.classList.remove('text-slate-400');
+      tabIos.classList.remove('bg-brand-600', 'text-white');
+      tabIos.classList.add('text-slate-400');
+      contentAndroid.classList.remove('hidden');
+      contentIos.classList.add('hidden');
+    });
+  }
+
+  // Fejléc PWA gomb eseménykezelője - Mindig megnyitja a modális útmutatót
+  const headerPwaBtn = document.getElementById('btn-header-pwa-install');
+  if (headerPwaBtn) {
+    headerPwaBtn.addEventListener('click', () => {
+      showPwaGuideModal();
+    });
+  }
+
+  // Standalone váltás figyelése
   try {
     window.matchMedia('(display-mode: standalone)').addEventListener('change', () => {
       updatePWAStandaloneUI();
     });
   } catch (e) {
-    console.debug('[PWA] Standalone matchMedia listener hiba:', e);
+    console.debug('[PWA] MatchMedia listener hiba:', e);
   }
 }
 
 /**
- * Service Worker regisztrációja
+ * Service Worker regisztráció
  */
 async function registerServiceWorker() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', async () => {
       try {
         const reg = await navigator.serviceWorker.register('./sw.js');
-        console.log('[PWA] Service Worker sikeresen regisztrálva:', reg.scope);
+        console.log('[PWA] Service Worker regisztrálva:', reg.scope);
       } catch (err) {
-        console.warn('[PWA] Service Worker regisztrációs hiba:', err);
+        console.warn('[PWA] Service Worker figyelmeztetés:', err);
       }
     });
   }
 }
 
 /**
- * PWA Telepítési események (beforeinstallprompt) és gombok kezelése
+ * Android / Chrome beforeinstallprompt esemény elkapása
  */
 function setupInstallPrompt() {
-  const installButtons = document.querySelectorAll('.btn-install-pwa');
-  const installBanner = document.getElementById('pwa-install-banner');
-  const isIos = /iphone|ipad|ipod/.test(window.navigator.userAgent.toLowerCase());
-  const isInStandaloneMode = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
-
-  // Ha már telepített alkalmazásként fut, rejtse el a telepítési felületeket
-  if (isInStandaloneMode) {
-    installButtons.forEach(btn => btn.classList.add('hidden'));
-    if (installBanner) installBanner.classList.add('hidden');
-    return;
-  }
-
-  // Android / Chrome / Edge / Desktop telepítési prompt elkapása
   window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
     deferredInstallPrompt = e;
-
-    // Telepítés gombok megjelenítése
-    installButtons.forEach(btn => {
-      btn.classList.remove('hidden');
-      btn.classList.add('inline-flex');
-    });
-
-    if (installBanner) {
-      installBanner.classList.remove('hidden');
-    }
+    console.log('[PWA] beforeinstallprompt elkapva');
   });
 
-  // Gombok kattintáskezelője
-  installButtons.forEach(btn => {
-    btn.addEventListener('click', async () => {
-      if (deferredInstallPrompt) {
-        deferredInstallPrompt.prompt();
-        const { outcome } = await deferredInstallPrompt.userChoice;
-        console.log(`[PWA] Felhasználó döntése: ${outcome}`);
-        deferredInstallPrompt = null;
-        installButtons.forEach(b => b.classList.add('hidden'));
-        if (installBanner) installBanner.classList.add('hidden');
-      } else if (isIos) {
-        showIosInstallModal();
-      } else {
-        alert("A WL Wordly telepítéséhez kattints a böngésződ címsorában lévő 'Telepítés' ikonra vagy a böngésző menü 'Alkalmazás telepítése' pontjára!");
-      }
-    });
-  });
-
-  // Telepítés befejeződése
   window.addEventListener('appinstalled', () => {
     console.log('[PWA] WL Wordly sikeresen telepítve!');
     deferredInstallPrompt = null;
     updatePWAStandaloneUI();
-    installButtons.forEach(btn => btn.classList.add('hidden'));
-    if (installBanner) installBanner.classList.add('hidden');
   });
-
-  // Ha iOS eszköz és nincs még standalone módban, a gomb kattintható maradjon
-  if (isIos && !isInStandaloneMode) {
-    installButtons.forEach(btn => {
-      btn.classList.remove('hidden');
-      btn.classList.add('inline-flex');
-    });
-  }
-}
-
-/**
- * iOS Safari telepítési segédlet felugró ablak
- */
-function showIosInstallModal() {
-  const modal = document.getElementById('modal-ios-install');
-  if (modal) {
-    modal.classList.remove('hidden');
-    modal.classList.add('flex');
-  } else {
-    alert("Telepítés iPhone / iPad eszközön:\n1. Érintsd meg a böngésző alsó sávjában lévő Megosztás gombot (négyzetből felfelé mutató nyíl).\n2. Görgess lejjebb, és válaszd a 'Főképernyőhöz adás' lehetőséget!");
-  }
-}
-
-/**
- * Hálózat állapot (Online/Offline) figyelése
- */
-function setupNetworkStatusListeners() {
-  const offlineBadge = document.getElementById('offline-indicator-badge');
-
-  function updateStatus() {
-    if (!navigator.onLine) {
-      if (offlineBadge) offlineBadge.classList.remove('hidden');
-    } else {
-      if (offlineBadge) offlineBadge.classList.add('hidden');
-    }
-  }
-
-  window.addEventListener('online', updateStatus);
-  window.addEventListener('offline', updateStatus);
-  updateStatus();
 }

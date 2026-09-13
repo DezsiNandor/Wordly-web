@@ -1,5 +1,5 @@
 # WL (Word Learning) - Könnyűsúlyú Beépített PowerShell HTTP Szerver
-$port = 3001
+param([int]$port = 3000)
 $prefix = "http://localhost:$port/"
 $baseDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 
@@ -14,8 +14,10 @@ try {
     Write-Host "  Leallitas: Nyomj Ctrl+C billentyukombinaciot" -ForegroundColor Gray
     Write-Host "=================================================" -ForegroundColor Cyan
 
-    # Bongeszo automatikus megnyitasa
-    try { Start-Process $prefix } catch {}
+    # Bongeszo automatikus megnyitasa csak ha nem tesztkornyezet
+    if (-not $env:CI -and -not $env:NO_BROWSER) {
+        try { Start-Process $prefix } catch {}
+    }
 
     while ($listener.IsListening) {
         $context = $listener.GetContext()

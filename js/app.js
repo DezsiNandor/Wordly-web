@@ -1,158 +1,99 @@
 /**
- * WL (Word Learning) - Fő Alkalmazásvezérlő és Router (Route Guards) - JAVÍTOTT VÁLTOZAT
+ * WL Wordly - Fő Alkalmazásvezérlő és Tab-Router
+ * - Állandó Sötét Mód
+ * - 100% Bejelentkezésmentes (Local-First)
+ * - 20 szavas egységek (Chunking) & 2x 100% feloldás
+ * - AI Feladatgenerálás (Feleletválasztós, Mondatkiegészítés, Begépelés)
+ * - Mix Gyakorló (Véletlen vagy egyéni blokk-választó)
  */
-
-import { 
-  initAuth, 
-  register, 
-  login, 
-  loginAsGuest, 
-  loginWithGoogleCredential,
-  loginWithGooglePopup,
-  startFirebaseGoogleRedirect,
-  logout, 
-  getCurrentUser, 
-  onAuthStateChangedCustom,
-  isFirebaseActive 
-} from './auth.js';
 
 import { 
   getUserLists, 
   getListById, 
   saveNewList, 
+  saveExistingList,
   updateListName, 
   deleteList, 
   addWordToList, 
   deleteWordFromList, 
   updateWordInList,
   updateSheetProgress,
-  syncMultiDeviceCloud,
-  setupRealtimeCloudListener
+  getMixStats,
+  getOverallStats
 } from './storage.js';
 
 import { 
-  hasValidGoogleClientId,
-  startGoogleRedirectAuth,
-  checkAndProcessOAuthCallback,
-  getGoogleClientId
-} from './googleAuth.js';
-
-import { 
   parseExcelFile, 
-  exportListToExcel, 
-  exportListToCSV,
-  exportListToJSON,
-  downloadSampleExcel 
+  exportListToExcel 
 } from './excel.js';
 
-import { PracticeSession } from './practice.js';
+import { 
+  PracticeSession, 
+  speakEnglishWord 
+} from './practice.js';
 
 import { 
-  getSavedFirebaseConfig, 
-  saveFirebaseConfig, 
-  clearFirebaseConfig 
-} from './firebaseConfig.js';
+  initPWA, 
+  showPwaGuideModal, 
+  closePwaGuideModal 
+} from './pwa.js';
 
-import { initPWA } from './pwa.js';
 import { 
-  connectGoogleDriveList, 
+  fetchGoogleSheetsData, 
   syncGoogleDriveList, 
-  linkExistingListToGoogleDrive, 
-  checkAllGoogleDriveListsOnStartup 
+  extractGoogleFileId 
 } from './googleDrive.js';
 
-// Alkalmazás állapot
-let activeUser = null;
-let currentPracticeSession = null;
+// Globális állapot
+let activeTab = 'packages'; // 'packages' | 'practice' | 'mix' | 'stats'
+let currentSession = null;
 let activeManageListId = null;
+let pendingDeleteTargetId = null;
 let pendingExcelData = null;
-let autoAdvanceTimeout = null;
-let isReversePractice = false;
-let isSoundEnabled = true;
-let currentActivePracticeConfig = { listId: null, sheetId: null, isMix: false };
-let nextUnlockedSheetData = null;
-let pendingDeleteTarget = null;
+let autoAdvanceTimer = null;
+let isReverseMode = false;
+let isSoundOn = true;
+let currentPracticeConfig = null;
+let nextUnlockedUnitData = null;
 
-// DOM Elemek gyors elérése
+// DOM elemek gyors elérése
 const dom = {
-  // Views
+  // Nézetek és Konténerek
   viewLanding: document.getElementById('view-landing'),
-  viewAuth: document.getElementById('view-auth'),
   viewDashboard: document.getElementById('view-dashboard'),
-  viewPractice: document.getElementById('view-practice'),
-  viewStats: document.getElementById('view-stats'),
+  
+  // Tab Navigáció
+  mainTabNav: document.getElementById('main-tab-nav'),
+  tabNavPackages: document.getElementById('tab-nav-packages'),
+  tabNavPractice: document.getElementById('tab-nav-practice'),
+  tabNavMix: document.getElementById('tab-nav-mix'),
+  tabNavStats: document.getElementById('tab-nav-stats'),
 
-  // Header Nav
-  navLogo: document.getElementById('nav-logo'),
-  publicNavLinks: document.getElementById('public-nav-links'),
-  publicAuthButtons: document.getElementById('public-auth-buttons'),
-  navBtnLogin: document.getElementById('nav-btn-login'),
-  navBtnRegister: document.getElementById('nav-btn-register'),
-  navBtnDashboard: document.getElementById('nav-btn-dashboard'),
-  navBtnStats: document.getElementById('nav-btn-stats'),
-  navLinkStats: document.getElementById('nav-link-stats'),
-  btnOpenFirebaseSettings: document.getElementById('btn-open-firebase-settings'),
-  firebaseStatusDot: document.getElementById('firebase-status-dot'),
-  firebaseStatusText: document.getElementById('firebase-status-text'),
-  btnThemeToggle: document.getElementById('btn-theme-toggle'),
-  iconThemeMoon: document.getElementById('icon-theme-moon'),
-  iconThemeSun: document.getElementById('icon-theme-sun'),
-  userProfileMenu: document.getElementById('user-profile-menu'),
-  userProfileBadgeBtn: document.getElementById('user-profile-badge-btn'),
-  userProfileAvatar: document.getElementById('user-profile-avatar'),
-  userProfileIcon: document.getElementById('user-profile-icon'),
-  userEmailDisplay: document.getElementById('user-email-display'),
-  userBadge: document.getElementById('user-badge'),
-  btnLogout: document.getElementById('btn-logout'),
+  tabContentPackages: document.getElementById('tab-content-packages'),
+  tabContentPractice: document.getElementById('tab-content-practice'),
+  tabContentMix: document.getElementById('tab-content-mix'),
+  tabContentStats: document.getElementById('tab-content-stats'),
 
-  // Mobile Bottom Nav
-  mobileBottomNav: document.getElementById('mobile-bottom-nav'),
-  bottomNavHome: document.getElementById('bottom-nav-home'),
-  bottomNavLists: document.getElementById('bottom-nav-lists'),
-  bottomNavStats: document.getElementById('bottom-nav-stats'),
+  // Kezdőlap elemek
+  btnLandingStart: document.getElementById('btn-landing-start'),
 
-  // Auth View
-  authProtectedNotice: document.getElementById('auth-protected-notice'),
-  tabLogin: document.getElementById('tab-login'),
-  tabRegister: document.getElementById('tab-register'),
-  googleBtnContainer: document.getElementById('google-btn-container'),
-  btnGoogleSignin: document.getElementById('btn-google-signin'),
-  btnGoogleText: document.getElementById('btn-google-text'),
-  formAuth: document.getElementById('form-auth'),
-  authEmail: document.getElementById('auth-email'),
-  authPassword: document.getElementById('auth-password'),
-  authPasswordConfirm: document.getElementById('auth-password-confirm'),
-  authConfirmPasswordContainer: document.getElementById('auth-confirm-password-container'),
-  authErrorBanner: document.getElementById('auth-error-banner'),
-  authErrorText: document.getElementById('auth-error-text'),
-  btnAuthSubmit: document.getElementById('btn-auth-submit'),
-  btnAuthText: document.getElementById('btn-auth-text'),
-  btnGuestLogin: document.getElementById('btn-guest-login'),
+  // Fejléc elemek
+  btnHeaderPwaInstall: document.getElementById('btn-header-pwa-install'),
 
-  // Dashboard View
-  cloudSyncStatusBadge: document.getElementById('cloud-sync-status-badge'),
-  cloudSyncStatusText: document.getElementById('cloud-sync-status-text'),
+  // Tananyagok fül
   statTotalLists: document.getElementById('stat-total-lists'),
+  statTotalUnits: document.getElementById('stat-total-units'),
+  statUnlockedUnits: document.getElementById('stat-unlocked-units'),
   statTotalWords: document.getElementById('stat-total-words'),
-  statTotalPracticed: document.getElementById('stat-total-practiced'),
-  listCountBadge: document.getElementById('list-count-badge'),
   listsGrid: document.getElementById('lists-grid'),
   emptyListsContainer: document.getElementById('empty-lists-container'),
   btnOpenUploadModal: document.getElementById('btn-open-upload-modal'),
-  btnDownloadSampleExcel: document.getElementById('btn-download-sample-excel'),
+  btnOpenGdriveModal: document.getElementById('btn-open-gdrive-modal'),
   btnCreateEmptyList: document.getElementById('btn-create-empty-list'),
   btnEmptyUpload: document.getElementById('btn-empty-upload'),
-  btnEmptySample: document.getElementById('btn-empty-sample'),
+  btnDownloadSampleExcel: document.getElementById('btn-download-sample-excel'),
 
-  // Stats View
-  statsListsContainer: document.getElementById('stats-lists-container'),
-  statsEmptyState: document.getElementById('stats-empty-state'),
-  statsTotalFiles: document.getElementById('stats-total-files'),
-  statsTotalSheets: document.getElementById('stats-total-sheets'),
-  statsMasteredSheets: document.getElementById('stats-mastered-sheets'),
-  statsAvgAccuracy: document.getElementById('stats-avg-accuracy'),
-
-  // Practice View
+  // Gyakorlás fül
   btnExitPractice: document.getElementById('btn-exit-practice'),
   btnToggleDirection: document.getElementById('btn-toggle-direction'),
   directionLabel: document.getElementById('direction-label'),
@@ -161,22 +102,47 @@ const dom = {
   iconSoundOff: document.getElementById('icon-sound-off'),
   practiceStreakCounter: document.getElementById('practice-streak-counter'),
   practiceCorrectCount: document.getElementById('practice-correct-count'),
-  practiceTotalCount: document.getElementById('practice-total-count'),
+  practiceRoundProgress: document.getElementById('practice-round-progress'),
   quizCard: document.getElementById('quiz-card'),
   practiceCurrentListTitle: document.getElementById('practice-current-list-title'),
-  practiceSheetBadge: document.getElementById('practice-sheet-badge'),
   practiceCurrentSheetTitle: document.getElementById('practice-current-sheet-title'),
-  practiceRoundCounterBadge: document.getElementById('practice-round-counter-badge'),
-  practiceRoundProgress: document.getElementById('practice-round-progress'),
+  practiceTypeBadge: document.getElementById('practice-type-badge'),
+  practiceTypeLabel: document.getElementById('practice-type-label'),
+  practiceNewWordBadge: document.getElementById('practice-new-word-badge'),
   practicePromptWord: document.getElementById('practice-prompt-word'),
   practicePromptHint: document.getElementById('practice-prompt-hint'),
   btnSpeakWord: document.getElementById('btn-speak-word'),
+  practiceContextEn: document.getElementById('practice-context-en'),
+  practiceContextHu: document.getElementById('practice-context-hu'),
+  containerMultipleChoice: document.getElementById('container-multiple-choice'),
+  containerWrittenRecall: document.getElementById('container-written-recall'),
   practiceAnswerInput: document.getElementById('practice-answer-input'),
-  practiceFeedbackContainer: document.getElementById('practice-feedback-container'),
   btnPracticeSubmit: document.getElementById('btn-practice-submit'),
   practiceBtnText: document.getElementById('practice-btn-text'),
+  practiceFeedbackContainer: document.getElementById('practice-feedback-container'),
+
+  // Mix fül
+  btnStartQuickMix: document.getElementById('btn-start-quick-mix'),
+  btnStartCustomMix: document.getElementById('btn-start-custom-mix'),
+  btnMixSelectAll: document.getElementById('btn-mix-select-all'),
+  btnMixDeselectAll: document.getElementById('btn-mix-deselect-all'),
+  mixUnitsCheckboxContainer: document.getElementById('mix-units-checkbox-container'),
+  mixSelectedWordCount: document.getElementById('mix-selected-word-count'),
+  mixSelectedUnitCount: document.getElementById('mix-selected-unit-count'),
+
+  // Statisztika fül
+  statsMasteredWords: document.getElementById('stats-mastered-words'),
+  statsUnlockedRatio: document.getElementById('stats-unlocked-ratio'),
+  statsUnlockedCount: document.getElementById('stats-unlocked-count'),
+  statsAvgAccuracy: document.getElementById('stats-avg-accuracy'),
+  statsTotalAnswers: document.getElementById('stats-total-answers'),
+  statsHighestStreak: document.getElementById('stats-highest-streak'),
+  statsMixQuestions: document.getElementById('stats-mix-questions'),
+  statsMixAccuracy: document.getElementById('stats-mix-accuracy'),
+  statsUnitsBreakdown: document.getElementById('stats-units-breakdown'),
 
   // Modals
+  modalPwaGuide: document.getElementById('modal-pwa-guide'),
   modalUploadExcel: document.getElementById('modal-upload-excel'),
   btnCloseUploadModal: document.getElementById('btn-close-upload-modal'),
   excelDropzone: document.getElementById('excel-dropzone'),
@@ -190,7 +156,17 @@ const dom = {
   btnCancelUpload: document.getElementById('btn-cancel-upload'),
   btnSaveUploadedList: document.getElementById('btn-save-uploaded-list'),
 
-  // Round Completed Modal
+  modalGdriveConnect: document.getElementById('modal-gdrive-connect'),
+  btnCloseGdriveModal: document.getElementById('btn-close-gdrive-modal'),
+  btnCancelGdrive: document.getElementById('btn-cancel-gdrive'),
+  formGdriveConnect: document.getElementById('form-gdrive-connect'),
+  gdriveCustomName: document.getElementById('gdrive-custom-name'),
+  gdriveLinkInput: document.getElementById('gdrive-link-input'),
+  gdriveSheetNames: document.getElementById('gdrive-sheet-names'),
+  gdriveModalAlert: document.getElementById('gdrive-modal-alert'),
+  gdriveAlertIcon: document.getElementById('gdrive-alert-icon'),
+  gdriveAlertMessage: document.getElementById('gdrive-alert-message'),
+
   modalRoundCompleted: document.getElementById('modal-round-completed'),
   roundCompletedBadgeIcon: document.getElementById('round-completed-badge-icon'),
   roundCompletedTitle: document.getElementById('round-completed-title'),
@@ -203,980 +179,1264 @@ const dom = {
   btnRoundExit: document.getElementById('btn-round-exit'),
 
   modalManageList: document.getElementById('modal-manage-list'),
-  btnCloseManageModal: document.getElementById('btn-close-manage-modal'),
   manageModalTitle: document.getElementById('manage-modal-title'),
-  manageModalSubtitle: document.getElementById('manage-modal-subtitle'),
+  btnCloseManageModal: document.getElementById('btn-close-manage-modal'),
   formAddWord: document.getElementById('form-add-word'),
   addWordEnglish: document.getElementById('add-word-english'),
   addWordHungarian: document.getElementById('add-word-hungarian'),
   manageSearchInput: document.getElementById('manage-search-input'),
   manageWordCounter: document.getElementById('manage-word-counter'),
   manageWordsTable: document.getElementById('manage-words-table'),
-  btnExportCurrentList: document.getElementById('btn-export-current-list'),
   btnDoneManageModal: document.getElementById('btn-done-manage-modal'),
 
-  modalDownloadExport: document.getElementById('modal-download-export'),
-  btnCloseDownloadModal: document.getElementById('btn-close-download-modal'),
-  downloadListNameBadge: document.getElementById('download-list-name-badge'),
-  downloadWordCounter: document.getElementById('download-word-counter'),
-  downloadWordsPreviewList: document.getElementById('download-words-preview-list'),
-  btnExportOptXlsx: document.getElementById('btn-export-opt-xlsx'),
-  btnExportOptCsv: document.getElementById('btn-export-opt-csv'),
-  btnExportOptJson: document.getElementById('btn-export-opt-json'),
-
-  modalFirebaseSettings: document.getElementById('modal-firebase-settings'),
-  btnCloseFirebaseModal: document.getElementById('btn-close-firebase-modal'),
-  formFirebaseConfig: document.getElementById('form-firebase-config'),
-  cfgApiKey: document.getElementById('cfg-api-key'),
-  cfgAuthDomain: document.getElementById('cfg-auth-domain'),
-  cfgProjectId: document.getElementById('cfg-project-id'),
-  cfgStorageBucket: document.getElementById('cfg-storage-bucket'),
-  cfgAppId: document.getElementById('cfg-app-id'),
-  btnResetToLocal: document.getElementById('btn-reset-to-local'),
-
-  // Delete Confirmation Modal & Toast
   modalDeleteConfirm: document.getElementById('modal-delete-confirm'),
-  deleteConfirmTitle: document.getElementById('delete-confirm-title'),
-  deleteConfirmMessage: document.getElementById('delete-confirm-message'),
-  btnCancelDelete: document.getElementById('btn-cancel-delete'),
   btnCloseDeleteModal: document.getElementById('btn-close-delete-modal'),
+  btnCancelDelete: document.getElementById('btn-cancel-delete'),
   btnConfirmDelete: document.getElementById('btn-confirm-delete'),
-  appToast: document.getElementById('app-toast'),
-  appToastMessage: document.getElementById('app-toast-message'),
-  appToastIcon: document.getElementById('app-toast-icon'),
 
-  // Google Drive / Sheets Modal & Badges
-  btnOpenGDriveModal: document.getElementById('btn-open-gdrive-modal'),
-  modalGDriveConnect: document.getElementById('modal-gdrive-connect'),
-  btnCloseGDriveModal: document.getElementById('btn-close-gdrive-modal'),
-  btnCancelGDrive: document.getElementById('btn-cancel-gdrive'),
-  formGDriveConnect: document.getElementById('form-gdrive-connect'),
-  gdriveLinkInput: document.getElementById('gdrive-link-input'),
-  gdriveCustomName: document.getElementById('gdrive-custom-name'),
-  gdriveTargetListId: document.getElementById('gdrive-target-list-id'),
-  gdriveNameGroup: document.getElementById('gdrive-name-group'),
-  gdriveSheetNames: document.getElementById('gdrive-sheet-names'),
-  btnSubmitGDrive: document.getElementById('btn-submit-gdrive'),
-  iconGDriveSubmit: document.getElementById('icon-gdrive-submit'),
-  textGDriveSubmit: document.getElementById('text-gdrive-submit'),
-  gdriveModalAlert: document.getElementById('gdrive-modal-alert'),
-  gdriveAlertIcon: document.getElementById('gdrive-alert-icon'),
-  gdriveAlertMessage: document.getElementById('gdrive-alert-message'),
-  practiceNewWordBadge: document.getElementById('practice-new-word-badge')
+  appToast: document.getElementById('app-toast'),
+  appToastIcon: document.getElementById('app-toast-icon'),
+  appToastMessage: document.getElementById('app-toast-message')
 };
 
-// ==========================================
-// 1. INICIALIZÁLÁS ÉS TÉMAKEZELÉS
-// ==========================================
+/**
+ * Toast értesítés megjelenítése
+ */
+function showToast(message, type = 'info') {
+  if (!dom.appToast) return;
+  dom.appToastMessage.textContent = message;
 
-document.addEventListener('DOMContentLoaded', async () => {
-  initTheme();
-  setupEventListeners();
-  initPWA();
-  refreshIcons();
+  const iconMap = {
+    success: '🎉',
+    error: '⚠️',
+    info: 'ℹ️'
+  };
+  dom.appToastIcon.textContent = iconMap[type] || 'ℹ️';
 
-  // Azonnali munkamenet-ellenőrzés
-  const savedSessionRaw = localStorage.getItem('wl_current_session');
-  if (savedSessionRaw) {
-    try {
-      const savedUser = JSON.parse(savedSessionRaw);
-      if (savedUser && savedUser.uid) {
-        activeUser = savedUser;
-        updateNavForUser(savedUser);
-      }
-    } catch (e) {
-      activeUser = null;
-      updateNavForUser(null);
-    }
-  } else {
-    updateNavForUser(null);
-  }
+  dom.appToast.classList.remove('hidden');
+  dom.appToast.classList.add('flex');
 
-  // Hitelesítés inicializálása
-  const authStatus = await initAuth();
-  updateFirebaseStatusUI(authStatus.isFirebase);
-
-  // Google OAuth 2.0 Átirányításos visszatérés
-  try {
-    const oAuthResult = checkAndProcessOAuthCallback();
-    if (oAuthResult) {
-      showToast("Google fiók sikeresen azonosítva! Bejelentkezés...", "info");
-      await loginWithGoogleCredential(oAuthResult.idToken, oAuthResult);
-      navigateTo('#dashboard');
-    }
-  } catch (oauthErr) {
-    console.error("Google OAuth callback hiba:", oauthErr);
-    showAuthError(oauthErr.message || "A Google bejelentkezés nem sikerült.");
-  }
-
-  // Hash-alapú router figyelése
-  window.addEventListener('hashchange', handleRouting);
-
-  // Felhasználó állapotának figyelése
-  onAuthStateChangedCustom(async (user) => {
-    activeUser = user;
-    updateNavForUser(user);
-
-    if (user) {
-      let hash = window.location.hash || '';
-      if (hash.startsWith('#/')) hash = '#' + hash.substring(2);
-      if (hash === '#') hash = '';
-
-      const isLandingOrAuth = !hash || hash === '#landing' || hash === '#home' || hash === '#auth' || hash === '#how-it-works' || hash === '#features' || hash === '#faq';
-
-      if (isLandingOrAuth) {
-        navigateTo('#dashboard');
-      } else {
-        handleRouting();
-      }
-
-      // Központi többeszközös felhőszinkronizáció
-      syncMultiDeviceCloud(user).then(async (syncedLists) => {
-        if (syncedLists && syncedLists.length > 0 && !dom.viewDashboard.classList.contains('hidden')) {
-          await renderDashboard();
-        }
-      }).catch(err => console.warn("Többeszközös szinkronizáció figyelmeztetés:", err));
-
-      // Valós idejű szinkronizációs figyelő
-      if (window._realtimeCloudUnsubscribe) {
-        window._realtimeCloudUnsubscribe();
-        window._realtimeCloudUnsubscribe = null;
-      }
-      window._realtimeCloudUnsubscribe = setupRealtimeCloudListener(user, async () => {
-        if (!dom.viewDashboard.classList.contains('hidden')) {
-          await renderDashboard();
-        }
-        if (dom.viewStats && !dom.viewStats.classList.contains('hidden')) {
-          await renderStatsView();
-        }
-      });
-
-      // Google Drive indulási ellenőrzés
-      checkAllGoogleDriveListsOnStartup(async (syncResult) => {
-        if (!dom.viewDashboard.classList.contains('hidden')) {
-          await renderDashboard();
-        }
-        if (syncResult && syncResult.newWordsCount > 0) {
-          showToast(`Google Táblázat: ${syncResult.newWordsCount} új szó szinkronizálva!`, 'info');
-        }
-      });
-    } else {
-      if (window._realtimeCloudUnsubscribe) {
-        window._realtimeCloudUnsubscribe();
-        window._realtimeCloudUnsubscribe = null;
-      }
-      handleRouting();
-    }
-    refreshIcons();
-  });
-
-  window.addEventListener('gdrive-synced', async () => {
-    if (!dom.viewDashboard.classList.contains('hidden')) {
-      await renderDashboard();
-    }
-  });
-
-  // Első routing futtatás
-  handleRouting();
-});
-
-function initTheme() {
-  const savedTheme = localStorage.getItem('wl_theme') || 
-    (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-  
-  if (savedTheme === 'dark') {
-    document.documentElement.classList.add('dark');
-    dom.iconThemeMoon.classList.remove('hidden');
-    dom.iconThemeSun.classList.add('hidden');
-  } else {
-    document.documentElement.classList.remove('dark');
-    dom.iconThemeMoon.classList.add('hidden');
-    dom.iconThemeSun.classList.remove('hidden');
-  }
+  setTimeout(() => {
+    dom.appToast.classList.add('hidden');
+    dom.appToast.classList.remove('flex');
+  }, 3200);
 }
 
-function toggleTheme() {
-  const isDark = document.documentElement.classList.toggle('dark');
-  localStorage.setItem('wl_theme', isDark ? 'dark' : 'light');
-  if (isDark) {
-    dom.iconThemeMoon.classList.remove('hidden');
-    dom.iconThemeSun.classList.add('hidden');
-  } else {
-    dom.iconThemeMoon.classList.add('hidden');
-    dom.iconThemeSun.classList.remove('hidden');
-  }
-}
+/**
+ * FÜLEK KÖZÖTTI VÁLTÁS (Tab Switcher)
+ */
+export function switchTab(tabName) {
+  activeTab = tabName;
 
-function refreshIcons() {
-  if (window.lucide) {
-    window.lucide.createIcons();
-  }
-}
-
-function updateFirebaseStatusUI(isFirebase) {
-  if (isFirebase) {
-    dom.firebaseStatusDot.className = 'w-2.5 h-2.5 rounded-full bg-emerald-500 absolute top-1.5 right-1.5 ring-2 ring-white dark:ring-slate-900 inline-block';
-    dom.firebaseStatusText.textContent = 'Firebase Felhő';
-  } else {
-    dom.firebaseStatusDot.className = 'w-2.5 h-2.5 rounded-full bg-amber-500 absolute top-1.5 right-1.5 ring-2 ring-white dark:ring-slate-900 inline-block';
-    dom.firebaseStatusText.textContent = 'Helyi tároló';
-  }
-}
-
-// FEJLÉC ÉS GOMBOK SZIGORÚ SZÉTVÁLASZTÁSA
-function updateNavForUser(user) {
-  if (user) {
-    document.body.classList.add('logged-in');
-    document.body.classList.remove('logged-out');
-
-    // Bejelentkezve a logó mindenhol látható
-    if (dom.navLogo) {
-      dom.navLogo.classList.remove('hidden');
-      dom.navLogo.classList.add('flex');
-    }
-
-    // Vendég gombok teljes eltüntetése
-    dom.publicAuthButtons.classList.add('hidden');
-    dom.publicAuthButtons.classList.remove('flex');
-
-    if (dom.publicNavLinks) {
-      dom.publicNavLinks.classList.add('hidden');
-      dom.publicNavLinks.classList.remove('md:flex');
-    }
-    const footerLinks = document.getElementById('footer-public-links');
-    if (footerLinks) footerLinks.classList.add('hidden');
-
-    // Bejelentkezett menü megjelenítése (Narancssárga Fiók gomb és profil)
-    dom.userProfileMenu.classList.remove('hidden');
-    dom.userProfileMenu.classList.add('flex');
-
-    // Ha van külön Fiók gombod kijelentkezve, azt itt rejtjük
-    if (dom.navBtnRegister) {
-      dom.navBtnRegister.classList.add('hidden');
-    }
-
-    dom.userEmailDisplay.textContent = user.displayName || user.email || 'Vendég';
-    dom.userBadge.textContent = user.isGoogle ? 'Google fiók' : (user.isGuest ? 'Vendég mód' : 'Helyi profil');
-    
-    if (dom.userProfileAvatar && dom.userProfileIcon) {
-      if (user.photoURL) {
-        dom.userProfileAvatar.src = user.photoURL;
-        dom.userProfileAvatar.classList.remove('hidden');
-        dom.userProfileIcon.classList.add('hidden');
-      } else {
-        dom.userProfileAvatar.classList.add('hidden');
-        dom.userProfileAvatar.src = '';
-        dom.userProfileIcon.classList.remove('hidden');
-      }
-    }
-  } else {
-    document.body.classList.remove('logged-in');
-    document.body.classList.add('logged-out');
-
-    // Kijelentkezve mobilon NINCS logó, PC-n van
-    if (dom.navLogo) {
-      dom.navLogo.classList.add('hidden');
-      dom.navLogo.classList.add('md:flex');
-      dom.navLogo.classList.remove('flex');
-    }
-
-    // Csak a kék Bejelentkezés gomb látszódhat, a narancssárga Fiók NEM!
-    dom.publicAuthButtons.classList.remove('hidden');
-    dom.publicAuthButtons.classList.add('flex');
-    
-    if (dom.navBtnLogin) {
-      dom.navBtnLogin.classList.remove('hidden');
-    }
-    if (dom.navBtnRegister) {
-      dom.navBtnRegister.classList.add('hidden'); // Vendégként ne legyen kint a Fiók gomb!
-    }
-
-    if (dom.publicNavLinks) {
-      dom.publicNavLinks.classList.add('hidden');
-      dom.publicNavLinks.classList.add('md:flex');
-      dom.publicNavLinks.classList.remove('flex');
-    }
-    const footerLinks = document.getElementById('footer-public-links');
-    if (footerLinks) footerLinks.classList.remove('hidden');
-
-    // Bejelentkezett menü elrejtése
-    dom.userProfileMenu.classList.add('hidden');
-    dom.userProfileMenu.classList.remove('flex');
-  }
-
-  // Fogaskerék garantált végleges kiirtása
-  if (dom.btnOpenFirebaseSettings) {
-    dom.btnOpenFirebaseSettings.remove();
-  }
-}
-
-// ==========================================
-// 2. ROUTER ÉS ROUTE GUARDS
-// ==========================================
-
-function navigateTo(hash) {
-  if (window.location.hash === hash) {
-    handleRouting();
-  } else {
-    window.location.hash = hash;
-  }
-}
-
-function handleRouting() {
-  let hash = window.location.hash || '';
-  if (hash.startsWith('#/')) hash = '#' + hash.substring(2);
-  if (hash === '#') hash = '';
-
-  const isHomeOrLanding = !hash || hash === '#landing' || hash === '#home' || hash === '#how-it-works' || hash === '#features' || hash === '#faq';
-
-  if (!activeUser) {
-    activeUser = getCurrentUser();
-    updateNavForUser(activeUser);
-  }
-
-  // Bejelentkezve nincs kezdőlap, azonnal dashboard
-  if (activeUser) {
-    if (isHomeOrLanding || hash === '#auth') {
-      navigateTo('#dashboard');
-      return;
-    }
-  }
-
-  // Szólisták / Dashboard védelme
-  if (hash === '#dashboard' || hash === '#szolistak' || hash === '#lists' || hash === '#practice') {
-    if (!activeUser) {
-      dom.authProtectedNotice.classList.remove('hidden');
-      showView('auth');
-      return;
-    }
-
-    if (hash === '#practice' && !currentPracticeSession) {
-      navigateTo('#dashboard');
-      return;
-    }
-
-    showView(hash === '#practice' ? 'practice' : 'dashboard');
-    return;
-  }
-
-  // Statisztika védelme
-  if (hash === '#stats' || hash === '#statistics' || hash === '#statisztika') {
-    if (!activeUser) {
-      dom.authProtectedNotice.classList.remove('hidden');
-      showView('auth');
-      return;
-    }
-    showView('stats');
-    return;
-  }
-
-  // Auth oldal vendégeknek
-  if (hash === '#auth') {
-    if (activeUser) {
-      navigateTo('#dashboard');
-      return;
-    }
-    dom.authProtectedNotice.classList.add('hidden');
-    showView('auth');
-    return;
-  }
-
-  // Alapértelmezett ág
-  if (activeUser) {
-    showView('dashboard');
-  } else {
-    showView('landing');
-  }
-}
-
-// SZIGORÚ NÉZETSZÉTVÁLASZTÁS
-function showView(viewName) {
-  const user = activeUser || getCurrentUser();
-  const isAuthenticated = Boolean(user && user.uid);
-
-  let targetView = viewName;
-  if (!isAuthenticated) {
-    if (targetView !== 'auth') {
-      targetView = 'landing';
-    }
-  } else {
-    if (targetView === 'landing' || targetView === 'auth') {
-      targetView = 'dashboard';
-    }
-  }
-
-  // 1. MINDEN NÉZETET ELREJTÜNK
+  // Kezdőlap elrejtése, fül-tartalom megjelenítése
   dom.viewLanding.classList.add('hidden');
-  dom.viewAuth.classList.add('hidden');
-  dom.viewDashboard.classList.add('hidden');
-  dom.viewPractice.classList.add('hidden');
-  if (dom.viewStats) dom.viewStats.classList.add('hidden');
+  dom.viewDashboard.classList.remove('hidden');
 
-  // 2. KIZÁRÓLAG AZ EGYETLEN ENGEDÉLYEZETT NÉZET JELENIK MEG
-  if (targetView === 'landing') {
-    dom.viewLanding.classList.remove('hidden');
-  } else if (targetView === 'auth') {
-    dom.viewAuth.classList.remove('hidden');
-  } else if (targetView === 'dashboard') {
-    dom.viewDashboard.classList.remove('hidden');
-    renderDashboard(); // Csak ekkor hívjuk meg!
-  } else if (targetView === 'stats') {
-    if (dom.viewStats) {
-      dom.viewStats.classList.remove('hidden');
-      renderStatsView();
+  // Navigációs gombok frissítése
+  const tabButtons = [
+    { name: 'packages', btn: dom.tabNavPackages, pane: dom.tabContentPackages },
+    { name: 'practice', btn: dom.tabNavPractice, pane: dom.tabContentPractice },
+    { name: 'mix', btn: dom.tabNavMix, pane: dom.tabContentMix },
+    { name: 'stats', btn: dom.tabNavStats, pane: dom.tabContentStats }
+  ];
+
+  tabButtons.forEach(t => {
+    if (t.name === tabName) {
+      t.btn.classList.add('active', 'bg-brand-600', 'text-white', 'shadow-sm');
+      t.btn.classList.remove('text-slate-400');
+      t.pane.classList.remove('hidden');
+    } else {
+      t.btn.classList.remove('active', 'bg-brand-600', 'text-white', 'shadow-sm');
+      t.btn.classList.add('text-slate-400');
+      t.pane.classList.add('hidden');
     }
-  } else if (targetView === 'practice') {
-    dom.viewPractice.classList.remove('hidden');
+  });
+
+  // URL hash frissítése
+  if (window.location.hash !== `#${tabName}`) {
+    window.location.hash = `#${tabName}`;
   }
 
-  window.scrollTo({ top: 0, behavior: 'smooth' });
-  refreshIcons();
+  // Fül specifikus renderelés meghívása
+  if (tabName === 'packages') {
+    renderPackagesTab();
+  } else if (tabName === 'practice') {
+    renderPracticeTab();
+  } else if (tabName === 'mix') {
+    renderMixTab();
+  } else if (tabName === 'stats') {
+    renderStatsTab();
+  }
+
+  if (window.lucide) window.lucide.createIcons();
 }
 
-// ==========================================
-// 3. ESEMÉNYKEZELŐK REGISZTRÁLÁSA
-// ==========================================
+/**
+ * URL Hash router
+ */
+function handleRouting() {
+  const hash = (window.location.hash || '').replace('#', '').toLowerCase();
 
-function setupEventListeners() {
-  dom.btnThemeToggle.addEventListener('click', toggleTheme);
-  
-  dom.navLogo.addEventListener('click', () => {
-    if (activeUser) {
-      navigateTo('#dashboard');
-    } else {
-      navigateTo('#landing');
-    }
+  if (!hash || hash === 'landing' || hash === 'home') {
+    dom.viewLanding.classList.remove('hidden');
+    dom.viewDashboard.classList.add('hidden');
+  } else if (['packages', 'dashboard'].includes(hash)) {
+    switchTab('packages');
+  } else if (['practice', 'learn'].includes(hash)) {
+    switchTab('practice');
+  } else if (['mix', 'review'].includes(hash)) {
+    switchTab('mix');
+  } else if (['stats', 'progress'].includes(hash)) {
+    switchTab('stats');
+  } else {
+    switchTab('packages');
+  }
+
+  if (window.lucide) window.lucide.createIcons();
+}
+
+/**
+ * -----------------------------------------------------------------------------
+ * 1. TANANYAGOK FÜL RENDERELÉSE (20 Szavas Egységekkel)
+ * -----------------------------------------------------------------------------
+ */
+async function renderPackagesTab() {
+  const lists = await getUserLists();
+
+  let totalUnitsCount = 0;
+  let unlockedUnitsCount = 0;
+  let totalWordsCount = 0;
+
+  lists.forEach(l => {
+    totalWordsCount += (l.words || []).length;
+    (l.sheets || []).forEach(s => {
+      totalUnitsCount++;
+      if (s.isUnlocked) unlockedUnitsCount++;
+    });
   });
 
-  if (dom.navBtnDashboard) {
-    dom.navBtnDashboard.addEventListener('click', () => navigateTo('#dashboard'));
+  if (dom.statTotalLists) dom.statTotalLists.textContent = lists.length;
+  if (dom.statTotalUnits) dom.statTotalUnits.textContent = totalUnitsCount;
+  if (dom.statUnlockedUnits) dom.statUnlockedUnits.textContent = unlockedUnitsCount;
+  if (dom.statTotalWords) dom.statTotalWords.textContent = totalWordsCount;
+
+  if (lists.length === 0) {
+    dom.listsGrid.innerHTML = '';
+    dom.emptyListsContainer.classList.remove('hidden');
+    return;
   }
 
-  if (dom.navBtnStats) {
-    dom.navBtnStats.addEventListener('click', () => navigateTo('#stats'));
-  }
+  dom.emptyListsContainer.classList.add('hidden');
+  dom.listsGrid.innerHTML = '';
 
-  // Kijelentkezés
-  dom.btnLogout.addEventListener('click', async () => {
-    if (confirm("Biztosan ki szeretnél jelentkezni?")) {
-      if (window._realtimeCloudUnsubscribe) {
-        window._realtimeCloudUnsubscribe();
-        window._realtimeCloudUnsubscribe = null;
+  lists.forEach(list => {
+    const card = document.createElement('div');
+    card.className = 'bg-slate-900 rounded-3xl border border-slate-800 p-6 space-y-5 shadow-lg';
+
+    const sheets = list.sheets || [];
+    const completedUnits = sheets.filter(s => (s.consecutivePerfectScores >= 2) || (s.timesPassed >= 2)).length;
+
+    // Fejléc
+    const headerHtml = `
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-3 border-b border-slate-800">
+        <div>
+          <div class="flex items-center gap-2">
+            <h3 class="text-lg font-bold text-white">${escapeHtml(list.name)}</h3>
+            ${list.googleDriveUrl ? `
+              <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-950 text-emerald-300 border border-emerald-800/80">
+                <i data-lucide="cloud" class="w-3 h-3 text-emerald-400"></i> Google Sheet
+              </span>
+            ` : ''}
+          </div>
+          <p class="text-xs text-slate-400 mt-0.5">
+            ${(list.words || []).length} szó &bull; ${sheets.length} egység (${completedUnits} mesterelve)
+          </p>
+        </div>
+
+        <div class="flex items-center gap-2">
+          ${list.googleDriveUrl ? `
+            <button class="btn-sync-gdrive p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-slate-700 transition-colors" data-id="${list.id}" title="Szinkronizálás">
+              <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+            </button>
+          ` : ''}
+          <button class="btn-edit-package p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-colors" data-id="${list.id}" title="Szavak szerkesztése">
+            <i data-lucide="edit-3" class="w-4 h-4"></i>
+          </button>
+          <button class="btn-delete-package p-2 rounded-xl bg-slate-800 hover:bg-rose-950 text-slate-400 hover:text-rose-400 border border-slate-700 transition-colors" data-id="${list.id}" title="Törlés">
+            <i data-lucide="trash-2" class="w-4 h-4"></i>
+          </button>
+        </div>
+      </div>
+    `;
+
+    // 20 szavas egységek rácsa
+    let unitsHtml = '<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">';
+    sheets.forEach((unit, idx) => {
+      const isMastered = (unit.consecutivePerfectScores >= 2) || (unit.timesPassed >= 2);
+      const isUnlocked = unit.isUnlocked;
+      const wordCount = (unit.words || []).length;
+
+      let statusBadge = '';
+      let cardClass = '';
+
+      if (isMastered) {
+        statusBadge = '<span class="px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-950 text-emerald-300 border border-emerald-800/80 flex items-center gap-1">⭐ 2x 100% Mesterelt</span>';
+        cardClass = 'unit-card-mastered';
+      } else if (isUnlocked) {
+        statusBadge = '<span class="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-brand-950 text-brand-300 border border-brand-800/60 flex items-center gap-1">🔓 Feloldva</span>';
+        cardClass = 'unit-card-unlocked';
+      } else {
+        statusBadge = '<span class="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-slate-800 text-slate-400 border border-slate-700 flex items-center gap-1">🔒 Zárolt</span>';
+        cardClass = 'unit-card-locked';
       }
-      await logout();
-      activeUser = null;
-      updateNavForUser(null);
-      navigateTo('#landing');
-    }
+
+      unitsHtml += `
+        <div class="bg-slate-800/60 rounded-2xl p-4 border border-slate-750 flex flex-col justify-between gap-3 ${cardClass}">
+          <div>
+            <div class="flex items-center justify-between mb-1.5">
+              ${statusBadge}
+              <span class="text-[11px] text-slate-400 font-medium">${wordCount} szó</span>
+            </div>
+            <h4 class="font-bold text-white text-sm">${escapeHtml(unit.name)}</h4>
+            <div class="text-[11px] text-slate-400 mt-1">
+              Teljesítve: <strong class="text-slate-200">${unit.timesPassed || 0}x</strong> hibátlanul
+            </div>
+          </div>
+
+          <div>
+            ${isUnlocked ? `
+              <button class="btn-start-unit w-full min-h-[38px] py-2 px-3 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-bold text-xs shadow-sm transition-all flex items-center justify-center gap-1.5 active:scale-[0.98]" data-list-id="${list.id}" data-sheet-id="${unit.id}">
+                <i data-lucide="play" class="w-3.5 h-3.5"></i>
+                <span>Gyakorlás indítása</span>
+              </button>
+            ` : `
+              <button disabled class="w-full min-h-[38px] py-2 px-3 rounded-xl bg-slate-800/80 border border-slate-700 text-slate-500 font-semibold text-xs cursor-not-allowed flex items-center justify-center gap-1.5" title="Oldd fel az előző egység 2x 100%-os teljesítésével">
+                <i data-lucide="lock" class="w-3.5 h-3.5"></i>
+                <span>Zárolt egység</span>
+              </button>
+            `}
+          </div>
+        </div>
+      `;
+    });
+    unitsHtml += '</div>';
+
+    card.innerHTML = headerHtml + unitsHtml;
+    dom.listsGrid.appendChild(card);
   });
 
-  // Auth lapok váltása
-  let isRegisterMode = false;
-  dom.tabLogin.addEventListener('click', () => {
-    isRegisterMode = false;
-    dom.tabLogin.className = 'flex-1 min-h-[44px] py-2.5 px-3 text-sm font-semibold rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm transition-all';
-    dom.tabRegister.className = 'flex-1 min-h-[44px] py-2.5 px-3 text-sm font-medium rounded-lg text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all';
-    dom.authConfirmPasswordContainer.classList.add('hidden');
-    dom.btnAuthText.textContent = 'Bejelentkezés';
-    hideAuthError();
+  // Eseménykezelők bekötése
+  dom.listsGrid.querySelectorAll('.btn-start-unit').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const listId = btn.dataset.listId;
+      const sheetId = btn.dataset.sheetId;
+      startUnitPractice(listId, sheetId);
+    });
   });
 
-  dom.tabRegister.addEventListener('click', () => {
-    isRegisterMode = true;
-    dom.tabRegister.className = 'flex-1 min-h-[44px] py-2.5 px-3 text-sm font-semibold rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm transition-all';
-    dom.tabLogin.className = 'flex-1 min-h-[44px] py-2.5 px-3 text-sm font-medium rounded-lg text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all';
-    dom.authConfirmPasswordContainer.classList.remove('hidden');
-    dom.btnAuthText.textContent = 'Fiók létrehozása';
-    hideAuthError();
+  dom.listsGrid.querySelectorAll('.btn-edit-package').forEach(btn => {
+    btn.addEventListener('click', () => {
+      openManageWordsModal(btn.dataset.id);
+    });
   });
 
-  // Auth űrlap beküldése
-  dom.formAuth.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    hideAuthError();
+  dom.listsGrid.querySelectorAll('.btn-delete-package').forEach(btn => {
+    btn.addEventListener('click', () => {
+      openDeleteModal(btn.dataset.id);
+    });
+  });
 
-    const email = dom.authEmail.value.trim();
-    const password = dom.authPassword.value;
-    const confirmPass = dom.authPasswordConfirm.value;
+  dom.listsGrid.querySelectorAll('.btn-sync-gdrive').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const listId = btn.dataset.id;
+      showToast("Google Táblázat szinkronizálása...", "info");
+      const res = await syncGoogleDriveList(listId);
+      if (res.success) {
+        showToast(res.message || "Sikeres szinkronizáció!", "success");
+        renderPackagesTab();
+      } else {
+        showToast(res.message || "Hiba történt a szinkronizáláskor.", "error");
+      }
+    });
+  });
 
-    if (isRegisterMode && password !== confirmPass) {
-      showAuthError("A két jelszó nem egyezik meg!");
+  if (window.lucide) window.lucide.createIcons();
+}
+
+/**
+ * -----------------------------------------------------------------------------
+ * 2. GYAKORLÁS FÜL ÉS AI FELADAT ÉLETCICKLUS
+ * -----------------------------------------------------------------------------
+ */
+
+/**
+ * Gyakorlás indítása adott 20 szavas egységre
+ */
+async function startUnitPractice(listId, sheetId) {
+  const list = await getListById(listId);
+  if (!list) return;
+
+  currentPracticeConfig = { listId, sheetId, isMix: false, customWords: null };
+
+  currentSession = new PracticeSession(list, {
+    sheetId,
+    reverse: isReverseMode,
+    soundEnabled: isSoundOn,
+    exerciseType: 'AUTO_MIX'
+  });
+
+  switchTab('practice');
+}
+
+/**
+ * Mix Gyakorlás indítása megadott szavakkal
+ */
+function startMixPracticeSession(words, mixTitle = "Mix Gyakorló") {
+  if (!words || words.length === 0) {
+    showToast("Nincsenek elérhető szavak a gyakorláshoz!", "error");
+    return;
+  }
+
+  currentPracticeConfig = { listId: null, sheetId: null, isMix: true, customWords: words };
+
+  currentSession = new PracticeSession(null, {
+    customWords: words,
+    reverse: isReverseMode,
+    soundEnabled: isSoundOn,
+    isMix: true,
+    exerciseType: 'AUTO_MIX'
+  });
+
+  switchTab('practice');
+}
+
+/**
+ * Gyakorlás fül felületének frissítése a jelenlegi állapot alapján
+ */
+function renderPracticeTab() {
+  if (!currentSession) {
+    // Ha még nincs aktív munkamenet, indítsuk az első feloldott egységet
+    getUserLists().then(lists => {
+      if (lists.length > 0 && lists[0].sheets && lists[0].sheets.length > 0) {
+        const firstUnlocked = lists[0].sheets.find(s => s.isUnlocked) || lists[0].sheets[0];
+        startUnitPractice(lists[0].id, firstUnlocked.id);
+      } else {
+        dom.practicePromptWord.textContent = "Nincs betöltött tananyag";
+        dom.practicePromptHint.textContent = "Kérlek tölts fel egy Excel fájlt a Tananyagok fülön!";
+      }
+    });
+    return;
+  }
+
+  renderCurrentQuestion();
+}
+
+/**
+ * Aktuális kérdés renderelése (AI Multi-Format)
+ */
+function renderCurrentQuestion() {
+  if (!currentSession) return;
+
+  // Ha a kör véget ért
+  if (currentSession.isRoundComplete()) {
+    handleRoundCompleted();
+    return;
+  }
+
+  // Következő feladat lekérése ha még nincs
+  if (!currentSession.currentExercise || currentSession.state !== 'WAITING_INPUT') {
+    const qData = currentSession.nextQuestion();
+    if (!qData) {
+      handleRoundCompleted();
       return;
     }
+  }
 
-    try {
-      dom.btnAuthSubmit.disabled = true;
-      dom.btnAuthText.textContent = "Folyamatban...";
+  const exercise = currentSession.currentExercise;
+  const word = currentSession.currentWord;
+  const progress = currentSession.getProgress();
 
-      if (isRegisterMode) {
-        await register(email, password);
-      } else {
-        await login(email, password);
+  // Fejléc címek és progress
+  dom.practiceCurrentListTitle.textContent = currentSession.list ? currentSession.list.name : "Mix Gyakorló";
+  dom.practiceCurrentSheetTitle.textContent = currentSession.sheet ? currentSession.sheet.name : "Vegyes";
+  dom.practiceRoundProgress.textContent = `${progress.current} / ${progress.total}`;
+  dom.practiceStreakCounter.textContent = currentSession.stats.streak;
+  dom.practiceCorrectCount.textContent = currentSession.stats.correctCount;
+
+  // Új szó badge
+  if (word && word.isNew) {
+    dom.practiceNewWordBadge.classList.remove('hidden');
+  } else {
+    dom.practiceNewWordBadge.classList.add('hidden');
+  }
+
+  // Típus badge
+  const typeMap = {
+    'MULTIPLE_CHOICE': 'Feleletválasztós',
+    'SENTENCE_CLOZE': 'Mondatkiegészítés',
+    'WRITTEN_RECALL': 'Begépelés'
+  };
+  dom.practiceTypeLabel.textContent = typeMap[exercise.type] || 'Gyakorlat';
+
+  // Prompt és kontextus
+  dom.practicePromptWord.textContent = exercise.prompt || word.english;
+
+  // Példamondat kiírása
+  const contextSentence = (exercise.type === 'SENTENCE_CLOZE') 
+    ? exercise.sentenceWithBlank 
+    : (exercise.exampleSentence || `"${word.english}"`);
+  
+  dom.practiceContextEn.textContent = contextSentence;
+  dom.practiceContextHu.textContent = exercise.sentenceTranslation || (isReverseMode ? word.english : word.hungarian);
+
+  // Visszajelzés konténer elrejtése
+  dom.practiceFeedbackContainer.classList.add('hidden');
+  dom.practiceFeedbackContainer.innerHTML = '';
+
+  // Formátum specifikus felület aktiválása
+  if (exercise.type === 'MULTIPLE_CHOICE' || exercise.type === 'SENTENCE_CLOZE') {
+    dom.containerMultipleChoice.classList.remove('hidden');
+    dom.containerWrittenRecall.classList.add('hidden');
+    renderMultipleChoiceOptions(exercise.options);
+  } else {
+    // Írásos begépelés
+    dom.containerMultipleChoice.classList.add('hidden');
+    dom.containerWrittenRecall.classList.remove('hidden');
+    dom.practiceAnswerInput.value = '';
+    dom.practiceAnswerInput.disabled = false;
+    dom.btnPracticeSubmit.disabled = false;
+    dom.practiceAnswerInput.focus();
+  }
+
+  if (window.lucide) window.lucide.createIcons();
+}
+
+/**
+ * Feleletválasztós gombok renderelése
+ */
+function renderMultipleChoiceOptions(options) {
+  dom.containerMultipleChoice.innerHTML = '';
+
+  (options || []).forEach((opt, idx) => {
+    const btn = document.createElement('button');
+    btn.className = 'mc-option-btn p-3.5 rounded-2xl bg-slate-800 hover:bg-slate-750 border border-slate-700 hover:border-brand-500 font-semibold text-xs sm:text-sm text-left transition-all flex items-center justify-between';
+    btn.dataset.index = idx;
+
+    btn.innerHTML = `
+      <span class="option-text text-slate-100">${escapeHtml(opt.text)}</span>
+      <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-700 text-slate-300">${idx + 1}</span>
+    `;
+
+    btn.addEventListener('click', () => {
+      submitPracticeAnswer(opt.text, btn);
+    });
+
+    dom.containerMultipleChoice.appendChild(btn);
+  });
+}
+
+/**
+ * Válasz beküldése és kiértékelése
+ */
+async function submitPracticeAnswer(userAnswer, targetBtn = null) {
+  if (!currentSession || currentSession.state !== 'WAITING_INPUT') return;
+
+  const result = await currentSession.checkAnswer(userAnswer);
+  if (!result) return;
+
+  // Frissítjük a számlálókat azonnal
+  dom.practiceStreakCounter.textContent = result.stats.streak;
+  dom.practiceCorrectCount.textContent = result.stats.correctCount;
+
+  // Feleletválasztós gombok színezése
+  if (dom.containerMultipleChoice && !dom.containerMultipleChoice.classList.contains('hidden')) {
+    const allBtns = dom.containerMultipleChoice.querySelectorAll('.mc-option-btn');
+    allBtns.forEach(b => {
+      b.disabled = true;
+      const text = b.querySelector('.option-text').textContent.trim();
+      if (text === result.correctAnswer) {
+        b.classList.add('correct');
       }
-      navigateTo('#dashboard');
-    } catch (err) {
-      showAuthError(err.message || "Hiba történt a művelet során.");
-    } finally {
-      dom.btnAuthSubmit.disabled = false;
-      dom.btnAuthText.textContent = isRegisterMode ? 'Fiók létrehozása' : 'Bejelentkezés';
+    });
+
+    if (targetBtn) {
+      if (!result.isCorrect) {
+        targetBtn.classList.add('incorrect');
+      }
+    }
+  }
+
+  // Visszajelzés megjelenítése
+  dom.practiceFeedbackContainer.classList.remove('hidden');
+  if (result.isCorrect) {
+    dom.practiceFeedbackContainer.className = 'mt-4 p-4 rounded-2xl text-left text-xs sm:text-sm bg-emerald-950/60 border border-emerald-800/80 text-emerald-200 animate-pop-in';
+    dom.practiceFeedbackContainer.innerHTML = `
+      <div class="flex items-center justify-between font-bold">
+        <span>🎉 Helyes válasz! ${result.hasTypo ? '(Apró elütéssel elfogadva)' : ''}</span>
+        <span class="text-xs text-emerald-400 font-mono">+1 pont</span>
+      </div>
+      <div class="text-xs text-emerald-300 mt-1">"${escapeHtml(result.correctAnswer)}"</div>
+    `;
+  } else {
+    dom.practiceFeedbackContainer.className = 'mt-4 p-4 rounded-2xl text-left text-xs sm:text-sm bg-rose-950/60 border border-rose-800/80 text-rose-200 animate-pop-in';
+    dom.practiceFeedbackContainer.innerHTML = `
+      <div class="flex items-center justify-between font-bold">
+        <span>❌ Helytelen válasz</span>
+      </div>
+      <div class="text-xs text-slate-300 mt-1">A helyes megoldás: <strong class="text-emerald-400 font-bold">${escapeHtml(result.correctAnswer)}</strong></div>
+    `;
+  }
+
+  // Automatikus továbblépés
+  clearTimeout(autoAdvanceTimer);
+  autoAdvanceTimer = setTimeout(() => {
+    if (currentSession.isRoundComplete()) {
+      handleRoundCompleted();
+    } else {
+      currentSession.nextQuestion();
+      renderCurrentQuestion();
+    }
+  }, currentSession.options.autoAdvanceMs || 900);
+}
+
+/**
+ * Gyakorlási kör befejezése (2x 100% Feloldási Logika)
+ */
+async function handleRoundCompleted() {
+  if (!currentSession) return;
+
+  const stats = currentSession.stats;
+  const isPerfect = currentSession.isPerfectScore();
+  const accuracy = currentSession.getAccuracyPercentage();
+
+  dom.roundScorePercent.textContent = `${accuracy}%`;
+  dom.roundScoreRatio.textContent = `${stats.correctCount} / ${stats.totalAnswered}`;
+
+  // Haladás perzisztálása ha 20 szavas egység volt
+  nextUnlockedUnitData = null;
+  if (currentSession.sheet && currentSession.list) {
+    const progressResult = await updateSheetProgress(
+      currentSession.list.id,
+      currentSession.sheet.id,
+      {
+        correctCount: stats.correctCount,
+        incorrectCount: stats.incorrectCount,
+        isPerfect
+      }
+    );
+
+    if (progressResult) {
+      const timesPassed = progressResult.timesPassed;
+      const isUnlockedNext = progressResult.unlockedNextSheet;
+
+      if (isUnlockedNext) {
+        // Konfetti és következő szint gomb
+        if (window.confetti) {
+          window.confetti({ particleCount: 120, spread: 70, origin: { y: 0.6 } });
+        }
+        dom.roundCompletedBadgeIcon.textContent = "🏆";
+        dom.roundCompletedTitle.textContent = "Új 20 szavas egység feloldva!";
+        dom.roundProgressionBox.innerHTML = `
+          <div class="text-emerald-400 font-bold">Gratulálunk! 2x hibátlanul megoldottad ezt az egységet!</div>
+          <div class="text-slate-300 mt-0.5">Feloldva: <strong>${escapeHtml(progressResult.nextSheetName || 'Következő egység')}</strong></div>
+        `;
+        dom.btnRoundNextLevel.classList.remove('hidden');
+        nextUnlockedUnitData = {
+          listId: currentSession.list.id,
+          nextSheetIndex: progressResult.sheetIndex + 1
+        };
+      } else if (isPerfect) {
+        dom.roundCompletedBadgeIcon.textContent = "🎉";
+        dom.roundCompletedTitle.textContent = "Hibátlan kör!";
+        dom.roundProgressionBox.innerHTML = `
+          <div class="text-emerald-400 font-bold">100%-os eredmény! (${timesPassed} / 2 teljesítve)</div>
+          <div class="text-slate-400 mt-0.5">Oldd meg még ${Math.max(0, 2 - timesPassed)}x hibátlanul a következő egység megnyitásához.</div>
+        `;
+        dom.btnRoundNextLevel.classList.add('hidden');
+      } else {
+        dom.roundCompletedBadgeIcon.textContent = "👏";
+        dom.roundCompletedTitle.textContent = "Kör Teljesítve!";
+        dom.roundProgressionBox.innerHTML = `
+          <div class="text-slate-300">Gyakorolj még a 100%-os hibátlan eredményért és a szintek feloldásáért!</div>
+        `;
+        dom.btnRoundNextLevel.classList.add('hidden');
+      }
+    }
+  } else {
+    // Mix gyakorló volt
+    dom.roundCompletedBadgeIcon.textContent = "🔥";
+    dom.roundCompletedTitle.textContent = "Mix Gyakorlás Kész!";
+    dom.roundProgressionBox.innerHTML = `
+      <div class="text-purple-300 font-bold">Remek ismétlés! Folytasd a vegyes gyakorlást a szavak szilárd rögzüléséhez.</div>
+    `;
+    dom.btnRoundNextLevel.classList.add('hidden');
+  }
+
+  // Modal megnyitása
+  dom.modalRoundCompleted.classList.remove('hidden');
+  dom.modalRoundCompleted.classList.add('flex');
+}
+
+/**
+ * -----------------------------------------------------------------------------
+ * 3. MIX GYAKORLÓ FÜL (Véletlen vagy Pipálható Egység-választó)
+ * -----------------------------------------------------------------------------
+ */
+async function renderMixTab() {
+  const lists = await getUserLists();
+  dom.mixUnitsCheckboxContainer.innerHTML = '';
+
+  let totalAvailableUnits = 0;
+
+  lists.forEach(list => {
+    const unlockedUnits = (list.sheets || []).filter(s => s.isUnlocked);
+    if (unlockedUnits.length === 0) return;
+
+    totalAvailableUnits += unlockedUnits.length;
+
+    const listGroup = document.createElement('div');
+    listGroup.className = 'p-3 rounded-2xl bg-slate-850 border border-slate-800 space-y-2';
+
+    let unitsCheckboxesHtml = `
+      <div class="text-xs font-bold text-slate-300 flex items-center justify-between">
+        <span>${escapeHtml(list.name)}</span>
+        <span class="text-[10px] text-slate-500">${unlockedUnits.length} feloldott egység</span>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+    `;
+
+    unlockedUnits.forEach(unit => {
+      const isMastered = (unit.consecutivePerfectScores >= 2) || (unit.timesPassed >= 2);
+      const wordCount = (unit.words || []).length;
+
+      unitsCheckboxesHtml += `
+        <label class="flex items-center gap-2.5 p-2 rounded-xl bg-slate-800/80 hover:bg-slate-800 border border-slate-700/80 cursor-pointer text-xs select-none transition-colors">
+          <input type="checkbox" class="mix-unit-checkbox rounded text-brand-600 focus:ring-brand-500 w-4 h-4 bg-slate-700 border-slate-600" data-list-id="${list.id}" data-sheet-id="${unit.id}" data-word-count="${wordCount}">
+          <span class="flex-1 text-slate-200 font-medium truncate">${escapeHtml(unit.name)}</span>
+          ${isMastered ? '<span class="text-[10px] text-emerald-400">⭐</span>' : ''}
+          <span class="text-[10px] text-slate-500">${wordCount} szó</span>
+        </label>
+      `;
+    });
+
+    unitsCheckboxesHtml += '</div>';
+    listGroup.innerHTML = unitsCheckboxesHtml;
+    dom.mixUnitsCheckboxContainer.appendChild(listGroup);
+  });
+
+  if (totalAvailableUnits === 0) {
+    dom.mixUnitsCheckboxContainer.innerHTML = `
+      <div class="text-center py-8 text-xs text-slate-400">
+        Még nincsenek feloldott egységek. Tölts fel egy tananyagot a kezdéshez!
+      </div>
+    `;
+  }
+
+  // Checkboxok eseménykezelője
+  const checkboxes = dom.mixUnitsCheckboxContainer.querySelectorAll('.mix-unit-checkbox');
+  checkboxes.forEach(cb => {
+    cb.addEventListener('change', updateMixSelectionCounters);
+  });
+
+  updateMixSelectionCounters();
+  if (window.lucide) window.lucide.createIcons();
+}
+
+/**
+ * Mix kiválasztási számlálók frissítése
+ */
+function updateMixSelectionCounters() {
+  const checkboxes = dom.mixUnitsCheckboxContainer.querySelectorAll('.mix-unit-checkbox:checked');
+  let selectedWords = 0;
+  checkboxes.forEach(cb => {
+    selectedWords += parseInt(cb.dataset.wordCount || '0', 10);
+  });
+
+  dom.mixSelectedWordCount.textContent = selectedWords;
+  dom.mixSelectedUnitCount.textContent = checkboxes.length;
+  dom.btnStartCustomMix.disabled = (checkboxes.length === 0);
+}
+
+/**
+ * Gyors Véletlen Mix indítása
+ */
+async function launchQuickMix() {
+  const lists = await getUserLists();
+  const allUnlockedWords = [];
+
+  lists.forEach(l => {
+    (l.sheets || []).forEach(s => {
+      if (s.isUnlocked && s.words) {
+        allUnlockedWords.push(...s.words);
+      }
+    });
+  });
+
+  if (allUnlockedWords.length === 0) {
+    showToast("Nincs még feloldott egység a mixhez!", "error");
+    return;
+  }
+
+  // Véletlenszerű 20 szó
+  const shuffled = [...allUnlockedWords].sort(() => 0.5 - Math.random());
+  const mixSubset = shuffled.slice(0, Math.min(20, shuffled.length));
+
+  startMixPracticeSession(mixSubset, "Gyors Véletlen Mix");
+}
+
+/**
+ * Egyéni kiválasztott Mix indítása
+ */
+async function launchCustomMix() {
+  const checkboxes = dom.mixUnitsCheckboxContainer.querySelectorAll('.mix-unit-checkbox:checked');
+  if (checkboxes.length === 0) {
+    showToast("Válassz ki legalább egy egységet a mixhez!", "error");
+    return;
+  }
+
+  const lists = await getUserLists();
+  const selectedWords = [];
+
+  checkboxes.forEach(cb => {
+    const listId = cb.dataset.listId;
+    const sheetId = cb.dataset.sheetId;
+    const targetList = lists.find(l => l.id === listId);
+    if (targetList && targetList.sheets) {
+      const targetSheet = targetList.sheets.find(s => s.id === sheetId);
+      if (targetSheet && targetSheet.words) {
+        selectedWords.push(...targetSheet.words);
+      }
     }
   });
 
-  dom.btnGuestLogin.addEventListener('click', () => {
-    loginAsGuest();
-    navigateTo('#dashboard');
+  if (selectedWords.length === 0) {
+    showToast("A kiválasztott egységekben nem találhatók szavak!", "error");
+    return;
+  }
+
+  startMixPracticeSession(selectedWords, "Egyéni Mix Gyakorlás");
+}
+
+/**
+ * -----------------------------------------------------------------------------
+ * 4. STATISZTIKA FÜL RENDERELÉSE
+ * -----------------------------------------------------------------------------
+ */
+async function renderStatsTab() {
+  const stats = await getOverallStats();
+  const lists = await getUserLists();
+
+  dom.statsMasteredWords.textContent = stats.masteredWords;
+  dom.statsUnlockedRatio.textContent = `${stats.unitCompletionRate}%`;
+  dom.statsUnlockedCount.textContent = `${stats.unlockedUnits} / ${stats.totalUnits} egység feloldva`;
+  dom.statsAvgAccuracy.textContent = `${stats.accuracyPercent}%`;
+  dom.statsTotalAnswers.textContent = `${stats.totalPracticedTimes} gyakorolt válasz`;
+  dom.statsHighestStreak.textContent = `🔥 ${stats.highestStreak}`;
+
+  dom.statsMixQuestions.textContent = stats.mixStats.totalQuestionsAnswered;
+  const mixAcc = stats.mixStats.totalQuestionsAnswered > 0
+    ? Math.round((stats.mixStats.totalCorrect / stats.mixStats.totalQuestionsAnswered) * 100)
+    : 0;
+  dom.statsMixAccuracy.textContent = `${mixAcc}%`;
+
+  // Részletes egység lebontás
+  dom.statsUnitsBreakdown.innerHTML = '';
+
+  lists.forEach(list => {
+    const box = document.createElement('div');
+    box.className = 'bg-slate-900 rounded-3xl border border-slate-800 p-5 space-y-3';
+
+    let tableRows = '';
+    (list.sheets || []).forEach(unit => {
+      const isMastered = (unit.consecutivePerfectScores >= 2) || (unit.timesPassed >= 2);
+      const totalAnswers = (unit.totalCorrect || 0) + (unit.totalIncorrect || 0);
+      const unitAcc = totalAnswers > 0 ? Math.round(((unit.totalCorrect || 0) / totalAnswers) * 100) : 0;
+
+      tableRows += `
+        <tr class="border-b border-slate-800 text-xs">
+          <td class="py-2.5 px-3 font-semibold text-white flex items-center gap-1.5">
+            ${isMastered ? '⭐' : (unit.isUnlocked ? '🔓' : '🔒')}
+            <span>${escapeHtml(unit.name)}</span>
+          </td>
+          <td class="py-2.5 px-3 text-slate-400">${(unit.words || []).length} szó</td>
+          <td class="py-2.5 px-3 text-emerald-400 font-semibold">${unitAcc}%</td>
+          <td class="py-2.5 px-3 text-slate-300 font-medium">${unit.timesPassed || 0} alkalommal 100%</td>
+          <td class="py-2.5 px-3 text-right">
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${isMastered ? 'bg-emerald-950 text-emerald-300 border border-emerald-800/80' : (unit.isUnlocked ? 'bg-brand-950 text-brand-300 border border-brand-800/60' : 'bg-slate-800 text-slate-400')}">
+              ${isMastered ? 'Mesterelt' : (unit.isUnlocked ? 'Feloldva' : 'Zárolt')}
+            </span>
+          </td>
+        </tr>
+      `;
+    });
+
+    box.innerHTML = `
+      <div class="flex items-center justify-between pb-2 border-b border-slate-800">
+        <h4 class="font-bold text-white text-sm">${escapeHtml(list.name)}</h4>
+        <span class="text-xs text-slate-400 font-mono">${(list.words || []).length} szó</span>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-left">
+          <thead>
+            <tr class="text-[11px] font-semibold text-slate-500 uppercase border-b border-slate-800">
+              <th class="py-2 px-3">20 szavas egység</th>
+              <th class="py-2 px-3">Szavak</th>
+              <th class="py-2 px-3">Pontosság</th>
+              <th class="py-2 px-3">100%-os körök</th>
+              <th class="py-2 px-3 text-right">Állapot</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${tableRows}
+          </tbody>
+        </table>
+      </div>
+    `;
+
+    dom.statsUnitsBreakdown.appendChild(box);
   });
 
-  // Google bejelentkezés
-  if (dom.btnGoogleSignin) {
-    dom.btnGoogleSignin.addEventListener('click', async () => {
-      hideAuthError();
-      dom.btnGoogleSignin.disabled = true;
-      if (dom.btnGoogleText) dom.btnGoogleText.textContent = "Átirányítás...";
+  if (window.lucide) window.lucide.createIcons();
+}
 
-      try {
-        if (isFirebaseActive()) {
-          const started = await startFirebaseGoogleRedirect();
-          if (started) return;
-        }
-        startGoogleRedirectAuth();
-      } catch (err) {
-        showToast(err.message || "Hiba a Google átirányításkor!", "error");
-        dom.btnGoogleSignin.disabled = false;
-        if (dom.btnGoogleText) dom.btnGoogleText.textContent = "Folytatás Google-fiókkal";
+/**
+ * -----------------------------------------------------------------------------
+ * 5. SZÓLISTA SZERKESZTŐ MODÁLIS (Szavak megtekintése, hozzáadás, törlés)
+ * -----------------------------------------------------------------------------
+ */
+async function openManageWordsModal(listId) {
+  activeManageListId = listId;
+  const list = await getListById(listId);
+  if (!list) return;
+
+  dom.manageModalTitle.textContent = `${list.name} — Szavak áttekintése`;
+  renderManageWordsList(list);
+
+  dom.modalManageList.classList.remove('hidden');
+  dom.modalManageList.classList.add('flex');
+}
+
+function renderManageWordsList(list) {
+  const words = list.words || [];
+  const searchFilter = (dom.manageSearchInput.value || '').toLowerCase().trim();
+
+  const filtered = words.filter(w => 
+    w.english.toLowerCase().includes(searchFilter) || 
+    w.hungarian.toLowerCase().includes(searchFilter)
+  );
+
+  dom.manageWordCounter.textContent = `${filtered.length} / ${words.length} szó`;
+  dom.manageWordsTable.innerHTML = '';
+
+  if (filtered.length === 0) {
+    dom.manageWordsTable.innerHTML = '<div class="text-center py-6 text-xs text-slate-400">Nincs találat.</div>';
+    return;
+  }
+
+  filtered.forEach(w => {
+    const item = document.createElement('div');
+    item.className = 'flex items-center justify-between p-2.5 rounded-xl bg-slate-800 border border-slate-700/80 text-xs';
+    item.innerHTML = `
+      <div class="flex items-center gap-3">
+        <span class="font-bold text-white">${escapeHtml(w.english)}</span>
+        <span class="text-slate-400">→</span>
+        <span class="text-slate-300">${escapeHtml(w.hungarian)}</span>
+      </div>
+      <button class="btn-del-word p-1 text-slate-400 hover:text-rose-400 transition-colors" data-id="${w.id}" title="Szó törlése">
+        <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+      </button>
+    `;
+
+    item.querySelector('.btn-del-word').addEventListener('click', async () => {
+      await deleteWordFromList(list.id, w.id);
+      const updated = await getListById(list.id);
+      renderManageWordsList(updated);
+      renderPackagesTab();
+    });
+
+    dom.manageWordsTable.appendChild(item);
+  });
+
+  if (window.lucide) window.lucide.createIcons();
+}
+
+/**
+ * -----------------------------------------------------------------------------
+ * 6. MODÁLIS ABLAKOK ÉS ESEMÉNYEK INICIALIZÁLÁSA
+ * -----------------------------------------------------------------------------
+ */
+function initModalsAndEvents() {
+  // Kezdőlap "Kezdés" gomb
+  if (dom.btnLandingStart) {
+    dom.btnLandingStart.addEventListener('click', () => {
+      switchTab('packages');
+    });
+  }
+
+  // Fő Tab Navigáció gombok
+  [
+    { btn: dom.tabNavPackages, name: 'packages' },
+    { btn: dom.tabNavPractice, name: 'practice' },
+    { btn: dom.tabNavMix, name: 'mix' },
+    { btn: dom.tabNavStats, name: 'stats' }
+  ].forEach(t => {
+    if (t.btn) {
+      t.btn.addEventListener('click', () => switchTab(t.name));
+    }
+  });
+
+  // Gyakorlás felső gombok
+  if (dom.btnExitPractice) {
+    dom.btnExitPractice.addEventListener('click', () => switchTab('packages'));
+  }
+
+  if (dom.btnToggleDirection) {
+    dom.btnToggleDirection.addEventListener('click', () => {
+      isReverseMode = !isReverseMode;
+      dom.directionLabel.textContent = isReverseMode ? "🇭🇺 Magyar → 🇬🇧 Angol" : "🇬🇧 Angol → 🇭🇺 Magyar";
+      if (currentSession) {
+        currentSession.options.reverse = isReverseMode;
+        currentSession.nextQuestion();
+        renderCurrentQuestion();
       }
     });
   }
 
-  // Modálok és műveletek
-  dom.btnOpenUploadModal.addEventListener('click', openUploadModal);
-  dom.btnEmptyUpload.addEventListener('click', openUploadModal);
-  dom.btnCloseUploadModal.addEventListener('click', closeUploadModal);
-  dom.btnCancelUpload.addEventListener('click', closeUploadModal);
+  if (dom.btnToggleSound) {
+    dom.btnToggleSound.addEventListener('click', () => {
+      isSoundOn = !isSoundOn;
+      if (isSoundOn) {
+        dom.iconSoundOn.classList.remove('hidden');
+        dom.iconSoundOff.classList.add('hidden');
+      } else {
+        dom.iconSoundOn.classList.add('hidden');
+        dom.iconSoundOff.classList.remove('hidden');
+      }
+      if (currentSession) {
+        currentSession.options.soundEnabled = isSoundOn;
+      }
+    });
+  }
 
-  dom.btnDownloadSampleExcel.addEventListener('click', downloadSampleExcel);
-  dom.btnEmptySample.addEventListener('click', downloadSampleExcel);
+  if (dom.btnSpeakWord) {
+    dom.btnSpeakWord.addEventListener('click', () => {
+      if (currentSession && currentSession.currentWord) {
+        speakEnglishWord(currentSession.currentWord.english);
+      }
+    });
+  }
 
-  dom.excelDropzone.addEventListener('click', () => dom.excelFileInput.click());
-  dom.excelFileInput.addEventListener('change', (e) => {
-    if (e.target.files && e.target.files[0]) {
-      handleSelectedExcelFile(e.target.files[0]);
+  // Begépelős feladat beküldése
+  if (dom.btnPracticeSubmit) {
+    dom.btnPracticeSubmit.addEventListener('click', () => {
+      submitPracticeAnswer(dom.practiceAnswerInput.value);
+    });
+  }
+
+  if (dom.practiceAnswerInput) {
+    dom.practiceAnswerInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        submitPracticeAnswer(dom.practiceAnswerInput.value);
+      }
+    });
+  }
+
+  // Billentyűzet gyorsgombok (1, 2, 3, 4 választáshoz)
+  window.addEventListener('keydown', (e) => {
+    if (activeTab !== 'practice' || !currentSession || currentSession.state !== 'WAITING_INPUT') return;
+    if (dom.containerMultipleChoice && !dom.containerMultipleChoice.classList.contains('hidden')) {
+      const keyIndex = parseInt(e.key, 10) - 1;
+      if (keyIndex >= 0 && keyIndex < 4) {
+        const btns = dom.containerMultipleChoice.querySelectorAll('.mc-option-btn');
+        if (btns[keyIndex]) {
+          btns[keyIndex].click();
+        }
+      }
     }
   });
 
-  dom.btnSaveUploadedList.addEventListener('click', async () => {
-    if (!pendingExcelData) return;
-    const customName = dom.uploadListName.value.trim() || pendingExcelData.listName;
-
-    try {
-      dom.btnSaveUploadedList.disabled = true;
-      await saveNewList(customName, pendingExcelData.words, pendingExcelData.sheets);
-      closeUploadModal();
-      await renderDashboard();
-      showToast("Sikeres mentés!", "success");
-    } catch (err) {
-      alert("Nem sikerült elmenteni a listát: " + err.message);
-    } finally {
-      dom.btnSaveUploadedList.disabled = false;
-    }
-  });
-
-  dom.btnCreateEmptyList.addEventListener('click', async () => {
-    const listName = prompt("Add meg az új szólista nevét:");
-    if (listName && listName.trim()) {
-      await saveNewList(listName.trim(), []);
-      await renderDashboard();
-    }
-  });
-
-  // Gyakorlás vezérlők
-  dom.btnExitPractice.addEventListener('click', () => {
-    if (confirm("Biztosan vissza akarsz térni a szólistákhoz?")) {
-      clearAutoAdvance();
-      currentPracticeSession = null;
-      navigateTo('#dashboard');
-    }
-  });
-
-  dom.btnToggleDirection.addEventListener('click', () => {
-    isReversePractice = !isReversePractice;
-    dom.directionLabel.textContent = isReversePractice ? '🇭🇺 Magyar → 🇬🇧 Angol' : '🇬🇧 Angol → 🇭🇺 Magyar';
-    if (currentPracticeSession) {
-      currentPracticeSession.options.reverse = isReversePractice;
-      renderCurrentQuizWord();
-    }
-  });
-
-  dom.btnToggleSound.addEventListener('click', () => {
-    isSoundEnabled = !isSoundEnabled;
-    dom.iconSoundOn.classList.toggle('hidden', !isSoundEnabled);
-    dom.iconSoundOff.classList.toggle('hidden', isSoundEnabled);
-    if (currentPracticeSession) {
-      currentPracticeSession.options.soundEnabled = isSoundEnabled;
-    }
-  });
-
-  dom.btnSpeakWord.addEventListener('click', () => {
-    if (currentPracticeSession) currentPracticeSession.speakCurrentWord();
-  });
-
-  dom.btnPracticeSubmit.addEventListener('click', handlePracticeAction);
-  dom.practiceAnswerInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      handlePracticeAction();
-    }
-  });
-
+  // Kör vége modal gombok
   if (dom.btnRoundRetry) {
     dom.btnRoundRetry.addEventListener('click', () => {
-      closeRoundCompletedModal();
-      if (currentActivePracticeConfig.sheetId) {
-        startSheetPractice(currentActivePracticeConfig.listId, currentActivePracticeConfig.sheetId);
-      } else if (currentActivePracticeConfig.listId) {
-        startPractice(currentActivePracticeConfig.listId);
+      dom.modalRoundCompleted.classList.add('hidden');
+      dom.modalRoundCompleted.classList.remove('flex');
+      if (currentPracticeConfig) {
+        if (currentPracticeConfig.isMix) {
+          startMixPracticeSession(currentPracticeConfig.customWords);
+        } else {
+          startUnitPractice(currentPracticeConfig.listId, currentPracticeConfig.sheetId);
+        }
       }
     });
   }
 
   if (dom.btnRoundExit) {
     dom.btnRoundExit.addEventListener('click', () => {
-      closeRoundCompletedModal();
-      navigateTo('#dashboard');
+      dom.modalRoundCompleted.classList.add('hidden');
+      dom.modalRoundCompleted.classList.remove('flex');
+      switchTab('packages');
     });
   }
 
-  // Törlés modál
-  if (dom.btnCancelDelete) dom.btnCancelDelete.addEventListener('click', closeDeleteModal);
-  if (dom.btnCloseDeleteModal) dom.btnCloseDeleteModal.addEventListener('click', closeDeleteModal);
+  if (dom.btnRoundNextLevel) {
+    dom.btnRoundNextLevel.addEventListener('click', async () => {
+      dom.modalRoundCompleted.classList.add('hidden');
+      dom.modalRoundCompleted.classList.remove('flex');
+      if (nextUnlockedUnitData) {
+        const list = await getListById(nextUnlockedUnitData.listId);
+        if (list && list.sheets && list.sheets[nextUnlockedUnitData.nextSheetIndex]) {
+          startUnitPractice(list.id, list.sheets[nextUnlockedUnitData.nextSheetIndex].id);
+        } else {
+          switchTab('packages');
+        }
+      } else {
+        switchTab('packages');
+      }
+    });
+  }
+
+  // Mix gombok
+  if (dom.btnStartQuickMix) {
+    dom.btnStartQuickMix.addEventListener('click', launchQuickMix);
+  }
+
+  if (dom.btnStartCustomMix) {
+    dom.btnStartCustomMix.addEventListener('click', launchCustomMix);
+  }
+
+  if (dom.btnMixSelectAll) {
+    dom.btnMixSelectAll.addEventListener('click', () => {
+      dom.mixUnitsCheckboxContainer.querySelectorAll('.mix-unit-checkbox').forEach(cb => cb.checked = true);
+      updateMixSelectionCounters();
+    });
+  }
+
+  if (dom.btnMixDeselectAll) {
+    dom.btnMixDeselectAll.addEventListener('click', () => {
+      dom.mixUnitsCheckboxContainer.querySelectorAll('.mix-unit-checkbox').forEach(cb => cb.checked = false);
+      updateMixSelectionCounters();
+    });
+  }
+
+  // Excel feltöltés Modal eseményei
+  if (dom.btnOpenUploadModal) {
+    dom.btnOpenUploadModal.addEventListener('click', () => {
+      dom.modalUploadExcel.classList.remove('hidden');
+      dom.modalUploadExcel.classList.add('flex');
+      dom.uploadPreviewSection.classList.add('hidden');
+    });
+  }
+
+  if (dom.btnEmptyUpload) {
+    dom.btnEmptyUpload.addEventListener('click', () => {
+      dom.modalUploadExcel.classList.remove('hidden');
+      dom.modalUploadExcel.classList.add('flex');
+    });
+  }
+
+  if (dom.btnCloseUploadModal) {
+    dom.btnCloseUploadModal.addEventListener('click', () => {
+      dom.modalUploadExcel.classList.add('hidden');
+      dom.modalUploadExcel.classList.remove('flex');
+    });
+  }
+
+  if (dom.btnCancelUpload) {
+    dom.btnCancelUpload.addEventListener('click', () => {
+      dom.modalUploadExcel.classList.add('hidden');
+      dom.modalUploadExcel.classList.remove('flex');
+    });
+  }
+
+  if (dom.excelDropzone && dom.excelFileInput) {
+    dom.excelDropzone.addEventListener('click', () => dom.excelFileInput.click());
+    dom.excelFileInput.addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      try {
+        const parsed = await parseExcelFile(file);
+        pendingExcelData = parsed;
+        dom.uploadListName.value = parsed.listName;
+        dom.uploadWordCountBadge.textContent = parsed.wordCount;
+        dom.uploadSheetsCountBadge.textContent = `${parsed.sheets.length} egység`;
+        
+        dom.uploadPreviewTable.innerHTML = parsed.preview.map(w => `
+          <div class="flex items-center justify-between text-slate-300">
+            <span class="font-semibold text-white">${escapeHtml(w.english)}</span>
+            <span>${escapeHtml(w.hungarian)}</span>
+          </div>
+        `).join('');
+
+        dom.uploadPreviewSection.classList.remove('hidden');
+      } catch (err) {
+        showToast(err.message || "Hiba az Excel beolvasásakor!", "error");
+      }
+    });
+  }
+
+  if (dom.btnSaveUploadedList) {
+    dom.btnSaveUploadedList.addEventListener('click', async () => {
+      if (!pendingExcelData) return;
+      const listName = dom.uploadListName.value.trim() || pendingExcelData.listName;
+      await saveNewList(listName, pendingExcelData.words, pendingExcelData.sheets);
+      dom.modalUploadExcel.classList.add('hidden');
+      dom.modalUploadExcel.classList.remove('flex');
+      showToast("Szócsomag sikeresen mentve 20 szavas egységekben!", "success");
+      renderPackagesTab();
+    });
+  }
+
+  // Google Drive Modal eseményei
+  if (dom.btnOpenGdriveModal) {
+    dom.btnOpenGdriveModal.addEventListener('click', () => {
+      dom.modalGdriveConnect.classList.remove('hidden');
+      dom.modalGdriveConnect.classList.add('flex');
+    });
+  }
+
+  if (dom.btnCloseGdriveModal) {
+    dom.btnCloseGdriveModal.addEventListener('click', () => {
+      dom.modalGdriveConnect.classList.add('hidden');
+      dom.modalGdriveConnect.classList.remove('flex');
+    });
+  }
+
+  if (dom.btnCancelGdrive) {
+    dom.btnCancelGdrive.addEventListener('click', () => {
+      dom.modalGdriveConnect.classList.add('hidden');
+      dom.modalGdriveConnect.classList.remove('flex');
+    });
+  }
+
+  if (dom.formGdriveConnect) {
+    dom.formGdriveConnect.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const url = dom.gdriveLinkInput.value.trim();
+      const name = dom.gdriveCustomName.value.trim();
+      const sheetName = dom.gdriveSheetNames.value.trim();
+
+      showToast("Google Táblázat letöltése...", "info");
+      try {
+        const parsed = await fetchGoogleSheetsData(url, sheetName ? [sheetName] : []);
+        if (!parsed || !parsed.words || parsed.words.length === 0) {
+          throw new Error("Nem sikerült szavakat találni a táblázatban.");
+        }
+
+        await saveNewList(name || parsed.listName || "Google Táblázat", parsed.words, parsed.sheets);
+        dom.modalGdriveConnect.classList.add('hidden');
+        dom.modalGdriveConnect.classList.remove('flex');
+        showToast("Google Táblázat szinkronizálva!", "success");
+        renderPackagesTab();
+      } catch (err) {
+        showToast(err.message || "Hiba a Google Táblázat letöltésekor.", "error");
+      }
+    });
+  }
+
+  // Új üres lista készítése
+  if (dom.btnCreateEmptyList) {
+    dom.btnCreateEmptyList.addEventListener('click', async () => {
+      const name = prompt("Add meg az új szólista nevét:", "Saját szószedet");
+      if (name && name.trim()) {
+        await saveNewList(name.trim(), []);
+        showToast("Új üres lista létrehozva!", "success");
+        renderPackagesTab();
+      }
+    });
+  }
+
+  // Szavak szerkesztése modal
+  if (dom.btnCloseManageModal) {
+    dom.btnCloseManageModal.addEventListener('click', () => {
+      dom.modalManageList.classList.add('hidden');
+      dom.modalManageList.classList.remove('flex');
+    });
+  }
+
+  if (dom.btnDoneManageModal) {
+    dom.btnDoneManageModal.addEventListener('click', () => {
+      dom.modalManageList.classList.add('hidden');
+      dom.modalManageList.classList.remove('flex');
+      renderPackagesTab();
+    });
+  }
+
+  if (dom.formAddWord) {
+    dom.formAddWord.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (!activeManageListId) return;
+      const en = dom.addWordEnglish.value.trim();
+      const hu = dom.addWordHungarian.value.trim();
+      if (en && hu) {
+        await addWordToList(activeManageListId, en, hu);
+        dom.addWordEnglish.value = '';
+        dom.addWordHungarian.value = '';
+        const list = await getListById(activeManageListId);
+        renderManageWordsList(list);
+        renderPackagesTab();
+      }
+    });
+  }
+
+  if (dom.manageSearchInput) {
+    dom.manageSearchInput.addEventListener('input', async () => {
+      if (activeManageListId) {
+        const list = await getListById(activeManageListId);
+        renderManageWordsList(list);
+      }
+    });
+  }
+
+  // Törlés modal
+  if (dom.btnCloseDeleteModal) {
+    dom.btnCloseDeleteModal.addEventListener('click', closeDeleteModal);
+  }
+  if (dom.btnCancelDelete) {
+    dom.btnCancelDelete.addEventListener('click', closeDeleteModal);
+  }
   if (dom.btnConfirmDelete) {
     dom.btnConfirmDelete.addEventListener('click', async () => {
-      if (!pendingDeleteTarget) return;
-      const targetId = pendingDeleteTarget.id;
-      closeDeleteModal();
-      await deleteList(targetId);
-      await renderDashboard();
-      showToast("Szólista sikeresen törölve!", "danger");
+      if (pendingDeleteTargetId) {
+        await deleteList(pendingDeleteTargetId);
+        closeDeleteModal();
+        showToast("Szólista törölve.", "info");
+        renderPackagesTab();
+      }
     });
   }
 
-  // Google Drive integráció
-  if (dom.btnOpenGDriveModal) dom.btnOpenGDriveModal.addEventListener('click', () => openGDriveModal());
-  if (dom.btnCloseGDriveModal) dom.btnCloseGDriveModal.addEventListener('click', closeGDriveModal);
-  if (dom.btnCancelGDrive) dom.btnCancelGDrive.addEventListener('click', closeGDriveModal);
-  if (dom.formGDriveConnect) dom.formGDriveConnect.addEventListener('submit', handleGDriveSubmit);
-}
-
-// ==========================================
-// TOAST ÉS SEGÉDFÜGGVÉNYEK
-// ==========================================
-
-let toastTimeout = null;
-function showToast(message, type = 'success') {
-  if (!dom.appToast) return;
-  clearTimeout(toastTimeout);
-
-  dom.appToastMessage.textContent = message;
-  if (type === 'success') {
-    dom.appToast.className = 'fixed top-20 right-4 z-50 flex items-center gap-2.5 px-4 py-3 rounded-2xl shadow-xl text-xs sm:text-sm font-semibold bg-emerald-600 text-white border border-emerald-500 animate-pop-in';
-  } else if (type === 'danger' || type === 'error') {
-    dom.appToast.className = 'fixed top-20 right-4 z-50 flex items-center gap-2.5 px-4 py-3 rounded-2xl shadow-xl text-xs sm:text-sm font-semibold bg-rose-600 text-white border border-rose-500 animate-pop-in';
-  } else {
-    dom.appToast.className = 'fixed top-20 right-4 z-50 flex items-center gap-2.5 px-4 py-3 rounded-2xl shadow-xl text-xs sm:text-sm font-semibold bg-slate-900 text-white border border-slate-700 animate-pop-in';
+  // Minta excel letöltése
+  if (dom.btnDownloadSampleExcel) {
+    dom.btnDownloadSampleExcel.addEventListener('click', () => {
+      exportListToExcel("Minta_WL_Szokincs", [
+        { english: "achievement", hungarian: "teljesítmény, eredmény" },
+        { english: "opportunity", hungarian: "lehetőség" },
+        { english: "development", hungarian: "fejlesztés, fejlődés" },
+        { english: "challenge", hungarian: "kihívás" },
+        { english: "environment", hungarian: "környezet" },
+        { english: "experience", hungarian: "tapasztalat, élmény" },
+        { english: "knowledge", hungarian: "tudás, ismeret" },
+        { english: "successful", hungarian: "sikeres" },
+        { english: "improve", hungarian: "fejleszt, javít" },
+        { english: "solution", hungarian: "megoldás" }
+      ]);
+    });
   }
 
-  dom.appToast.classList.remove('hidden');
-  toastTimeout = setTimeout(() => {
-    if (dom.appToast) dom.appToast.classList.add('hidden');
-  }, 3500);
+  // Hash váltások figyelése
+  window.addEventListener('hashchange', handleRouting);
 }
 
-function showAuthError(msg) {
-  dom.authErrorText.textContent = msg;
-  dom.authErrorBanner.classList.remove('hidden');
-}
-
-function hideAuthError() {
-  dom.authErrorBanner.classList.add('hidden');
-}
-
-function openDeleteModal(list) {
-  pendingDeleteTarget = list;
-  dom.deleteConfirmTitle.textContent = "Szólista törlése";
-  dom.deleteConfirmMessage.innerHTML = `Biztosan törölni szeretnéd a(z) <strong>"${escapeHtml(list.name)}"</strong> listát?`;
+function openDeleteModal(listId) {
+  pendingDeleteTargetId = listId;
   dom.modalDeleteConfirm.classList.remove('hidden');
   dom.modalDeleteConfirm.classList.add('flex');
 }
 
 function closeDeleteModal() {
-  pendingDeleteTarget = null;
-  if (dom.modalDeleteConfirm) {
-    dom.modalDeleteConfirm.classList.add('hidden');
-    dom.modalDeleteConfirm.classList.remove('flex');
-  }
-}
-
-// ==========================================
-// 4. DASHBOARD RENDERELÉSE
-// ==========================================
-
-async function renderDashboard() {
-  if (!activeUser) return;
-  const lists = await getUserLists();
-
-  const totalLists = lists.length;
-  let totalWords = 0;
-  let totalPracticed = 0;
-
-  lists.forEach(l => {
-    totalWords += (l.words ? l.words.length : 0);
-    if (l.words) {
-      totalPracticed += l.words.filter(w => (w.timesPracticed || 0) > 0).length;
-    }
-  });
-
-  dom.statTotalLists.textContent = totalLists;
-  dom.statTotalWords.textContent = totalWords;
-  dom.statTotalPracticed.textContent = totalPracticed;
-  dom.listCountBadge.textContent = totalLists;
-
-  dom.listsGrid.innerHTML = '';
-
-  if (lists.length === 0) {
-    dom.emptyListsContainer.classList.remove('hidden');
-    dom.listsGrid.classList.add('hidden');
-    return;
-  }
-
-  dom.emptyListsContainer.classList.add('hidden');
-  dom.listsGrid.classList.remove('hidden');
-
-  lists.forEach(list => {
-    const card = document.createElement('div');
-    card.className = 'group bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 p-5 shadow-sm hover:shadow-md transition-all flex flex-col justify-between';
-
-    const wordCount = list.words ? list.words.length : 0;
-    const sheets = list.sheets || [];
-
-    card.innerHTML = `
-      <div>
-        <div class="flex items-start justify-between gap-2 mb-3">
-          <div class="flex items-center gap-2.5">
-            <div class="w-10 h-10 rounded-2xl bg-brand-50 dark:bg-brand-950/60 text-brand-600 dark:text-brand-400 flex items-center justify-center shrink-0">
-              <i data-lucide="book-marked" class="w-5 h-5"></i>
-            </div>
-            <div>
-              <h4 class="font-bold text-slate-900 dark:text-white line-clamp-1">${escapeHtml(list.name)}</h4>
-              <div class="text-[11px] text-slate-400">${wordCount} szó &bull; ${sheets.length} munkalap</div>
-            </div>
-          </div>
-          <div class="flex items-center gap-1">
-            <button class="btn-delete-list p-2 min-w-[40px] min-h-[40px] inline-flex items-center justify-center text-slate-400 hover:text-rose-600 rounded-xl transition-colors">
-              <i data-lucide="trash-2" class="w-4 h-4"></i>
-            </button>
-          </div>
-        </div>
-      </div>
-      <div class="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center gap-2">
-        <button class="btn-start-practice flex-1 min-h-[44px] py-2.5 px-3 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-semibold text-xs sm:text-sm transition-all flex items-center justify-center gap-1.5 shadow-sm">
-          <i data-lucide="play" class="w-3.5 h-3.5 fill-current"></i>
-          <span>Gyakorlás</span>
-        </button>
-      </div>
-    `;
-
-    card.querySelector('.btn-start-practice').addEventListener('click', () => startPractice(list.id));
-    card.querySelector('.btn-delete-list').addEventListener('click', () => openDeleteModal(list));
-
-    dom.listsGrid.appendChild(card);
-  });
-
-  refreshIcons();
-}
-
-// ==========================================
-// 5. MODÁLOK ÉS GYAKORLÁS LOGIKA
-// ==========================================
-
-function openUploadModal() {
-  pendingExcelData = null;
-  dom.excelFileInput.value = '';
-  dom.uploadPreviewSection.classList.add('hidden');
-  dom.excelDropzone.classList.remove('hidden');
-  dom.modalUploadExcel.classList.remove('hidden');
-  dom.modalUploadExcel.classList.add('flex');
-  refreshIcons();
-}
-
-function closeUploadModal() {
-  dom.modalUploadExcel.classList.add('hidden');
-  dom.modalUploadExcel.classList.remove('flex');
-}
-
-async function handleSelectedExcelFile(file) {
-  try {
-    const result = await parseExcelFile(file);
-    pendingExcelData = result;
-    dom.uploadListName.value = result.listName;
-    dom.uploadWordCountBadge.textContent = result.wordCount;
-    dom.excelDropzone.classList.add('hidden');
-    dom.uploadPreviewSection.classList.remove('hidden');
-    refreshIcons();
-  } catch (err) {
-    alert("Nem sikerült feldolgozni a fájlt:\n" + err.message);
-  }
-}
-
-function openGDriveModal() {
-  dom.modalGDriveConnect.classList.remove('hidden');
-  dom.modalGDriveConnect.classList.add('flex');
-}
-
-function closeGDriveModal() {
-  dom.modalGDriveConnect.classList.add('hidden');
-  dom.modalGDriveConnect.classList.remove('flex');
-}
-
-async function handleGDriveSubmit(e) {
-  e.preventDefault();
-  const url = dom.gdriveLinkInput ? dom.gdriveLinkInput.value.trim() : '';
-  if (!url) return;
-
-  try {
-    const newList = await connectGoogleDriveList(url, null, '');
-    closeGDriveModal();
-    await renderDashboard();
-    showToast(`Sikeres szinkronizáció!`, 'success');
-  } catch (err) {
-    showToast(err.message || "Hiba történt a Google Drive elérésekor!", 'danger');
-  }
-}
-
-async function startPractice(listId) {
-  const list = await getListById(listId);
-  if (!list || !list.words || list.words.length === 0) {
-    alert("Ez a lista nem tartalmaz szavakat!");
-    return;
-  }
-
-  currentActivePracticeConfig = { listId, sheetId: null, isMix: false };
-  currentPracticeSession = new PracticeSession(list, {
-    reverse: isReversePractice,
-    soundEnabled: isSoundEnabled
-  });
-
-  dom.practiceCurrentListTitle.textContent = list.name;
-  navigateTo('#practice');
-  renderCurrentQuizWord();
-}
-
-function renderCurrentQuizWord() {
-  clearAutoAdvance();
-  if (!currentPracticeSession) return;
-
-  const word = currentPracticeSession.nextWord();
-  if (!word) {
-    if (currentPracticeSession.isRoundComplete()) {
-      onPracticeRoundFinished();
-    } else {
-      navigateTo('#dashboard');
-    }
-    return;
-  }
-
-  dom.practiceFeedbackContainer.classList.add('hidden');
-  dom.practiceBtnText.textContent = 'Ellenőrzés';
-  dom.practicePromptWord.textContent = isReversePractice ? word.hungarian : word.english;
-  dom.practiceAnswerInput.value = '';
-  dom.practiceAnswerInput.disabled = false;
-  setTimeout(() => dom.practiceAnswerInput.focus(), 50);
-
-  if (isSoundEnabled && !isReversePractice) {
-    currentPracticeSession.speakCurrentWord();
-  }
-}
-
-async function handlePracticeAction() {
-  if (!currentPracticeSession) return;
-
-  if (currentPracticeSession.state === 'INCORRECT' || currentPracticeSession.state === 'CORRECT') {
-    clearAutoAdvance();
-    if (currentPracticeSession.isRoundComplete()) {
-      await onPracticeRoundFinished();
-    } else {
-      renderCurrentQuizWord();
-    }
-    return;
-  }
-
-  const answer = dom.practiceAnswerInput.value.trim();
-  if (!answer) return;
-
-  dom.practiceAnswerInput.disabled = true;
-  const result = await currentPracticeSession.checkAnswer(answer);
-
-  if (result.isCorrect) {
-    dom.practiceFeedbackContainer.className = 'p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 text-emerald-800 dark:text-emerald-200 flex items-center justify-between';
-    dom.practiceFeedbackContainer.innerHTML = `<span>🎉 Helyes válasz!</span>`;
-    dom.practiceFeedbackContainer.classList.remove('hidden');
-    dom.practiceBtnText.textContent = result.isRoundFinished ? 'Kör befejezése' : 'Következő szó';
-
-    autoAdvanceTimeout = setTimeout(() => {
-      if (currentPracticeSession && currentPracticeSession.state === 'CORRECT') {
-        if (currentPracticeSession.isRoundComplete()) {
-          onPracticeRoundFinished();
-        } else {
-          renderCurrentQuizWord();
-        }
-      }
-    }, 900);
-  } else {
-    dom.practiceFeedbackContainer.className = 'p-4 rounded-2xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 text-rose-900 dark:text-rose-100 space-y-1';
-    dom.practiceFeedbackContainer.innerHTML = `<div>Helyes válasz: <strong>${escapeHtml(result.correctAnswer)}</strong></div>`;
-    dom.practiceFeedbackContainer.classList.remove('hidden');
-    dom.practiceBtnText.textContent = result.isRoundFinished ? 'Kör befejezése' : 'Következő szó';
-  }
-}
-
-async function onPracticeRoundFinished() {
-  clearAutoAdvance();
-  alert("A gyakorlási kör véget ért!");
-  navigateTo('#dashboard');
-}
-
-function clearAutoAdvance() {
-  if (autoAdvanceTimeout) {
-    clearTimeout(autoAdvanceTimeout);
-    autoAdvanceTimeout = null;
-  }
-}
-
-// ==========================================
-// 6. STATISZTIKA NÉZET
-// ==========================================
-
-async function renderStatsView() {
-  if (!dom.statsListsContainer) return;
-  const lists = await getUserLists();
-
-  if (!lists || lists.length === 0) {
-    dom.statsEmptyState.classList.remove('hidden');
-    dom.statsListsContainer.innerHTML = '';
-    return;
-  }
-
-  dom.statsEmptyState.classList.add('hidden');
-  dom.statsListsContainer.innerHTML = '';
-
-  lists.forEach(list => {
-    const div = document.createElement('div');
-    div.className = 'p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm';
-    div.innerHTML = `
-      <h3 class="font-bold text-lg text-slate-900 dark:text-white">${escapeHtml(list.name)}</h3>
-      <p class="text-xs text-slate-500">${list.words ? list.words.length : 0} szó rögzítve</p>
-    `;
-    dom.statsListsContainer.appendChild(div);
-  });
+  pendingDeleteTargetId = null;
+  dom.modalDeleteConfirm.classList.add('hidden');
+  dom.modalDeleteConfirm.classList.remove('flex');
 }
 
 function escapeHtml(str) {
@@ -1187,4 +1447,19 @@ function escapeHtml(str) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;');
+}
+
+/**
+ * Alkalmazás indítása
+ */
+function initApp() {
+  initPWA();
+  initModalsAndEvents();
+  handleRouting();
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initApp);
+} else {
+  initApp();
 }

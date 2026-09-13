@@ -832,30 +832,51 @@ html.dark #btn-theme-toggle svg.lucide-moon,
 }
 
 /* ======================================================== */
-/* 8. FEJLÉC RESZPONZÍV ÉS BEJELENTKEZÉSI SZABÁLYOK         */
+/* 8. TABOK, 20 SZAVAS EGYSÉGEK ÉS AI FELADAT STÍLUSOK      */
 /* ======================================================== */
 
-/* Mobil nézetben (max-width: 768px) bejelentkezés előtt a logó, badge és a navigációs ikonok teljes elrejtése */
-@media (max-width: 768px) {
-  body.logged-out #nav-logo,
-  body:not(.logged-in) #nav-logo,
-  body.logged-out #public-nav-links,
-  body:not(.logged-in) #public-nav-links {
-    display: none !important;
-  }
+.tab-btn.active {
+  background-color: #4f46e5 !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 12px -2px rgba(79, 70, 229, 0.4) !important;
+  font-weight: 700 !important;
 }
 
-/* Szigorú nézetszétválasztás CSS szinten is */
-body.logged-out #view-dashboard,
-body:not(.logged-in) #view-dashboard,
-body.logged-out #view-practice,
-body:not(.logged-in) #view-practice,
-body.logged-out #view-stats,
-body:not(.logged-in) #view-stats {
-  display: none !important;
+.mc-option-btn {
+  transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-body.logged-in #view-landing {
-  display: none !important;
+.mc-option-btn:hover:not(:disabled) {
+  background-color: #334155 !important;
+  border-color: #6366f1 !important;
+  transform: translateY(-1px);
+}
+
+.mc-option-btn.correct {
+  background-color: #064e3b !important;
+  border-color: #10b981 !important;
+  color: #ecfdf5 !important;
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.4) !important;
+}
+
+.mc-option-btn.incorrect {
+  background-color: #881337 !important;
+  border-color: #f43f5e !important;
+  color: #fff1f2 !important;
+  box-shadow: 0 0 0 2px rgba(244, 63, 94, 0.4) !important;
+}
+
+.unit-card-locked {
+  opacity: 0.65;
+  filter: grayscale(40%);
+}
+
+.unit-card-unlocked {
+  border-color: rgba(99, 102, 241, 0.3);
+}
+
+.unit-card-mastered {
+  border-color: rgba(16, 185, 129, 0.4);
+  background: linear-gradient(135deg, rgba(6, 78, 59, 0.15) 0%, rgba(15, 23, 42, 0.8) 100%);
 }
 

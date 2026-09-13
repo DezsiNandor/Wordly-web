@@ -1,37 +1,34 @@
 /**
- * WL (Word Learning) - Kikérdező és Gyakorló Motor
+ * WL Wordly - Kikérdező és Gyakorló Motor (AI Multi-Format Support)
+ * Támogatja a 4 feladattípust:
+ * 1. MULTIPLE_CHOICE (Feleletválasztós 4 opcióval)
+ * 2. SENTENCE_CLOZE (Mondatkiegészítés kontextuális példamondattal)
+ * 3. MATCHING (Párosítás)
+ * 4. WRITTEN_RECALL (Begépelés szinonima- és elgépelés-toleranciával)
  */
 
-import { recordWordPractice } from './storage.js';
+import { recordWordPractice, recordMixPractice } from './storage.js';
+import { generateNextExercise, getContextualSentence } from './aiExerciseEngine.js';
 
 /**
- * Szöveg normalizálása az összehasonlításhoz:
- * 1. Kis- és nagybetű függetlenség (toLowerCase)
- * 2. Ékezetmentesítés (Diakritikus jelek eltávolítása NFD segítségével: alma = álma, kutya = kútya, almafa = álmafá, szék = szek)
- * 3. Alapvető írásjelek eltávolítása/figyelmen kívül hagyása (pont, vessző, kötőjel, kérdőjel, felkiáltójel stb.)
- * 4. Felesleges kezdő, záró és többszörös belső szóközök tisztítása (trim, replace(/\s+/g, ' '))
+ * Szöveg normalizálása az összehasonlításhoz
  */
 export function normalizeAnswer(text) {
   if (!text) return '';
   return String(text)
     .toLowerCase()
-    // Ékezetmentesítés: NFD dekompozíció és a kombináló diakritikus jelek eltávolítása
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
-    // Kötőjelek szóközzé alakítása
     .replace(/[-–—]/g, ' ')
-    // Alapvető írásjelek (pont, vessző, kérdőjel, felkiáltójel, kettőspont, idézőjelek stb.) eltávolítása
     .replace(/[.,?!:;'"„”`’/\\()[\]{}]/g, '')
-    // Belső többszörös szóközök eggyé alakítása
     .replace(/\s+/g, ' ')
-    // Kezdő és záró szóközök levágása
     .trim();
 }
 
 export const normalizeText = normalizeAnswer;
 
 /**
- * Két karakterlánc közötti Levenshtein-távolság kiszámítása (dinamikus programozás, O(min(m, n)) memória)
+ * Két karakterlánc közötti Levenshtein-távolság kiszámítása
  */
 export function levenshteinDistance(s1, s2) {
   if (s1 === s2) return 0;
@@ -43,20 +40,14 @@ export function levenshteinDistance(s1, s2) {
   let prev = new Array(n + 1);
   let curr = new Array(n + 1);
 
-  for (let j = 0; j <= n; j++) {
-    prev[j] = j;
-  }
+  for (let j = 0; j <= n; j++) prev[j] = j;
 
   for (let i = 1; i <= m; i++) {
     curr[0] = i;
     const c1 = s1.charCodeAt(i - 1);
     for (let j = 1; j <= n; j++) {
       const cost = c1 === s2.charCodeAt(j - 1) ? 0 : 1;
-      curr[j] = Math.min(
-        prev[j] + 1,       // törlés
-        curr[j - 1] + 1,   // beszúrás
-        prev[j - 1] + cost // csere
-      );
+      curr[j] = Math.min(prev[j] + 1, curr[j - 1] + 1, prev[j - 1] + cost);
     }
     const temp = prev;
     prev = curr;
@@ -79,10 +70,10 @@ export function shuffleArray(arr) {
 }
 
 /**
- * Szavak prioritás szerinti csoportosítása és rendezése:
- * 1. Újonnan érkezett / hozzáadott szavak (isNew === true) - egymás közt keverve
- * 2. Korábban elrontott / gyenge szavak (!isNew && timesPracticed > timesCorrect) - egymás közt keverve
- * 3. Normál / már rögzült szavak - egymás közt keverve
+ * Szavak prioritás szerinti rendezése:
+ * 1. Újonnan hozzáadott szavak (isNew: true)
+ * 2. Korábban elrontott szavak (timesPracticed > timesCorrect)
+ * 3. Normál szavak
  */
 export function generatePrioritizedRoundWords(words) {
   if (!Array.isArray(words) || words.length === 0) return [];
@@ -97,55 +88,86 @@ export function generatePrioritizedRoundWords(words) {
   ];
 }
 
+/**
+ * Angol kiejtés felolvasása böngésző TTS-sel
+ */
+export function speakEnglishWord(text) {
+  if (!window.speechSynthesis || !text) return;
+  try {
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(String(text).trim());
+    utterance.lang = 'en-US';
+    utterance.rate = 0.92;
+    utterance.pitch = 1.0;
+
+    const voices = window.speechSynthesis.getVoices();
+    const englishVoice = voices.find(v => (v.lang.includes('en-US') || v.lang.includes('en-GB')) && !v.name.includes('Google'));
+    if (englishVoice) {
+      utterance.voice = englishVoice;
+    }
+    window.speechSynthesis.speak(utterance);
+  } catch (e) {
+    console.debug("TTS hiba:", e);
+  }
+}
+
+/**
+ * Gyakorlási munkamenet osztály (PracticeSession)
+ */
 export class PracticeSession {
   constructor(list, options = {}) {
     this.list = list;
     this.options = {
-      reverse: options.reverse || false, // false: EN -> HU, true: HU -> EN
-      autoAdvanceMs: options.autoAdvanceMs || 800,
+      reverse: options.reverse || false,
+      autoAdvanceMs: options.autoAdvanceMs || 900,
       soundEnabled: options.soundEnabled !== false,
       sheetId: options.sheetId || null,
       isMix: options.isMix || false,
+      customWords: options.customWords || null,
+      exerciseType: options.exerciseType || 'AUTO_MIX', // 'AUTO_MIX' | 'MULTIPLE_CHOICE' | 'SENTENCE_CLOZE' | 'WRITTEN_RECALL'
       ...options
     };
 
-    // Munkalap vagy Mix mód szavainak előkészítése
     this.sheet = null;
-    if (this.options.sheetId && list.sheets) {
-      this.sheet = list.sheets.find(s => s.id === this.options.sheetId) || null;
-    }
 
-    if (this.sheet) {
-      this.words = [...(this.sheet.words || [])];
-      this.modeTitle = this.sheet.name;
-    } else if (this.options.isMix && list.sheets) {
-      // Mix mód: a teljesített (vagy feloldott) munkalapok szavaiból válogat
-      const masteredSheets = list.sheets.filter(s => 
-        (s.consecutivePerfectScores >= 2) || ((s.timesPassed || 0) >= 2) || s.isUnlocked
-      );
-      const pool = masteredSheets.length > 0 ? masteredSheets : list.sheets;
+    if (this.options.customWords && Array.isArray(this.options.customWords)) {
+      this.words = [...this.options.customWords];
+      this.modeTitle = "Mix Gyakorló (Kiválasztott egységek)";
+    } else if (this.options.sheetId && list && list.sheets) {
+      this.sheet = list.sheets.find(s => s.id === this.options.sheetId) || null;
+      if (this.sheet) {
+        this.words = [...(this.sheet.words || [])];
+        this.modeTitle = `${list.name} • ${this.sheet.name}`;
+      } else {
+        this.words = [...(list.words || [])];
+        this.modeTitle = list.name;
+      }
+    } else if (this.options.isMix && list && list.sheets) {
+      // Automatikus mix a feloldott szintek szavaiból
+      const unlockedSheets = list.sheets.filter(s => s.isUnlocked);
+      const pool = unlockedSheets.length > 0 ? unlockedSheets : list.sheets;
       const collected = [];
       pool.forEach(s => {
         if (s.words) collected.push(...s.words);
       });
       this.words = collected.length > 0 ? collected : [...(list.words || [])];
-      this.modeTitle = "Mix Gyakorlás (Mesterelt szintek)";
+      this.modeTitle = "Mix Gyakorlás (Feloldott egységek)";
     } else {
-      this.words = [...(list.words || [])];
-      this.modeTitle = list.name;
+      this.words = [...(list ? (list.words || []) : [])];
+      this.modeTitle = list ? list.name : "Gyakorlás";
     }
 
-    // Kör előkészítése: prioritás szerinti rendezés (új szavak elöl, rontottak másodikként, többi utána)
+    // Prioritásos sorrendbe állítás
     this.roundWords = generatePrioritizedRoundWords(this.words);
     this.roundTotal = this.roundWords.length;
     this.currentIndex = 0;
 
     this.currentWord = null;
+    this.currentExercise = null;
     this.previousWord = null;
     this.state = 'WAITING_INPUT'; // 'WAITING_INPUT' | 'CORRECT' | 'INCORRECT'
     this.lastUserInput = '';
-    
-    // Munkamenet statisztikák
+
     this.stats = {
       totalAnswered: 0,
       correctCount: 0,
@@ -153,50 +175,15 @@ export class PracticeSession {
       streak: 0,
       bestStreak: 0
     };
-
-    // Hangszintetizátor beállítása
-    this.initSpeech();
-  }
-
-  shuffleArray(arr) {
-    return shuffleArray(arr);
-  }
-
-  initSpeech() {
-    this.hasSpeech = 'speechSynthesis' in window;
   }
 
   /**
-   * Kiejti az angol szót szövegfelolvasóval
+   * Következő feladat lekérése
    */
-  speakCurrentWord() {
-    if (!this.hasSpeech || !this.currentWord) return;
-    try {
-      window.speechSynthesis.cancel();
-      const textToSpeak = this.options.reverse ? this.currentWord.hungarian : this.currentWord.english;
-      const lang = this.options.reverse ? 'hu-HU' : 'en-US';
-
-      const utterance = new SpeechSynthesisUtterance(textToSpeak);
-      utterance.lang = lang;
-      utterance.rate = 0.9;
-      window.speechSynthesis.speak(utterance);
-    } catch (e) {
-      console.warn("Beszédszintetizátor hiba:", e);
-    }
-  }
-
-  /**
-   * Új szó kiválasztása a körből
-   */
-  nextWord() {
-    if (this.roundWords.length === 0) {
-      this.currentWord = null;
-      return null;
-    }
-
-    // Ha a kör végére értünk
+  nextQuestion() {
     if (this.currentIndex >= this.roundWords.length) {
       this.currentWord = null;
+      this.currentExercise = null;
       return null;
     }
 
@@ -206,12 +193,30 @@ export class PracticeSession {
     this.state = 'WAITING_INPUT';
     this.lastUserInput = '';
 
-    return this.currentWord;
+    // AI feladat generálása
+    this.currentExercise = generateNextExercise(
+      this.currentWord,
+      this.words,
+      this.options.exerciseType,
+      this.options.reverse
+    );
+
+    // Ha a hang be van kapcsolva és angol szó a feladvány, felolvassa
+    if (this.options.soundEnabled && this.currentWord.english && !this.options.reverse) {
+      speakEnglishWord(this.currentWord.english);
+    }
+
+    return {
+      word: this.currentWord,
+      exercise: this.currentExercise,
+      progress: this.getProgress()
+    };
   }
 
-  /**
-   * Kör előrehaladás lekérése (pl. 3 / 10)
-   */
+  getCurrentExercise() {
+    return this.currentExercise;
+  }
+
   getProgress() {
     const current = Math.min(this.currentIndex, this.roundTotal);
     return {
@@ -221,35 +226,52 @@ export class PracticeSession {
     };
   }
 
-  /**
-   * Ellenőrzi, hogy a kör véget ért-e
-   */
   isRoundComplete() {
     return this.stats.totalAnswered >= this.roundTotal && this.roundTotal > 0;
   }
 
-  /**
-   * 100%-os hibátlan kör-e
-   */
   isPerfectScore() {
-    return this.stats.totalAnswered > 0 && 
-           this.stats.incorrectCount === 0 && 
+    return this.stats.totalAnswered > 0 &&
+           this.stats.incorrectCount === 0 &&
            this.stats.correctCount === this.stats.totalAnswered;
   }
 
   /**
-   * Felhasználó válaszának kiértékelése
+   * Válasz kiértékelése
    */
   async checkAnswer(userAnswer) {
     if (!this.currentWord || this.state !== 'WAITING_INPUT') return null;
 
     this.lastUserInput = String(userAnswer || '').trim();
     const isReverse = this.options.reverse;
-    const targetString = isReverse ? this.currentWord.english : this.currentWord.hungarian;
+    let isCorrect = false;
+    let hasTypo = false;
+    let matchedCandidate = null;
 
-    const matchResult = this.isAnswerMatching(this.lastUserInput, targetString);
-    const isCorrect = matchResult.isCorrect;
-    const hasTypo = matchResult.hasTypo;
+    const exercise = this.currentExercise;
+
+    if (exercise && exercise.type === 'MULTIPLE_CHOICE') {
+      // Feleletválasztós ellenőrzés
+      const targetStr = exercise.correctAnswer;
+      const cleanUser = normalizeAnswer(this.lastUserInput);
+      const cleanTarget = normalizeAnswer(targetStr);
+      isCorrect = (cleanUser === cleanTarget);
+      matchedCandidate = targetStr;
+    } else if (exercise && exercise.type === 'SENTENCE_CLOZE') {
+      // Mondatkiegészítés ellenőrzése
+      const targetStr = exercise.correctAnswer;
+      const cleanUser = normalizeAnswer(this.lastUserInput);
+      const cleanTarget = normalizeAnswer(targetStr);
+      isCorrect = (cleanUser === cleanTarget);
+      matchedCandidate = targetStr;
+    } else {
+      // Írásos begépelés / Szinonima-ellenőrzés
+      const targetString = isReverse ? this.currentWord.english : this.currentWord.hungarian;
+      const matchResult = this.isAnswerMatching(this.lastUserInput, targetString);
+      isCorrect = matchResult.isCorrect;
+      hasTypo = matchResult.hasTypo;
+      matchedCandidate = matchResult.matchedCandidate;
+    }
 
     const wasNew = Boolean(this.currentWord.isNew);
     this.stats.totalAnswered++;
@@ -270,22 +292,32 @@ export class PracticeSession {
       this.stats.streak = 0;
     }
 
-    // Eredmény mentése a munkalap és a lista statisztikájába
+    // Eredmény mentése
     try {
+      const listId = this.list ? this.list.id : null;
       const sheetId = this.sheet ? this.sheet.id : null;
-      await recordWordPractice(this.list.id, this.currentWord.id, isCorrect, sheetId);
+      if (listId) {
+        await recordWordPractice(listId, this.currentWord.id, isCorrect, sheetId);
+      }
+      if (this.options.isMix) {
+        recordMixPractice(isCorrect ? 1 : 0, 1);
+      }
     } catch (e) {
-      console.warn("Nem sikerült elmenteni a gyakorlási statisztikát:", e);
+      console.warn("Gyakorlás rögzítési figyelmeztetés:", e);
     }
+
+    const targetDisplay = isReverse ? this.currentWord.english : this.currentWord.hungarian;
+    const promptDisplay = isReverse ? this.currentWord.hungarian : this.currentWord.english;
 
     return {
       isCorrect,
       hasTypo,
       learnedNewWord: isCorrect && wasNew,
-      matchedCandidate: matchResult.matchedCandidate,
+      matchedCandidate,
       userAnswer: this.lastUserInput,
-      correctAnswer: targetString,
-      promptWord: isReverse ? this.currentWord.hungarian : this.currentWord.english,
+      correctAnswer: targetDisplay,
+      promptWord: promptDisplay,
+      exercise: this.currentExercise,
       stats: { ...this.stats },
       isRoundFinished: this.isRoundComplete(),
       isPerfect: this.isPerfectScore()
@@ -293,29 +325,24 @@ export class PracticeSession {
   }
 
   /**
-   * Intelligens válaszösszehasonlítás:
-   * 1. Kis- és nagybetű függetlenség, ékezetmentesítés, szóköz- és írásjeltisztítás
-   * 2. Szinonimák és kiegészítő zárójeles kifejezések kezelése
-   * 3. Apró elütések tolerálása (legalább 5 karakteres szavaknál legfeljebb 1 Levenshtein eltérés)
+   * Intelligens válaszellenőrzés szinonimákkal és elütés-kezeléssel
    */
   isAnswerMatching(userAnswer, targetAnswer) {
-    const cleanUser = this.normalizeAnswer(userAnswer);
+    const cleanUser = normalizeAnswer(userAnswer);
     if (!cleanUser) return { isCorrect: false, hasTypo: false };
 
     const candidates = this.extractAnswerCandidates(targetAnswer);
 
-    // 1. Kör: Pontos normalizált egyezés (ékezet- és írásjelfüggetlen)
     for (const candidate of candidates) {
-      const cleanTarget = this.normalizeAnswer(candidate);
+      const cleanTarget = normalizeAnswer(candidate);
       if (cleanTarget && cleanUser === cleanTarget) {
         return { isCorrect: true, hasTypo: false, matchedCandidate: candidate };
       }
     }
 
-    // 2. Kör: Apró elütés tolerálása (Levenshtein távolság <= 1)
-    // Csak ha a cél-kifejezés legalább 5 karakter hosszú
+    // Levenshtein eltérés kiszűrése
     for (const candidate of candidates) {
-      const cleanTarget = this.normalizeAnswer(candidate);
+      const cleanTarget = normalizeAnswer(candidate);
       if (cleanTarget && cleanTarget.length >= 5 && Math.abs(cleanUser.length - cleanTarget.length) <= 1) {
         const dist = levenshteinDistance(cleanUser, cleanTarget);
         if (dist <= 1) {
@@ -327,42 +354,27 @@ export class PracticeSession {
     return { isCorrect: false, hasTypo: false };
   }
 
-  /**
-   * Összes elfogadható cél-kifejezés kinyerése (szinonimák, zárójelek nélküli formák)
-   */
   extractAnswerCandidates(targetAnswer) {
     if (!targetAnswer) return [];
     const candidates = new Set();
     const raw = String(targetAnswer).trim();
     if (!raw) return [];
 
-    // 1. Teljes szöveg
     candidates.add(raw);
-
-    // 2. Zárójelek eltávolításával (pl. "tud (valamit)" -> "tud")
     const withoutParens = raw.replace(/\([^)]*\)/g, '').replace(/\s+/g, ' ').trim();
     if (withoutParens) candidates.add(withoutParens);
 
-    // 3. Szinonimák bontása vessző, pontosvessző, perjel mentén
     const parts = raw.split(/[,;/]+/);
     for (const part of parts) {
       const trimmed = part.trim();
       if (trimmed) {
         candidates.add(trimmed);
-        const partNoParens = trimmed.replace(/\([^)]*\)/g, '').replace(/\s+/g, ' ').trim();
-        if (partNoParens) candidates.add(partNoParens);
+        const pNoParens = trimmed.replace(/\([^)]*\)/g, '').replace(/\s+/g, ' ').trim();
+        if (pNoParens) candidates.add(pNoParens);
       }
     }
 
     return Array.from(candidates);
-  }
-
-  normalizeAnswer(text) {
-    return normalizeAnswer(text);
-  }
-
-  normalizeText(str) {
-    return normalizeAnswer(str);
   }
 
   getAccuracyPercentage() {
