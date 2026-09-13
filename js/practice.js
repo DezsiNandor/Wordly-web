@@ -91,73 +91,98 @@ export function generatePrioritizedRoundWords(words) {
   ];
 }
 
+let sharedAudioCtx = null;
+
 /**
  * Kíméletes sípoló hang (Web Audio API) a kitalálandó szó helyén írásos feladatoknál
+ * Egyetlen megosztott AudioContext-et használ a böngészők 6-os hardverlimitjének megelőzésére.
  */
 export function playBlankBeep() {
   try {
     const AudioCtx = window.AudioContext || window.webkitAudioContext;
     if (!AudioCtx) return;
-    const ctx = new AudioCtx();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
+    if (!sharedAudioCtx || sharedAudioCtx.state === 'closed') {
+      sharedAudioCtx = new AudioCtx();
+    }
+    if (sharedAudioCtx.state === 'suspended') {
+      sharedAudioCtx.resume();
+    }
+    const osc = sharedAudioCtx.createOscillator();
+    const gain = sharedAudioCtx.createGain();
     osc.type = 'sine';
-    osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5 tiszta zenei hang
-    gain.gain.setValueAtTime(0.12, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.22);
+    osc.frequency.setValueAtTime(587.33, sharedAudioCtx.currentTime); // D5 tiszta zenei hang
+    gain.gain.setValueAtTime(0.12, sharedAudioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, sharedAudioCtx.currentTime + 0.22);
     osc.connect(gain);
-    gain.connect(ctx.destination);
+    gain.connect(sharedAudioCtx.destination);
     osc.start();
-    osc.stop(ctx.currentTime + 0.22);
+    osc.stop(sharedAudioCtx.currentTime + 0.22);
   } catch (e) {
-    // AudioContext blokkolás vagy hiba némán lekezelve
+    // AudioContext hiba vagy blokkolás némán lekezelve
   }
 }
 
 /**
- * Angol kiejtés felolvasása böngésző TTS-sel (Web Speech API)
- * - Normál sebesség: rate = 1.0
- * - Lassú sebesség: rate = 0.55 (érthető, tiszta beszéd)
- * - Nyelv: en-US vagy en-GB
+ * Közvetlen hang lejátszó függvény (Web Speech API)
+ * - Mindig meghívja a cancel()-t a beragadt hangsorok feloldására
+ * - Normál: rate = 1.0
+ * - Lassú (Csiga): rate = 0.55
  */
-export function speakEnglishWord(text, options = {}) {
-  if (!window.speechSynthesis || !text) return;
+export function playAudio(textToSpeak, rate = 1.0) {
+  if (typeof window === 'undefined' || !('speechSynthesis' in window) || !textToSpeak) return;
   try {
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(String(text).trim());
-    utterance.lang = 'en-US';
-
-    let rate = 1.0;
-    if (typeof options === 'number') {
-      rate = options;
-    } else if (options && typeof options.rate === 'number') {
-      rate = options.rate;
-    } else if (options && options.slow) {
-      rate = 0.55;
+    window.speechSynthesis.cancel(); // Előző hang törlése azonnal!
+    if (window.speechSynthesis.paused) {
+      window.speechSynthesis.resume();
     }
-    utterance.rate = rate;
+    const cleanText = String(textToSpeak).trim();
+    if (!cleanText) return;
+
+    const utterance = new SpeechSynthesisUtterance(cleanText);
+    utterance.lang = 'en-US';
+    utterance.rate = Number(rate) || 1.0;
     utterance.pitch = 1.0;
 
     const voices = window.speechSynthesis.getVoices();
-    const englishVoice = voices.find(v => (v.lang.includes('en-US') || v.lang.includes('en-GB')) && !v.name.includes('Google')) ||
-                         voices.find(v => v.lang.startsWith('en'));
-    if (englishVoice) {
-      utterance.voice = englishVoice;
+    if (voices && voices.length > 0) {
+      const enVoice = voices.find(v => v.lang === 'en-US') || voices.find(v => v.lang.startsWith('en'));
+      if (enVoice) {
+        utterance.voice = enVoice;
+      }
     }
+
     window.speechSynthesis.speak(utterance);
   } catch (e) {
-    console.debug("TTS hiba:", e);
+    console.warn("TTS hiba:", e);
   }
+}
+
+/**
+ * Angol szó kiejtése beállításokkal (Normál / Lassú)
+ */
+export function speakEnglishWord(text, options = {}) {
+  let rate = 1.0;
+  if (typeof options === 'number') {
+    rate = options;
+  } else if (options && typeof options.rate === 'number') {
+    rate = options.rate;
+  } else if (options && options.slow) {
+    rate = 0.55;
+  }
+  playAudio(text, rate);
 }
 
 /**
  * Példamondat felolvasása úgy, hogy a kitalálandó szó helyén sípolás / szünet / "blank" hallatszik
  * Szigorú válaszvédelem írásos és betűkirakós feladatokhoz!
  */
-export function speakSentenceWithBlank(sentence, options = {}) {
-  if (!window.speechSynthesis || !sentence) return;
+export function speakSentenceWithBlank(sentence, options = {}, targetWord = '') {
+  if (typeof window === 'undefined' || !('speechSynthesis' in window) || !sentence) return;
   try {
     window.speechSynthesis.cancel();
+    if (window.speechSynthesis.paused) {
+      window.speechSynthesis.resume();
+    }
     playBlankBeep();
 
     let rate = 0.95;
@@ -169,9 +194,15 @@ export function speakSentenceWithBlank(sentence, options = {}) {
       rate = 0.55;
     }
 
-    // A hiányzó rész helyére tiszta 'blank' szót teszünk a mondatban
-    const safeText = String(sentence)
-      .replace(/<[^>]*>/g, '') // HTML címkék eltávolítása
+    // A hiányzó rész és a cél szó helyére tiszta 'blank' szót teszünk a mondatban
+    let safeText = String(sentence).replace(/<[^>]*>/g, '');
+    if (targetWord) {
+      try {
+        const escaped = String(targetWord).trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        safeText = safeText.replace(new RegExp(escaped, 'gi'), 'blank');
+      } catch (e) {}
+    }
+    safeText = safeText
       .replace(/_{2,}/g, ' blank ')
       .replace(/\s+/g, ' ')
       .trim();
@@ -182,36 +213,44 @@ export function speakSentenceWithBlank(sentence, options = {}) {
     utterance.pitch = 1.0;
 
     const voices = window.speechSynthesis.getVoices();
-    const englishVoice = voices.find(v => (v.lang.includes('en-US') || v.lang.includes('en-GB')) && !v.name.includes('Google')) ||
-                         voices.find(v => v.lang.startsWith('en'));
-    if (englishVoice) {
-      utterance.voice = englishVoice;
+    if (voices && voices.length > 0) {
+      const enVoice = voices.find(v => v.lang === 'en-US') || voices.find(v => v.lang.startsWith('en'));
+      if (enVoice) {
+        utterance.voice = enVoice;
+      }
     }
+
     window.speechSynthesis.speak(utterance);
   } catch (e) {
-    console.debug("TTS sentence hiba:", e);
+    console.warn("TTS sentence hiba:", e);
   }
 }
 
 /**
- * Ellenőrzi, hogy a feladat olyan írásos/betűkirakós feladat-e,
- * ahol a szó kiejtése elárulná a megoldást a felhasználónak.
+ * Ellenőrzi, hogy a feladat olyan feladat-e, ahol a szó kiejtése elárulná a megoldást.
+ * Spoileres: WORD_SCRAMBLE, FILL_BLANK (bármely mód), gépelés, fordított mód, és ha a kérdés nem maga a szó.
  */
 export function isAudioSpoilerExercise(exercise, options = {}) {
   if (!exercise) return false;
-  const isReverse = Boolean(options && (options.reverse || exercise.targetLanguage === 'en'));
+  if (exercise.type === 'LISTENING') return false;
 
   // 1. Betűkeverő (Word Scramble): a betűkből kell kirakni az angol szót
   if (exercise.type === 'WORD_SCRAMBLE') return true;
 
-  // 2. Mondatkiegészítés gépelős mód: be kell írni az angol szót a mondatba
-  if (exercise.type === 'FILL_BLANK' && exercise.subMode === 'typing') return true;
+  // 2. Mondatkiegészítés (akár gépelős, akár opciós! Mert a cél a hiányzó szó megtalálása)
+  if (exercise.type === 'FILL_BLANK') return true;
 
-  // 3. Írásbeli visszahívás: ha az angol szót kell begépelni
-  if (exercise.type === 'WRITTEN_RECALL' && isReverse) return true;
+  // 3. Írásbeli visszahívás vagy gépelős feladat
+  if (exercise.subMode === 'typing' || exercise.type === 'WRITTEN_RECALL') return true;
 
-  // 4. Bármely más feladat fordított módban, ahol az angol szó a rejtendő megoldás (kivéve LISTENING)
-  if (isReverse && exercise.type !== 'LISTENING') return true;
+  // 4. Fordított mód (magyarról angolra) vagy a válasz célnyelve angol
+  const isReverse = Boolean(options && (options.reverse || exercise.targetLanguage === 'en'));
+  if (isReverse) return true;
+
+  // 5. Ha a fejlécben nem maga az angol szó szerepel
+  if (exercise.promptLanguage === 'hu' || (exercise.prompt && exercise.targetWord && exercise.prompt !== exercise.targetWord.english)) {
+    return true;
+  }
 
   return false;
 }
@@ -304,12 +343,11 @@ export class PracticeSession {
       this.options.reverse
     );
 
-    // Kiejtés lejátszása: Listening típusnál vagy ha nem spoiler-érzékeny írásos/kirakós feladat
+    // Kiejtés lejátszása: KIZÁRÓLAG Listening típusnál fut le automatikusan a kérdés betöltésekor!
+    // Semmilyen más feladatnál (írásos/gépelős/scramble/fordított/stb.) NEM futhat auto-speak!
     if (this.options.soundEnabled && this.currentWord && this.currentWord.english) {
       if (this.currentExercise && this.currentExercise.type === 'LISTENING') {
-        speakEnglishWord(this.currentWord.english, { rate: 1.0 });
-      } else if (!isAudioSpoilerExercise(this.currentExercise, this.options)) {
-        speakEnglishWord(this.currentWord.english, { rate: 1.0 });
+        playAudio(this.currentWord.english, 1.0);
       }
     }
 

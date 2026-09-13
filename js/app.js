@@ -29,6 +29,7 @@ import {
 
 import { 
   PracticeSession, 
+  playAudio,
   speakEnglishWord,
   speakSentenceWithBlank,
   playBlankBeep,
@@ -1021,7 +1022,7 @@ function renderListeningExercise(exercise, word) {
   }
 
   if (isSoundOn && exercise.audioWord) {
-    speakEnglishWord(exercise.audioWord);
+    playAudio(exercise.audioWord, 1.0);
   }
 }
 
@@ -1289,15 +1290,19 @@ async function submitPracticeAnswer(userAnswer, targetBtn = null) {
 
   const postSpeakBtn = dom.practiceFeedbackContainer.querySelector('.btn-post-speak');
   if (postSpeakBtn && currentWord.english) {
-    postSpeakBtn.addEventListener('click', () => {
-      speakEnglishWord(currentWord.english, { rate: 1.0 });
+    postSpeakBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      clearTimeout(autoAdvanceTimer);
+      playAudio(currentWord.english, 1.0);
     });
   }
 
   const postSpeakSlowBtn = dom.practiceFeedbackContainer.querySelector('.btn-post-speak-slow');
   if (postSpeakSlowBtn && currentWord.english) {
-    postSpeakSlowBtn.addEventListener('click', () => {
-      speakEnglishWord(currentWord.english, { slow: true, rate: 0.55 });
+    postSpeakSlowBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      clearTimeout(autoAdvanceTimer);
+      playAudio(currentWord.english, 0.55);
     });
   }
 
@@ -1676,6 +1681,72 @@ function renderManageWordsList(list) {
 }
 
 /**
+ * Hang lejátszás és szó felolvasás kezelése (Normál / Lassú)
+ */
+function handleSpeakPromptWord(isSlow = false, event = null) {
+  if (event) {
+    try {
+      event.preventDefault();
+      event.stopPropagation();
+    } catch (e) {}
+  }
+
+  if (!currentSession || !currentSession.currentWord) {
+    const promptEl = dom.practicePromptWord;
+    const promptText = promptEl ? promptEl.textContent.trim() : '';
+    if (promptText && promptText !== 'word') {
+      playAudio(promptText, isSlow ? 0.55 : 1.0);
+    }
+    return;
+  }
+
+  const word = currentSession.currentWord;
+  const exercise = currentSession.currentExercise;
+  const isWaitingInput = currentSession.state === 'WAITING_INPUT';
+  const rate = isSlow ? 0.55 : 1.0;
+
+  // 2. Szabály: Írásos / betűkirakós / kitöltős feladatoknál válaszadás előtt TILOS a szót kimondani!
+  if (isWaitingInput && isAudioSpoilerExercise(exercise, currentSession.options)) {
+    let sentence = exercise?.sentenceWithBlank;
+    if (!sentence && exercise?.fullSentence) {
+      try {
+        const escaped = String(word.english).trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        sentence = exercise.fullSentence.replace(new RegExp(escaped, 'gi'), 'blank');
+      } catch (e) {
+        sentence = exercise.fullSentence;
+      }
+    }
+
+    if (sentence) {
+      speakSentenceWithBlank(sentence, { slow: isSlow, rate: isSlow ? 0.55 : 0.95 }, word.english);
+      showToast("💡 Írásos feladat: a kitalálandó szó helyén sípolás és 'blank' hangzik el!", "info");
+    } else {
+      playBlankBeep();
+      showToast("🔒 A szó pontos kiejtése az ellenőrzés után hallgatható meg!", "warning");
+    }
+    return;
+  }
+
+  // Normál vagy ellenőrzés utáni kiejtés (1.0x normál vagy 0.55x lassú)
+  playAudio(word.english, rate);
+}
+
+// Globális eseménykezelők HTML inline onclick hívásokhoz is
+window.playAudio = playAudio;
+window.speakEnglishWord = speakEnglishWord;
+window.playWordlyNormalAudio = (e) => handleSpeakPromptWord(false, e);
+window.playWordlySlowAudio = (e) => handleSpeakPromptWord(true, e);
+window.playListeningAudio = (isSlow = false, e = null) => {
+  if (e) {
+    try { e.preventDefault(); e.stopPropagation(); } catch (err) {}
+  }
+  const audioWord = currentSession?.currentExercise?.audioWord || currentSession?.currentWord?.english;
+  if (audioWord) {
+    playAudio(audioWord, isSlow ? 0.55 : 1.0);
+  }
+};
+
+/**
  * -----------------------------------------------------------------------------
  * 6. MODÁLIS ABLAKOK ÉS ESEMÉNYEK INICIALIZÁLÁSA
  * -----------------------------------------------------------------------------
@@ -1733,35 +1804,12 @@ function initModalsAndEvents() {
     });
   }
 
-  function handleSpeakPromptWord(isSlow = false) {
-    if (!currentSession || !currentSession.currentWord) return;
-    const word = currentSession.currentWord;
-    const exercise = currentSession.currentExercise;
-    const isWaitingInput = currentSession.state === 'WAITING_INPUT';
-
-    // 2. Szabály: Írásos/betűkirakós feladatoknál válaszadás előtt TILOS a szót kimondani!
-    if (isWaitingInput && isAudioSpoilerExercise(exercise, currentSession.options)) {
-      const sentence = exercise?.sentenceWithBlank || (exercise?.fullSentence ? exercise.fullSentence.replace(new RegExp(`\\b${word.english}\\b`, 'gi'), 'blank') : null);
-      if (sentence) {
-        speakSentenceWithBlank(sentence, { slow: isSlow, rate: isSlow ? 0.55 : 0.95 });
-        showToast("💡 Írásos feladat: a szó helyett sípolás / 'blank' hangzik el a megoldás védelméért!", "info");
-      } else {
-        playBlankBeep();
-        showToast("🔒 A szó pontos kiejtése az ellenőrzés után hallgatható meg!", "warning");
-      }
-      return;
-    }
-
-    // Normál vagy ellenőrzés utáni kiejtés (1.0x normál vagy 0.55x lassú)
-    speakEnglishWord(word.english, { slow: isSlow, rate: isSlow ? 0.55 : 1.0 });
-  }
-
   if (dom.btnSpeakWord) {
-    dom.btnSpeakWord.addEventListener('click', () => handleSpeakPromptWord(false));
+    dom.btnSpeakWord.onclick = (e) => handleSpeakPromptWord(false, e);
   }
 
   if (dom.btnSpeakWordSlow) {
-    dom.btnSpeakWordSlow.addEventListener('click', () => handleSpeakPromptWord(true));
+    dom.btnSpeakWordSlow.onclick = (e) => handleSpeakPromptWord(true, e);
   }
 
   // Begépelős feladat beküldése
@@ -1779,7 +1827,16 @@ function initModalsAndEvents() {
     });
   }
 
-  // Fill-in-the-blank gépelés beküldése
+  // Betűkeverő (Word Scramble) gombok
+  if (dom.btnScrambleUndo) {
+    dom.btnScrambleUndo.addEventListener('click', undoLastScrambleTile);
+  }
+
+  if (dom.btnScrambleReset) {
+    dom.btnScrambleReset.addEventListener('click', resetScrambleTiles);
+  }
+
+  // Mondatkiegészítés gépelős beküldés
   if (dom.btnFillBlankSubmit) {
     dom.btnFillBlankSubmit.addEventListener('click', () => {
       submitPracticeAnswer(dom.fillBlankInput.value);
@@ -1794,16 +1851,7 @@ function initModalsAndEvents() {
     });
   }
 
-  // Betűkeverő (Word Scramble) vezérlők
-  if (dom.btnScrambleUndo) {
-    dom.btnScrambleUndo.addEventListener('click', undoLastScrambleTile);
-  }
-
-  if (dom.btnScrambleReset) {
-    dom.btnScrambleReset.addEventListener('click', resetScrambleTiles);
-  }
-
-  // Villám-döntő (True / False) gombok
+  // Villám-döntő Igaz/Hamis gombok
   if (dom.btnTfTrue) {
     dom.btnTfTrue.addEventListener('click', () => {
       submitPracticeAnswer('true', dom.btnTfTrue);
@@ -1818,21 +1866,11 @@ function initModalsAndEvents() {
 
   // Hallás utáni (Listening) újrahallgatás gombok (normál 1.0x és lassú 0.55x)
   if (dom.btnListeningReplay) {
-    dom.btnListeningReplay.addEventListener('click', () => {
-      const audioWord = currentSession?.currentExercise?.audioWord || currentSession?.currentWord?.english;
-      if (audioWord) {
-        speakEnglishWord(audioWord, { rate: 1.0 });
-      }
-    });
+    dom.btnListeningReplay.onclick = (e) => window.playListeningAudio(false, e);
   }
 
   if (dom.btnListeningReplaySlow) {
-    dom.btnListeningReplaySlow.addEventListener('click', () => {
-      const audioWord = currentSession?.currentExercise?.audioWord || currentSession?.currentWord?.english;
-      if (audioWord) {
-        speakEnglishWord(audioWord, { slow: true, rate: 0.55 });
-      }
-    });
+    dom.btnListeningReplaySlow.onclick = (e) => window.playListeningAudio(true, e);
   }
 
   // Billentyűzet gyorsgombok és intelligens interakció
@@ -2227,8 +2265,10 @@ window.__wordly = {
   generateTrueFalseQuestion,
   generateContextMatchingQuestion,
   generateListeningQuestion,
+  playAudio,
   speakEnglishWord,
   speakSentenceWithBlank,
   playBlankBeep,
-  isAudioSpoilerExercise
+  isAudioSpoilerExercise,
+  handleSpeakPromptWord
 };
