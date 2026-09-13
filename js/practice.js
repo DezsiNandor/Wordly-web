@@ -1,14 +1,17 @@
 /**
  * WL Wordly - Kikérdező és Gyakorló Motor (AI Multi-Format Support)
- * Támogatja a 4 feladattípust:
- * 1. MULTIPLE_CHOICE (Feleletválasztós 4 opcióval)
- * 2. SENTENCE_CLOZE (Mondatkiegészítés kontextuális példamondattal)
- * 3. MATCHING (Párosítás)
- * 4. WRITTEN_RECALL (Begépelés szinonima- és elgépelés-toleranciával)
+ * Támogatja az összes interaktív feladattípust:
+ * 1. MULTIPLE_CHOICE
+ * 2. FILL_BLANK
+ * 3. WORD_SCRAMBLE
+ * 4. TRUE_FALSE
+ * 5. CONTEXT_MATCH
+ * 6. LISTENING
+ * 7. WRITTEN_RECALL
  */
 
 import { recordWordPractice, recordMixPractice } from './storage.js';
-import { generateNextExercise, getContextualSentence } from './aiExerciseEngine.js';
+import { generateNextExercise } from './aiExerciseEngine.js';
 
 /**
  * Szöveg normalizálása az összehasonlításhoz
@@ -89,7 +92,7 @@ export function generatePrioritizedRoundWords(words) {
 }
 
 /**
- * Angol kiejtés felolvasása böngésző TTS-sel
+ * Angol kiejtés felolvasása böngésző TTS-sel (Web Speech API)
  */
 export function speakEnglishWord(text) {
   if (!window.speechSynthesis || !text) return;
@@ -119,12 +122,12 @@ export class PracticeSession {
     this.list = list;
     this.options = {
       reverse: options.reverse || false,
-      autoAdvanceMs: options.autoAdvanceMs || 900,
+      autoAdvanceMs: options.autoAdvanceMs || 1000,
       soundEnabled: options.soundEnabled !== false,
       sheetId: options.sheetId || null,
       isMix: options.isMix || false,
       customWords: options.customWords || null,
-      exerciseType: options.exerciseType || 'AUTO_MIX', // 'AUTO_MIX' | 'MULTIPLE_CHOICE' | 'SENTENCE_CLOZE' | 'WRITTEN_RECALL'
+      exerciseType: options.exerciseType || 'AUTO_MIX',
       ...options
     };
 
@@ -143,7 +146,6 @@ export class PracticeSession {
         this.modeTitle = list.name;
       }
     } else if (this.options.isMix && list && list.sheets) {
-      // Automatikus mix a feloldott szintek szavaiból
       const unlockedSheets = list.sheets.filter(s => s.isUnlocked);
       const pool = unlockedSheets.length > 0 ? unlockedSheets : list.sheets;
       const collected = [];
@@ -157,7 +159,6 @@ export class PracticeSession {
       this.modeTitle = list ? list.name : "Gyakorlás";
     }
 
-    // Prioritásos sorrendbe állítás
     this.roundWords = generatePrioritizedRoundWords(this.words);
     this.roundTotal = this.roundWords.length;
     this.currentIndex = 0;
@@ -165,7 +166,7 @@ export class PracticeSession {
     this.currentWord = null;
     this.currentExercise = null;
     this.previousWord = null;
-    this.state = 'WAITING_INPUT'; // 'WAITING_INPUT' | 'CORRECT' | 'INCORRECT'
+    this.state = 'WAITING_INPUT';
     this.lastUserInput = '';
 
     this.stats = {
@@ -201,9 +202,13 @@ export class PracticeSession {
       this.options.reverse
     );
 
-    // Ha a hang be van kapcsolva és angol szó a feladvány, felolvassa
-    if (this.options.soundEnabled && this.currentWord.english && !this.options.reverse) {
-      speakEnglishWord(this.currentWord.english);
+    // Kiejtés lejátszása: ha Listening típus, vagy ha hang engedélyezve van és nem hallás utáni típus
+    if (this.options.soundEnabled && this.currentWord.english) {
+      if (this.currentExercise.type === 'LISTENING') {
+        speakEnglishWord(this.currentWord.english);
+      } else if (!this.options.reverse && this.currentExercise.type !== 'WORD_SCRAMBLE') {
+        speakEnglishWord(this.currentWord.english);
+      }
     }
 
     return {
@@ -251,21 +256,36 @@ export class PracticeSession {
     const exercise = this.currentExercise;
 
     if (exercise && exercise.type === 'MULTIPLE_CHOICE') {
-      // Feleletválasztós ellenőrzés
       const targetStr = exercise.correctAnswer;
       const cleanUser = normalizeAnswer(this.lastUserInput);
       const cleanTarget = normalizeAnswer(targetStr);
       isCorrect = (cleanUser === cleanTarget);
       matchedCandidate = targetStr;
-    } else if (exercise && exercise.type === 'SENTENCE_CLOZE') {
-      // Mondatkiegészítés ellenőrzése
+    } else if (exercise && exercise.type === 'FILL_BLANK') {
+      const targetStr = exercise.correctAnswer;
+      const cleanUser = normalizeAnswer(this.lastUserInput);
+      const cleanTarget = normalizeAnswer(targetStr);
+      isCorrect = (cleanUser === cleanTarget);
+      matchedCandidate = targetStr;
+    } else if (exercise && exercise.type === 'WORD_SCRAMBLE') {
+      const targetStr = exercise.correctAnswer;
+      const cleanUser = normalizeAnswer(this.lastUserInput);
+      const cleanTarget = normalizeAnswer(targetStr);
+      isCorrect = (cleanUser === cleanTarget);
+      matchedCandidate = targetStr;
+    } else if (exercise && exercise.type === 'TRUE_FALSE') {
+      isCorrect = (this.lastUserInput.toLowerCase() === String(exercise.correctAnswer).toLowerCase());
+      matchedCandidate = exercise.targetWord.hungarian;
+    } else if (exercise && exercise.type === 'CONTEXT_MATCH') {
+      isCorrect = (this.lastUserInput === 'all_matched');
+      matchedCandidate = exercise.targetWord.english;
+    } else if (exercise && exercise.type === 'LISTENING') {
       const targetStr = exercise.correctAnswer;
       const cleanUser = normalizeAnswer(this.lastUserInput);
       const cleanTarget = normalizeAnswer(targetStr);
       isCorrect = (cleanUser === cleanTarget);
       matchedCandidate = targetStr;
     } else {
-      // Írásos begépelés / Szinonima-ellenőrzés
       const targetString = isReverse ? this.currentWord.english : this.currentWord.hungarian;
       const matchResult = this.isAnswerMatching(this.lastUserInput, targetString);
       isCorrect = matchResult.isCorrect;
@@ -292,7 +312,6 @@ export class PracticeSession {
       this.stats.streak = 0;
     }
 
-    // Eredmény mentése
     try {
       const listId = this.list ? this.list.id : null;
       const sheetId = this.sheet ? this.sheet.id : null;
@@ -306,7 +325,7 @@ export class PracticeSession {
       console.warn("Gyakorlás rögzítési figyelmeztetés:", e);
     }
 
-    const targetDisplay = isReverse ? this.currentWord.english : this.currentWord.hungarian;
+    const targetDisplay = (exercise && exercise.correctAnswer) ? exercise.correctAnswer : (isReverse ? this.currentWord.english : this.currentWord.hungarian);
     const promptDisplay = isReverse ? this.currentWord.hungarian : this.currentWord.english;
 
     return {
@@ -318,15 +337,13 @@ export class PracticeSession {
       correctAnswer: targetDisplay,
       promptWord: promptDisplay,
       exercise: this.currentExercise,
+      postReveal: exercise ? exercise.postReveal : null,
       stats: { ...this.stats },
       isRoundFinished: this.isRoundComplete(),
       isPerfect: this.isPerfectScore()
     };
   }
 
-  /**
-   * Intelligens válaszellenőrzés szinonimákkal és elütés-kezeléssel
-   */
   isAnswerMatching(userAnswer, targetAnswer) {
     const cleanUser = normalizeAnswer(userAnswer);
     if (!cleanUser) return { isCorrect: false, hasTypo: false };
@@ -340,7 +357,6 @@ export class PracticeSession {
       }
     }
 
-    // Levenshtein eltérés kiszűrése
     for (const candidate of candidates) {
       const cleanTarget = normalizeAnswer(candidate);
       if (cleanTarget && cleanTarget.length >= 5 && Math.abs(cleanUser.length - cleanTarget.length) <= 1) {

@@ -880,3 +880,126 @@ html.dark #btn-theme-toggle svg.lucide-moon,
   background: linear-gradient(135deg, rgba(6, 78, 59, 0.15) 0%, rgba(15, 23, 42, 0.8) 100%);
 }
 
+/* Nagyobb tipográfia az azonnali olvashatóságért (1.4rem - 1.85rem) */
+.exercise-sentence-lg {
+  font-size: clamp(1.4rem, 3.8vw, 1.85rem) !important;
+  line-height: 1.5 !important;
+  font-weight: 700 !important;
+}
+
+.blank-slot {
+  display: inline-block;
+  min-width: 90px;
+  padding: 0 10px;
+  border-bottom: 3px dashed #818cf8;
+  color: #a5b4fc;
+  font-weight: 800;
+  text-align: center;
+}
+
+/* Betűkeverő (Word Scramble) stílusok */
+.scramble-slot {
+  min-width: 44px;
+  height: 52px;
+  padding: 0 8px;
+  border: 2px dashed #475569;
+  border-radius: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #ffffff;
+  background: rgba(30, 41, 59, 0.4);
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.scramble-slot.filled {
+  border-style: solid;
+  border-color: #6366f1;
+  background: #1e1b4b;
+  cursor: pointer;
+}
+
+.scramble-slot.filled:hover {
+  border-color: #f43f5e;
+  background: #311328;
+  transform: translateY(-2px);
+}
+
+.scramble-tile {
+  min-width: 46px;
+  height: 52px;
+  padding: 0 10px;
+  border-radius: 14px;
+  background: #1e293b;
+  border: 2px solid #334155;
+  color: #f8fafc;
+  font-size: 1.5rem;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+  transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
+}
+
+.scramble-tile:hover {
+  background: #4f46e5;
+  border-color: #818cf8;
+  transform: translateY(-3px) scale(1.05);
+}
+
+.scramble-tile.used {
+  opacity: 0.2;
+  pointer-events: none;
+  transform: scale(0.9);
+}
+
+/* Gyors Villám-döntő (True or False) stílusok */
+.tf-btn {
+  min-height: 64px;
+  border-radius: 22px;
+  font-size: 1.15rem;
+  font-weight: 800;
+  transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 10px 20px -5px rgba(0, 0, 0, 0.3);
+}
+
+.tf-btn:hover {
+  transform: translateY(-2px);
+}
+
+.tf-btn:active {
+  transform: scale(0.97);
+}
+
+/* Kontextus-párosító (Context Matching) kártyák */
+.ctx-card {
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  cursor: pointer;
+}
+
+.ctx-card:hover:not(.matched) {
+  border-color: #6366f1 !important;
+  background-color: #1e293b !important;
+  transform: translateY(-2px);
+}
+
+.ctx-card.selected {
+  border-color: #818cf8 !important;
+  background-color: #1e1b4b !important;
+  box-shadow: 0 0 0 2px rgba(129, 140, 248, 0.6) !important;
+}
+
+.ctx-card.matched {
+  border-color: #10b981 !important;
+  background-color: #064e3b !important;
+  opacity: 0.85;
+  cursor: default;
+  pointer-events: none;
+}
+

@@ -44,6 +44,16 @@ import {
   extractGoogleFileId 
 } from './googleDrive.js';
 
+import {
+  generateNextExercise,
+  generateMultipleChoiceQuestion,
+  generateFillBlankQuestion,
+  generateScrambleQuestion,
+  generateTrueFalseQuestion,
+  generateContextMatchingQuestion,
+  generateListeningQuestion
+} from './aiExerciseEngine.js';
+
 // Globális állapot
 let activeTab = 'packages'; // 'packages' | 'practice' | 'mix' | 'stats'
 let currentSession = null;
@@ -55,6 +65,8 @@ let isReverseMode = false;
 let isSoundOn = true;
 let currentPracticeConfig = null;
 let nextUnlockedUnitData = null;
+let currentScrambleState = null;
+let currentContextMatchState = null;
 
 // DOM elemek gyors elérése
 const dom = {
@@ -109,12 +121,42 @@ const dom = {
   practiceTypeBadge: document.getElementById('practice-type-badge'),
   practiceTypeLabel: document.getElementById('practice-type-label'),
   practiceNewWordBadge: document.getElementById('practice-new-word-badge'),
+  practicePromptWordWrapper: document.getElementById('practice-prompt-word-wrapper'),
   practicePromptWord: document.getElementById('practice-prompt-word'),
   practicePromptHint: document.getElementById('practice-prompt-hint'),
   btnSpeakWord: document.getElementById('btn-speak-word'),
+  practiceContextSentenceBox: document.getElementById('practice-context-sentence-box'),
   practiceContextEn: document.getElementById('practice-context-en'),
-  practiceContextHu: document.getElementById('practice-context-hu'),
+
+  // Konténerek
   containerMultipleChoice: document.getElementById('container-multiple-choice'),
+
+  containerFillBlank: document.getElementById('container-fill-blank'),
+  fillBlankOptions: document.getElementById('fill-blank-options'),
+  fillBlankTyping: document.getElementById('fill-blank-typing'),
+  fillBlankHint: document.getElementById('fill-blank-hint'),
+  fillBlankInput: document.getElementById('fill-blank-input'),
+  btnFillBlankSubmit: document.getElementById('btn-fill-blank-submit'),
+
+  containerScramble: document.getElementById('container-scramble'),
+  scrambleSlots: document.getElementById('scramble-slots'),
+  scrambleTiles: document.getElementById('scramble-tiles'),
+  btnScrambleUndo: document.getElementById('btn-scramble-undo'),
+  btnScrambleReset: document.getElementById('btn-scramble-reset'),
+
+  containerTrueFalse: document.getElementById('container-true-false'),
+  tfProposedMeaning: document.getElementById('tf-proposed-meaning'),
+  btnTfTrue: document.getElementById('btn-tf-true'),
+  btnTfFalse: document.getElementById('btn-tf-false'),
+
+  containerContextMatch: document.getElementById('container-context-match'),
+  contextMatchSituations: document.getElementById('context-match-situations'),
+  contextMatchChips: document.getElementById('context-match-chips'),
+
+  containerListening: document.getElementById('container-listening'),
+  btnListeningReplay: document.getElementById('btn-listening-replay'),
+  listeningOptions: document.getElementById('listening-options'),
+
   containerWrittenRecall: document.getElementById('container-written-recall'),
   practiceAnswerInput: document.getElementById('practice-answer-input'),
   btnPracticeSubmit: document.getElementById('btn-practice-submit'),
@@ -532,7 +574,403 @@ function renderPracticeTab() {
 }
 
 /**
- * Aktuális kérdés renderelése (AI Multi-Format)
+ * Minden feladattípus konténerének elrejtése
+ */
+function hideAllExerciseContainers() {
+  const containers = [
+    dom.containerMultipleChoice,
+    dom.containerFillBlank,
+    dom.containerScramble,
+    dom.containerTrueFalse,
+    dom.containerContextMatch,
+    dom.containerListening,
+    dom.containerWrittenRecall
+  ];
+  containers.forEach(c => {
+    if (c) c.classList.add('hidden');
+  });
+}
+
+/**
+ * Automatikus vagy manuális továbblépés a következő feladatra
+ */
+function advanceToNextQuestion() {
+  clearTimeout(autoAdvanceTimer);
+  if (!currentSession) return;
+  if (currentSession.isRoundComplete()) {
+    handleRoundCompleted();
+  } else {
+    currentSession.nextQuestion();
+    renderCurrentQuestion();
+  }
+}
+
+/**
+ * 1. MULTIPLE_CHOICE felület renderelése
+ */
+function renderMultipleChoiceExercise(exercise, word) {
+  if (dom.containerMultipleChoice) dom.containerMultipleChoice.classList.remove('hidden');
+  if (dom.practicePromptWordWrapper) dom.practicePromptWordWrapper.classList.remove('hidden');
+  
+  dom.practicePromptWord.textContent = exercise.prompt || (isReverseMode ? word.hungarian : word.english);
+  dom.practicePromptHint.textContent = isReverseMode ? "Válaszd ki a helyes angol megfelelőt:" : "Válaszd ki a helyes magyar jelentést:";
+
+  // Mondat: Csak ha nem árulja el a választ
+  if (!isReverseMode && exercise.postReveal && exercise.postReveal.sentence) {
+    dom.practiceContextSentenceBox.classList.remove('hidden');
+    dom.practiceContextEn.textContent = exercise.postReveal.sentence;
+  } else {
+    dom.practiceContextSentenceBox.classList.add('hidden');
+  }
+
+  renderMultipleChoiceOptions(exercise.options);
+}
+
+function renderMultipleChoiceOptions(options) {
+  if (!dom.containerMultipleChoice) return;
+  dom.containerMultipleChoice.innerHTML = '';
+
+  (options || []).forEach((opt, idx) => {
+    const btn = document.createElement('button');
+    btn.className = 'mc-option-btn p-3.5 rounded-2xl bg-slate-800 hover:bg-slate-750 border border-slate-700 hover:border-brand-500 font-semibold text-xs sm:text-sm text-left transition-all flex items-center justify-between';
+    btn.dataset.index = idx;
+
+    btn.innerHTML = `
+      <span class="option-text text-slate-100">${escapeHtml(opt.text)}</span>
+      <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-700 text-slate-300">${idx + 1}</span>
+    `;
+
+    btn.addEventListener('click', () => {
+      submitPracticeAnswer(opt.text, btn);
+    });
+
+    dom.containerMultipleChoice.appendChild(btn);
+  });
+}
+
+/**
+ * 2. FILL_BLANK felület renderelése (Opciós vagy gépelős)
+ */
+function renderFillBlankExercise(exercise, word) {
+  if (dom.containerFillBlank) dom.containerFillBlank.classList.remove('hidden');
+  if (dom.practicePromptWordWrapper) dom.practicePromptWordWrapper.classList.remove('hidden');
+
+  dom.practicePromptWord.textContent = exercise.prompt || word.hungarian;
+  dom.practiceContextSentenceBox.classList.remove('hidden');
+  
+  const blankFormatted = escapeHtml(exercise.sentenceWithBlank || '').replace('_____', '<span class="blank-slot">_____</span>');
+  dom.practiceContextEn.innerHTML = blankFormatted;
+
+  if (exercise.subMode === 'typing') {
+    if (dom.fillBlankOptions) dom.fillBlankOptions.classList.add('hidden');
+    if (dom.fillBlankTyping) dom.fillBlankTyping.classList.remove('hidden');
+    if (dom.fillBlankHint) dom.fillBlankHint.textContent = exercise.firstLetterHint || 'A · · ·';
+    if (dom.fillBlankInput) {
+      dom.fillBlankInput.value = '';
+      dom.fillBlankInput.disabled = false;
+      setTimeout(() => dom.fillBlankInput.focus(), 60);
+    }
+    dom.practicePromptHint.textContent = 'Gépeld be a hiányzó angol szót a mondatba:';
+  } else {
+    if (dom.fillBlankTyping) dom.fillBlankTyping.classList.add('hidden');
+    if (dom.fillBlankOptions) {
+      dom.fillBlankOptions.classList.remove('hidden');
+      renderFillBlankOptions(exercise.options);
+    }
+    dom.practicePromptHint.textContent = 'Válaszd ki a hiányzó angol szót a mondatba:';
+  }
+}
+
+function renderFillBlankOptions(options) {
+  if (!dom.fillBlankOptions) return;
+  dom.fillBlankOptions.innerHTML = '';
+
+  (options || []).forEach((opt, idx) => {
+    const btn = document.createElement('button');
+    btn.className = 'mc-option-btn p-3.5 rounded-2xl bg-slate-800 hover:bg-slate-750 border border-slate-700 hover:border-brand-500 font-semibold text-xs sm:text-sm text-left transition-all flex items-center justify-between';
+    btn.dataset.index = idx;
+    btn.innerHTML = `
+      <span class="option-text text-slate-100">${escapeHtml(opt.text)}</span>
+      <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-700 text-slate-300">${idx + 1}</span>
+    `;
+    btn.addEventListener('click', () => {
+      submitPracticeAnswer(opt.text, btn);
+    });
+    dom.fillBlankOptions.appendChild(btn);
+  });
+}
+
+/**
+ * 3. WORD_SCRAMBLE felület renderelése
+ */
+function renderScrambleExercise(exercise, word) {
+  if (dom.containerScramble) dom.containerScramble.classList.remove('hidden');
+  if (dom.practicePromptWordWrapper) dom.practicePromptWordWrapper.classList.remove('hidden');
+
+  dom.practicePromptWord.textContent = exercise.prompt || word.hungarian;
+  dom.practicePromptHint.textContent = 'Kattints a betűkre vagy gépeld be őket a szó kirakásához:';
+
+  dom.practiceContextSentenceBox.classList.remove('hidden');
+  const blankFormatted = escapeHtml(exercise.sentenceWithBlank || '').replace('_____', '<span class="blank-slot">_____</span>');
+  dom.practiceContextEn.innerHTML = blankFormatted;
+
+  const rawLetters = exercise.letters || [];
+  currentScrambleState = {
+    targetWord: exercise.correctAnswer,
+    wordLength: exercise.wordLength || exercise.correctAnswer.length,
+    tiles: rawLetters.map(l => ({ ...l, used: false })),
+    assembled: []
+  };
+
+  updateScrambleUI();
+}
+
+function updateScrambleUI() {
+  if (!currentScrambleState || !dom.scrambleSlots || !dom.scrambleTiles) return;
+
+  // Render üres és betöltött rések (slots)
+  dom.scrambleSlots.innerHTML = '';
+  for (let i = 0; i < currentScrambleState.wordLength; i++) {
+    const slot = document.createElement('div');
+    const filledTile = currentScrambleState.assembled[i];
+    if (filledTile) {
+      slot.className = 'scramble-slot filled';
+      slot.textContent = filledTile.char;
+      slot.title = 'Kattints a visszavonáshoz';
+      slot.addEventListener('click', () => undoSpecificScrambleTile(i));
+    } else {
+      slot.className = 'scramble-slot';
+      slot.textContent = '';
+    }
+    dom.scrambleSlots.appendChild(slot);
+  }
+
+  // Render elérhető betűkockák (tiles)
+  dom.scrambleTiles.innerHTML = '';
+  currentScrambleState.tiles.forEach(tile => {
+    const tileBtn = document.createElement('button');
+    tileBtn.className = `scramble-tile ${tile.used ? 'used' : ''}`;
+    tileBtn.textContent = tile.char;
+    tileBtn.disabled = tile.used;
+    tileBtn.addEventListener('click', () => placeScrambleTile(tile));
+    dom.scrambleTiles.appendChild(tileBtn);
+  });
+}
+
+function placeScrambleTile(tile) {
+  if (!currentScrambleState || tile.used) return;
+  if (currentScrambleState.assembled.length >= currentScrambleState.wordLength) return;
+
+  tile.used = true;
+  currentScrambleState.assembled.push(tile);
+  updateScrambleUI();
+
+  // Ha minden rés kitöltve, automatikus ellenőrzés
+  if (currentScrambleState.assembled.length === currentScrambleState.wordLength) {
+    const formed = currentScrambleState.assembled.map(t => t.char).join('');
+    submitPracticeAnswer(formed);
+  }
+}
+
+function undoSpecificScrambleTile(index) {
+  if (!currentScrambleState || !currentScrambleState.assembled[index]) return;
+  const removed = currentScrambleState.assembled.splice(index, 1)[0];
+  if (removed) removed.used = false;
+  updateScrambleUI();
+}
+
+function undoLastScrambleTile() {
+  if (!currentScrambleState || currentScrambleState.assembled.length === 0) return;
+  const removed = currentScrambleState.assembled.pop();
+  if (removed) removed.used = false;
+  updateScrambleUI();
+}
+
+function resetScrambleTiles() {
+  if (!currentScrambleState) return;
+  currentScrambleState.tiles.forEach(t => t.used = false);
+  currentScrambleState.assembled = [];
+  updateScrambleUI();
+}
+
+/**
+ * 4. TRUE_FALSE Villám-döntő renderelése
+ */
+function renderTrueFalseExercise(exercise, word) {
+  if (dom.containerTrueFalse) dom.containerTrueFalse.classList.remove('hidden');
+  if (dom.practicePromptWordWrapper) dom.practicePromptWordWrapper.classList.remove('hidden');
+
+  dom.practicePromptWord.textContent = exercise.wordText || word.english;
+  dom.practicePromptHint.textContent = 'Helyes ez a megadott magyar párosítás?';
+
+  dom.practiceContextSentenceBox.classList.remove('hidden');
+  const blankFormatted = escapeHtml(exercise.sentenceWithBlank || '').replace('_____', '<span class="blank-slot">_____</span>');
+  dom.practiceContextEn.innerHTML = blankFormatted;
+
+  if (dom.tfProposedMeaning) {
+    dom.tfProposedMeaning.textContent = `"${exercise.shownMeaning}"`;
+  }
+
+  if (dom.btnTfTrue) {
+    dom.btnTfTrue.disabled = false;
+    dom.btnTfTrue.className = 'tf-btn py-4 px-5 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white flex items-center justify-center gap-2.5 border border-emerald-400/50 shadow-lg shadow-emerald-950/50';
+  }
+  if (dom.btnTfFalse) {
+    dom.btnTfFalse.disabled = false;
+    dom.btnTfFalse.className = 'tf-btn py-4 px-5 bg-rose-600 hover:bg-rose-500 active:bg-rose-700 text-white flex items-center justify-center gap-2.5 border border-rose-400/50 shadow-lg shadow-rose-950/50';
+  }
+}
+
+/**
+ * 5. CONTEXT_MATCH Szituáció-párosító renderelése
+ */
+function renderContextMatchExercise(exercise, word) {
+  if (dom.containerContextMatch) dom.containerContextMatch.classList.remove('hidden');
+  if (dom.practicePromptWordWrapper) dom.practicePromptWordWrapper.classList.remove('hidden');
+
+  dom.practicePromptWord.textContent = 'Szituáció-párosító';
+  dom.practicePromptHint.textContent = 'Kattints egy helyzetre, majd a hozzá illő angol kifejezésre:';
+  dom.practiceContextSentenceBox.classList.add('hidden'); // Mondatdoboz rejtve
+
+  currentContextMatchState = {
+    selectedSituationId: null,
+    matchedPairs: new Set(),
+    totalPairs: exercise.totalPairs || (exercise.situations ? exercise.situations.length : 3),
+    situations: exercise.situations || [],
+    wordChips: exercise.wordChips || []
+  };
+
+  updateContextMatchUI();
+}
+
+function updateContextMatchUI() {
+  if (!currentContextMatchState || !dom.contextMatchSituations || !dom.contextMatchChips) return;
+
+  dom.contextMatchSituations.innerHTML = '';
+  currentContextMatchState.situations.forEach(sit => {
+    const card = document.createElement('div');
+    const isMatched = currentContextMatchState.matchedPairs.has(sit.pairId);
+    const isSelected = currentContextMatchState.selectedSituationId === sit.id;
+
+    card.className = `ctx-card p-3.5 rounded-2xl border text-xs sm:text-sm font-medium ${
+      isMatched
+        ? 'matched bg-emerald-950/80 border-emerald-600 text-emerald-200'
+        : isSelected
+          ? 'selected bg-indigo-950/90 border-indigo-500 text-white shadow-lg'
+          : 'bg-slate-800/80 border-slate-700 hover:border-indigo-400 text-slate-200'
+    }`;
+    card.innerHTML = `
+      <div class="flex items-start gap-2.5">
+        <span class="text-indigo-400 mt-0.5">${isMatched ? '✓' : '💬'}</span>
+        <span class="leading-snug">${escapeHtml(sit.text)}</span>
+      </div>
+    `;
+
+    if (!isMatched) {
+      card.addEventListener('click', () => {
+        currentContextMatchState.selectedSituationId = sit.id;
+        updateContextMatchUI();
+      });
+    }
+
+    dom.contextMatchSituations.appendChild(card);
+  });
+
+  dom.contextMatchChips.innerHTML = '';
+  currentContextMatchState.wordChips.forEach(chip => {
+    const btn = document.createElement('button');
+    const isMatched = currentContextMatchState.matchedPairs.has(chip.pairId);
+
+    btn.className = `min-h-[44px] px-4 py-2 rounded-xl text-sm font-bold border transition-all ${
+      isMatched
+        ? 'bg-emerald-950/60 border-emerald-600 text-emerald-300 opacity-60 pointer-events-none'
+        : 'bg-slate-800 hover:bg-slate-700 border-slate-700 hover:border-brand-500 text-slate-100'
+    }`;
+    btn.textContent = chip.text;
+
+    if (!isMatched) {
+      btn.addEventListener('click', () => {
+        if (!currentContextMatchState.selectedSituationId) {
+          dom.practicePromptHint.textContent = 'Előbb válassz ki egy helyzetet a fenti listából!';
+          return;
+        }
+
+        const selectedSit = currentContextMatchState.situations.find(s => s.id === currentContextMatchState.selectedSituationId);
+        if (selectedSit && selectedSit.pairId === chip.pairId) {
+          currentContextMatchState.matchedPairs.add(chip.pairId);
+          currentContextMatchState.selectedSituationId = null;
+          updateContextMatchUI();
+
+          if (currentContextMatchState.matchedPairs.size >= currentContextMatchState.totalPairs) {
+            submitPracticeAnswer('all_matched');
+          }
+        } else {
+          btn.classList.add('bg-rose-950', 'border-rose-500', 'text-rose-200');
+          setTimeout(() => {
+            btn.classList.remove('bg-rose-950', 'border-rose-500', 'text-rose-200');
+          }, 600);
+        }
+      });
+    }
+
+    dom.contextMatchChips.appendChild(btn);
+  });
+}
+
+/**
+ * 6. LISTENING Hallás utáni megértés renderelése
+ */
+function renderListeningExercise(exercise, word) {
+  if (dom.containerListening) dom.containerListening.classList.remove('hidden');
+  if (dom.practicePromptWordWrapper) dom.practicePromptWordWrapper.classList.remove('hidden');
+
+  // Angol szót és mondatot elrejtjük előre! Zéró szivárgás!
+  dom.practicePromptWord.textContent = '🎧 Hallgasd meg a szót!';
+  dom.practiceContextSentenceBox.classList.add('hidden');
+  dom.practicePromptHint.textContent = 'Hallgasd meg a kiejtést, és válaszd ki a magyar jelentést:';
+
+  if (dom.listeningOptions) {
+    dom.listeningOptions.innerHTML = '';
+    (exercise.options || []).forEach((opt, idx) => {
+      const btn = document.createElement('button');
+      btn.className = 'mc-option-btn p-3.5 rounded-2xl bg-slate-800 hover:bg-slate-750 border border-slate-700 hover:border-brand-500 font-semibold text-xs sm:text-sm text-left transition-all flex items-center justify-between';
+      btn.dataset.index = idx;
+      btn.innerHTML = `
+        <span class="option-text text-slate-100">${escapeHtml(opt.text)}</span>
+        <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-700 text-slate-300">${idx + 1}</span>
+      `;
+      btn.addEventListener('click', () => {
+        submitPracticeAnswer(opt.text, btn);
+      });
+      dom.listeningOptions.appendChild(btn);
+    });
+  }
+
+  if (isSoundOn && exercise.audioWord) {
+    speakEnglishWord(exercise.audioWord);
+  }
+}
+
+/**
+ * 7. WRITTEN_RECALL Írásbeli visszahívás
+ */
+function renderWrittenRecallExercise(exercise, word) {
+  if (dom.containerWrittenRecall) dom.containerWrittenRecall.classList.remove('hidden');
+  if (dom.practicePromptWordWrapper) dom.practicePromptWordWrapper.classList.remove('hidden');
+
+  dom.practicePromptWord.textContent = isReverseMode ? word.english : word.hungarian;
+  dom.practicePromptHint.textContent = isReverseMode ? 'Írd be az angol megfelelőjét:' : 'Írd be a magyar jelentést:';
+
+  if (dom.practiceAnswerInput) {
+    dom.practiceAnswerInput.value = '';
+    dom.practiceAnswerInput.disabled = false;
+    setTimeout(() => dom.practiceAnswerInput.focus(), 60);
+  }
+  if (dom.btnPracticeSubmit) dom.btnPracticeSubmit.disabled = false;
+}
+
+/**
+ * Fő renderelő: az aktuális kérdés és a megfelelő feladatformátum betöltése
  */
 function renderCurrentQuestion() {
   if (!currentSession) return;
@@ -573,70 +1011,53 @@ function renderCurrentQuestion() {
   // Típus badge
   const typeMap = {
     'MULTIPLE_CHOICE': 'Feleletválasztós',
-    'SENTENCE_CLOZE': 'Mondatkiegészítés',
+    'FILL_BLANK': 'Mondatkiegészítés',
+    'WORD_SCRAMBLE': 'Betűkeverő',
+    'TRUE_FALSE': 'Villám-döntő (Igaz/Hamis)',
+    'CONTEXT_MATCH': 'Szituáció-párosító',
+    'LISTENING': 'Hallás utáni',
     'WRITTEN_RECALL': 'Begépelés'
   };
   dom.practiceTypeLabel.textContent = typeMap[exercise.type] || 'Gyakorlat';
 
-  // Prompt és kontextus
-  dom.practicePromptWord.textContent = exercise.prompt || word.english;
-
-  // Példamondat kiírása
-  const contextSentence = (exercise.type === 'SENTENCE_CLOZE') 
-    ? exercise.sentenceWithBlank 
-    : (exercise.exampleSentence || `"${word.english}"`);
-  
-  dom.practiceContextEn.textContent = contextSentence;
-  dom.practiceContextHu.textContent = exercise.sentenceTranslation || (isReverseMode ? word.english : word.hungarian);
+  // Minden konténer elrejtése
+  hideAllExerciseContainers();
 
   // Visszajelzés konténer elrejtése
   dom.practiceFeedbackContainer.classList.add('hidden');
   dom.practiceFeedbackContainer.innerHTML = '';
 
   // Formátum specifikus felület aktiválása
-  if (exercise.type === 'MULTIPLE_CHOICE' || exercise.type === 'SENTENCE_CLOZE') {
-    dom.containerMultipleChoice.classList.remove('hidden');
-    dom.containerWrittenRecall.classList.add('hidden');
-    renderMultipleChoiceOptions(exercise.options);
-  } else {
-    // Írásos begépelés
-    dom.containerMultipleChoice.classList.add('hidden');
-    dom.containerWrittenRecall.classList.remove('hidden');
-    dom.practiceAnswerInput.value = '';
-    dom.practiceAnswerInput.disabled = false;
-    dom.btnPracticeSubmit.disabled = false;
-    dom.practiceAnswerInput.focus();
+  switch (exercise.type) {
+    case 'MULTIPLE_CHOICE':
+      renderMultipleChoiceExercise(exercise, word);
+      break;
+    case 'FILL_BLANK':
+      renderFillBlankExercise(exercise, word);
+      break;
+    case 'WORD_SCRAMBLE':
+      renderScrambleExercise(exercise, word);
+      break;
+    case 'TRUE_FALSE':
+      renderTrueFalseExercise(exercise, word);
+      break;
+    case 'CONTEXT_MATCH':
+      renderContextMatchExercise(exercise, word);
+      break;
+    case 'LISTENING':
+      renderListeningExercise(exercise, word);
+      break;
+    case 'WRITTEN_RECALL':
+    default:
+      renderWrittenRecallExercise(exercise, word);
+      break;
   }
 
   if (window.lucide) window.lucide.createIcons();
 }
 
 /**
- * Feleletválasztós gombok renderelése
- */
-function renderMultipleChoiceOptions(options) {
-  dom.containerMultipleChoice.innerHTML = '';
-
-  (options || []).forEach((opt, idx) => {
-    const btn = document.createElement('button');
-    btn.className = 'mc-option-btn p-3.5 rounded-2xl bg-slate-800 hover:bg-slate-750 border border-slate-700 hover:border-brand-500 font-semibold text-xs sm:text-sm text-left transition-all flex items-center justify-between';
-    btn.dataset.index = idx;
-
-    btn.innerHTML = `
-      <span class="option-text text-slate-100">${escapeHtml(opt.text)}</span>
-      <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-700 text-slate-300">${idx + 1}</span>
-    `;
-
-    btn.addEventListener('click', () => {
-      submitPracticeAnswer(opt.text, btn);
-    });
-
-    dom.containerMultipleChoice.appendChild(btn);
-  });
-}
-
-/**
- * Válasz beküldése és kiértékelése
+ * Válasz beküldése és kiértékelése (Szigorú zéró szivárgás, post-reveal magyarázat)
  */
 async function submitPracticeAnswer(userAnswer, targetBtn = null) {
   if (!currentSession || currentSession.state !== 'WAITING_INPUT') return;
@@ -644,59 +1065,121 @@ async function submitPracticeAnswer(userAnswer, targetBtn = null) {
   const result = await currentSession.checkAnswer(userAnswer);
   if (!result) return;
 
-  // Frissítjük a számlálókat azonnal
+  // Statisztikák azonnali frissítése
   dom.practiceStreakCounter.textContent = result.stats.streak;
   dom.practiceCorrectCount.textContent = result.stats.correctCount;
 
-  // Feleletválasztós gombok színezése
-  if (dom.containerMultipleChoice && !dom.containerMultipleChoice.classList.contains('hidden')) {
-    const allBtns = dom.containerMultipleChoice.querySelectorAll('.mc-option-btn');
+  // Feleletválasztós / Mondatkiegészítés / Hallás utáni gombok színezése
+  const activeOptionsContainer = [
+    dom.containerMultipleChoice,
+    dom.fillBlankOptions,
+    dom.listeningOptions
+  ].find(c => c && !c.classList.contains('hidden') && c.offsetParent !== null);
+
+  if (activeOptionsContainer) {
+    const allBtns = activeOptionsContainer.querySelectorAll('.mc-option-btn');
     allBtns.forEach(b => {
       b.disabled = true;
-      const text = b.querySelector('.option-text').textContent.trim();
+      const text = b.querySelector('.option-text') ? b.querySelector('.option-text').textContent.trim() : '';
       if (text === result.correctAnswer) {
         b.classList.add('correct');
       }
     });
 
-    if (targetBtn) {
-      if (!result.isCorrect) {
-        targetBtn.classList.add('incorrect');
-      }
+    if (targetBtn && !result.isCorrect) {
+      targetBtn.classList.add('incorrect');
     }
   }
 
-  // Visszajelzés megjelenítése
+  // True/False gombok visszajelzése
+  if (dom.containerTrueFalse && !dom.containerTrueFalse.classList.contains('hidden')) {
+    if (dom.btnTfTrue) dom.btnTfTrue.disabled = true;
+    if (dom.btnTfFalse) dom.btnTfFalse.disabled = true;
+    const exercise = currentSession.currentExercise;
+    const correctBtn = (exercise && exercise.correctAnswer === 'true') ? dom.btnTfTrue : dom.btnTfFalse;
+    if (correctBtn) correctBtn.classList.add('ring-4', 'ring-emerald-400');
+    if (targetBtn && !result.isCorrect) {
+      targetBtn.classList.add('ring-4', 'ring-rose-500');
+    }
+  }
+
+  // Szigorú Post-Reveal visszajelzés (Csak a válasz leadása után jelenik meg a helyes válasz és magyarázat!)
+  const post = result.postReveal || {};
+  const currentWord = currentSession.currentWord || {};
   dom.practiceFeedbackContainer.classList.remove('hidden');
+
   if (result.isCorrect) {
-    dom.practiceFeedbackContainer.className = 'mt-4 p-4 rounded-2xl text-left text-xs sm:text-sm bg-emerald-950/60 border border-emerald-800/80 text-emerald-200 animate-pop-in';
+    dom.practiceFeedbackContainer.className = 'mt-4 p-4 rounded-2xl text-left text-xs sm:text-sm bg-emerald-950/70 border border-emerald-800/80 text-emerald-200 animate-pop-in shadow-lg';
     dom.practiceFeedbackContainer.innerHTML = `
       <div class="flex items-center justify-between font-bold">
-        <span>🎉 Helyes válasz! ${result.hasTypo ? '(Apró elütéssel elfogadva)' : ''}</span>
-        <span class="text-xs text-emerald-400 font-mono">+1 pont</span>
+        <span class="flex items-center gap-1.5 text-emerald-300">
+          <i data-lucide="check-circle-2" class="w-4 h-4"></i>
+          <span>🎉 Helyes válasz! ${result.hasTypo ? '(Apró elütéssel elfogadva)' : ''}</span>
+        </span>
+        <span class="text-xs text-emerald-400 font-mono font-bold">+1 pont</span>
       </div>
-      <div class="text-xs text-emerald-300 mt-1">"${escapeHtml(result.correctAnswer)}"</div>
+      <div class="text-sm font-bold text-white mt-1.5 flex items-center gap-2">
+        <span class="text-slate-100">${escapeHtml(currentWord.english || '')}</span>
+        <span class="text-emerald-400 font-medium">➔</span>
+        <span class="text-emerald-300">${escapeHtml(currentWord.hungarian || result.correctAnswer)}</span>
+      </div>
+      ${post.sentence ? `
+        <div class="mt-2.5 pt-2.5 border-t border-emerald-850/60 bg-emerald-950/50 p-2.5 rounded-xl">
+          <div class="text-sm font-bold text-slate-100">"${escapeHtml(post.sentence)}"</div>
+          <div class="text-xs text-emerald-300/90 italic mt-0.5">${escapeHtml(post.sentenceTranslation || '')}</div>
+        </div>
+      ` : ''}
+      <div class="mt-3 flex items-center justify-end">
+        <button id="btn-next-question" class="px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white font-bold text-xs flex items-center gap-1.5 shadow transition-all active:scale-95">
+          <span>Következő</span>
+          <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+          <kbd class="hidden sm:inline-block px-1.5 py-0.5 text-[10px] font-mono bg-black/30 rounded">Enter / Space</kbd>
+        </button>
+      </div>
     `;
   } else {
-    dom.practiceFeedbackContainer.className = 'mt-4 p-4 rounded-2xl text-left text-xs sm:text-sm bg-rose-950/60 border border-rose-800/80 text-rose-200 animate-pop-in';
+    dom.practiceFeedbackContainer.className = 'mt-4 p-4 rounded-2xl text-left text-xs sm:text-sm bg-rose-950/70 border border-rose-800/80 text-rose-200 animate-pop-in shadow-lg';
     dom.practiceFeedbackContainer.innerHTML = `
       <div class="flex items-center justify-between font-bold">
-        <span>❌ Helytelen válasz</span>
+        <span class="flex items-center gap-1.5 text-rose-300">
+          <i data-lucide="x-circle" class="w-4 h-4"></i>
+          <span>❌ Helytelen válasz</span>
+        </span>
       </div>
-      <div class="text-xs text-slate-300 mt-1">A helyes megoldás: <strong class="text-emerald-400 font-bold">${escapeHtml(result.correctAnswer)}</strong></div>
+      <div class="text-xs sm:text-sm text-slate-200 mt-1.5">
+        A helyes megoldás: <strong class="text-white font-extrabold text-sm sm:text-base bg-rose-900/60 px-2.5 py-0.5 rounded-lg border border-rose-700/60">${escapeHtml(result.correctAnswer)}</strong>
+      </div>
+      <div class="text-xs text-slate-300 mt-1">
+        ${escapeHtml(currentWord.english || '')} = <strong class="text-emerald-300">${escapeHtml(currentWord.hungarian || '')}</strong>
+      </div>
+      ${post.sentence ? `
+        <div class="mt-2.5 pt-2.5 border-t border-rose-850/60 bg-rose-950/50 p-2.5 rounded-xl">
+          <div class="text-sm font-bold text-slate-100">"${escapeHtml(post.sentence)}"</div>
+          <div class="text-xs text-rose-200/90 italic mt-0.5">${escapeHtml(post.sentenceTranslation || '')}</div>
+        </div>
+      ` : ''}
+      <div class="mt-3 flex items-center justify-end">
+        <button id="btn-next-question" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs flex items-center gap-1.5 shadow border border-slate-700 transition-all active:scale-95">
+          <span>Tovább</span>
+          <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+          <kbd class="hidden sm:inline-block px-1.5 py-0.5 text-[10px] font-mono bg-white/20 rounded">Enter / Space</kbd>
+        </button>
+      </div>
     `;
   }
 
-  // Automatikus továbblépés
+  if (window.lucide) window.lucide.createIcons();
+
+  const nextBtn = dom.practiceFeedbackContainer.querySelector('#btn-next-question');
+  if (nextBtn) {
+    nextBtn.addEventListener('click', advanceToNextQuestion);
+  }
+
+  // Automatikus továbblépési időzítő
   clearTimeout(autoAdvanceTimer);
   autoAdvanceTimer = setTimeout(() => {
-    if (currentSession.isRoundComplete()) {
-      handleRoundCompleted();
-    } else {
-      currentSession.nextQuestion();
-      renderCurrentQuestion();
-    }
-  }, currentSession.options.autoAdvanceMs || 900);
+    advanceToNextQuestion();
+  }, result.isCorrect ? 2400 : 4200);
 }
 
 /**
@@ -1141,15 +1624,119 @@ function initModalsAndEvents() {
     });
   }
 
-  // Billentyűzet gyorsgombok (1, 2, 3, 4 választáshoz)
+  // Fill-in-the-blank gépelés beküldése
+  if (dom.btnFillBlankSubmit) {
+    dom.btnFillBlankSubmit.addEventListener('click', () => {
+      submitPracticeAnswer(dom.fillBlankInput.value);
+    });
+  }
+
+  if (dom.fillBlankInput) {
+    dom.fillBlankInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        submitPracticeAnswer(dom.fillBlankInput.value);
+      }
+    });
+  }
+
+  // Betűkeverő (Word Scramble) vezérlők
+  if (dom.btnScrambleUndo) {
+    dom.btnScrambleUndo.addEventListener('click', undoLastScrambleTile);
+  }
+
+  if (dom.btnScrambleReset) {
+    dom.btnScrambleReset.addEventListener('click', resetScrambleTiles);
+  }
+
+  // Villám-döntő (True / False) gombok
+  if (dom.btnTfTrue) {
+    dom.btnTfTrue.addEventListener('click', () => {
+      submitPracticeAnswer('true', dom.btnTfTrue);
+    });
+  }
+
+  if (dom.btnTfFalse) {
+    dom.btnTfFalse.addEventListener('click', () => {
+      submitPracticeAnswer('false', dom.btnTfFalse);
+    });
+  }
+
+  // Hallás utáni (Listening) újrahallgatás gomb
+  if (dom.btnListeningReplay) {
+    dom.btnListeningReplay.addEventListener('click', () => {
+      if (currentSession && currentSession.currentExercise && currentSession.currentExercise.audioWord) {
+        speakEnglishWord(currentSession.currentExercise.audioWord);
+      } else if (currentSession && currentSession.currentWord) {
+        speakEnglishWord(currentSession.currentWord.english);
+      }
+    });
+  }
+
+  // Billentyűzet gyorsgombok és intelligens interakció
   window.addEventListener('keydown', (e) => {
-    if (activeTab !== 'practice' || !currentSession || currentSession.state !== 'WAITING_INPUT') return;
-    if (dom.containerMultipleChoice && !dom.containerMultipleChoice.classList.contains('hidden')) {
+    if (activeTab !== 'practice' || !currentSession) return;
+
+    // Ha az eredmény visszajelzés látható, Enter vagy Szóköz azonnal a következőre lép!
+    if (currentSession.state !== 'WAITING_INPUT') {
+      if (e.key === 'Enter' || e.key === ' ' || e.code === 'Space') {
+        e.preventDefault();
+        advanceToNextQuestion();
+      }
+      return;
+    }
+
+    const exercise = currentSession.currentExercise;
+    if (!exercise) return;
+
+    // 1..4 billentyűk: Feleletválasztós / Hallás utáni / Mondatkiegészítés opciós mód
+    const activeOptionsContainer = [
+      dom.containerMultipleChoice,
+      dom.fillBlankOptions,
+      dom.listeningOptions
+    ].find(c => c && !c.classList.contains('hidden') && c.offsetParent !== null);
+
+    if (activeOptionsContainer) {
       const keyIndex = parseInt(e.key, 10) - 1;
       if (keyIndex >= 0 && keyIndex < 4) {
-        const btns = dom.containerMultipleChoice.querySelectorAll('.mc-option-btn');
+        const btns = activeOptionsContainer.querySelectorAll('.mc-option-btn');
         if (btns[keyIndex]) {
+          e.preventDefault();
           btns[keyIndex].click();
+          return;
+        }
+      }
+    }
+
+    // Villám-döntő (True/False): 1/y/i = Igaz, 2/n/h = Hamis
+    if (dom.containerTrueFalse && !dom.containerTrueFalse.classList.contains('hidden')) {
+      const k = e.key.toLowerCase();
+      if (k === '1' || k === 'y' || k === 'i') {
+        e.preventDefault();
+        if (dom.btnTfTrue) dom.btnTfTrue.click();
+        return;
+      }
+      if (k === '2' || k === 'n' || k === 'h') {
+        e.preventDefault();
+        if (dom.btnTfFalse) dom.btnTfFalse.click();
+        return;
+      }
+    }
+
+    // Betűkeverő (Word Scramble) billentyű leütés és visszavonás
+    if (dom.containerScramble && !dom.containerScramble.classList.contains('hidden') && currentScrambleState) {
+      if (e.key === 'Backspace') {
+        e.preventDefault();
+        undoLastScrambleTile();
+        return;
+      }
+      if (e.key.length === 1 && /[a-zA-Z]/i.test(e.key)) {
+        const matchingTile = currentScrambleState.tiles.find(
+          t => !t.used && t.char.toLowerCase() === e.key.toLowerCase()
+        );
+        if (matchingTile) {
+          e.preventDefault();
+          placeScrambleTile(matchingTile);
+          return;
         }
       }
     }
@@ -1463,3 +2050,18 @@ if (document.readyState === 'loading') {
 } else {
   initApp();
 }
+
+window.__wordly = {
+  getCurrentSession: () => currentSession,
+  setCurrentSession: (s) => { currentSession = s; },
+  renderCurrentQuestion,
+  submitPracticeAnswer,
+  advanceToNextQuestion,
+  generateNextExercise,
+  generateMultipleChoiceQuestion,
+  generateFillBlankQuestion,
+  generateScrambleQuestion,
+  generateTrueFalseQuestion,
+  generateContextMatchingQuestion,
+  generateListeningQuestion
+};
