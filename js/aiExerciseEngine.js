@@ -180,30 +180,30 @@ export function getContextualSentence(wordObj) {
  * Szigorú válaszvédelem: a kérdéshez NEM jelenik meg a magyar fordítás előre!
  */
 export function generateMultipleChoiceQuestion(targetWord, wordPool, reverse = false) {
-  const promptKey = reverse ? 'hungarian' : 'english';
+  const cleanEn = (targetWord && targetWord.english) ? String(targetWord.english).trim() : 'opportunity';
+  const cleanHu = (targetWord && targetWord.hungarian) ? String(targetWord.hungarian).trim() : 'lehetőség';
+  const safeTargetWord = { ...(targetWord || {}), english: cleanEn, hungarian: cleanHu };
+
+  const promptText = reverse ? cleanHu : cleanEn;
+  const correctOption = reverse ? cleanEn : cleanHu;
+
+  const pool = Array.isArray(wordPool) ? wordPool : [safeTargetWord];
   const targetKey = reverse ? 'english' : 'hungarian';
 
-  const promptText = targetWord[promptKey];
-  const correctOption = targetWord[targetKey];
-
-  const otherWords = wordPool.filter(w => w.id !== targetWord.id && w[targetKey] !== correctOption);
+  const otherWords = pool.filter(w => w && w.id !== safeTargetWord.id && w[targetKey] && w[targetKey] !== correctOption);
   const shuffledOthers = [...otherWords].sort(() => 0.5 - Math.random());
-  const distractors = shuffledOthers.slice(0, 3).map(w => w[targetKey]);
+  const distractors = shuffledOthers.slice(0, 3).map(w => String(w[targetKey]).trim());
 
-  const fallbackList = [
-    "kihívás, próbatétel",
-    "nagyszerű lehetőség",
-    "folyamatos fejlődés",
-    "gyors megoldás",
-    "természeti környezet",
-    "gyakorlati tapasztalat"
-  ];
+  const fallbackList = reverse 
+    ? ["challenge", "opportunity", "development", "solution", "environment", "experience"]
+    : ["kihívás, próbatétel", "nagyszerű lehetőség", "folyamatos fejlődés", "gyors megoldás", "természeti környezet", "gyakorlati tapasztalat"];
+
   while (distractors.length < 3) {
     const fb = fallbackList[distractors.length % fallbackList.length];
     if (fb !== correctOption && !distractors.includes(fb)) {
       distractors.push(fb);
     } else {
-      distractors.push(`Alternatíva ${distractors.length + 1}`);
+      distractors.push(reverse ? `option_${distractors.length + 1}` : `Alternatíva ${distractors.length + 1}`);
     }
   }
 
@@ -212,21 +212,27 @@ export function generateMultipleChoiceQuestion(targetWord, wordPool, reverse = f
     ...distractors.map(d => ({ text: d, isCorrect: false }))
   ].sort(() => 0.5 - Math.random());
 
-  const context = getContextualSentence(targetWord);
+  const context = getContextualSentence(safeTargetWord);
+  const sentenceWithBlank = context.blankSentence || `This is a great ______ for our daily life.`;
+  const fullSentence = context.sentence || `This is a great ${cleanEn} for our daily life.`;
 
   return {
     type: 'MULTIPLE_CHOICE',
-    targetWord,
+    targetWord: safeTargetWord,
     prompt: promptText,
+    promptMeaning: cleanHu,
+    englishWord: cleanEn,
+    sentenceWithBlank: sentenceWithBlank,
+    fullSentence: fullSentence,
     promptLanguage: reverse ? 'hu' : 'en',
     targetLanguage: reverse ? 'en' : 'hu',
     options,
     correctAnswer: correctOption,
     // Megoldás után megjelenő magyarázat
     postReveal: {
-      sentence: context.sentence,
-      sentenceTranslation: context.hungarian,
-      meaning: targetWord.hungarian
+      sentence: fullSentence,
+      sentenceTranslation: context.hungarian || cleanHu,
+      meaning: cleanHu
     }
   };
 }

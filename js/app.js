@@ -559,13 +559,27 @@ function renderPracticeTab() {
   if (!currentSession) {
     // Ha még nincs aktív munkamenet, indítsuk az első feloldott egységet
     getUserLists().then(lists => {
-      if (lists.length > 0 && lists[0].sheets && lists[0].sheets.length > 0) {
+      if (lists && lists.length > 0 && lists[0].sheets && lists[0].sheets.length > 0) {
         const firstUnlocked = lists[0].sheets.find(s => s.isUnlocked) || lists[0].sheets[0];
         startUnitPractice(lists[0].id, firstUnlocked.id);
       } else {
-        dom.practicePromptWord.textContent = "Nincs betöltött tananyag";
-        dom.practicePromptHint.textContent = "Kérlek tölts fel egy Excel fájlt a Tananyagok fülön!";
+        const fallbackWords = [
+          { id: 'fb_1', english: 'opportunity', hungarian: 'lehetőség' },
+          { id: 'fb_2', english: 'challenge', hungarian: 'kihívás' },
+          { id: 'fb_3', english: 'development', hungarian: 'fejlesztés, fejlődés' },
+          { id: 'fb_4', english: 'achievement', hungarian: 'teljesítmény' },
+          { id: 'fb_5', english: 'environment', hungarian: 'környezet' }
+        ];
+        startMixPracticeSession(fallbackWords, "Alap Gyakorló");
       }
+    }).catch(err => {
+      console.warn("Hiba a listák betöltésekor:", err);
+      const fallbackWords = [
+        { id: 'fb_1', english: 'opportunity', hungarian: 'lehetőség' },
+        { id: 'fb_2', english: 'challenge', hungarian: 'kihívás' },
+        { id: 'fb_3', english: 'development', hungarian: 'fejlesztés, fejlődés' }
+      ];
+      startMixPracticeSession(fallbackWords, "Alap Gyakorló");
     });
     return;
   }
@@ -611,38 +625,82 @@ function advanceToNextQuestion() {
 function renderMultipleChoiceExercise(exercise, word) {
   if (dom.containerMultipleChoice) dom.containerMultipleChoice.classList.remove('hidden');
   if (dom.practicePromptWordWrapper) dom.practicePromptWordWrapper.classList.remove('hidden');
-  
-  dom.practicePromptWord.textContent = exercise.prompt || (isReverseMode ? word.hungarian : word.english);
-  dom.practicePromptHint.textContent = isReverseMode ? "Válaszd ki a helyes angol megfelelőt:" : "Válaszd ki a helyes magyar jelentést:";
 
-  // Mondat: Csak ha nem árulja el a választ
-  if (!isReverseMode && exercise.postReveal && exercise.postReveal.sentence) {
-    dom.practiceContextSentenceBox.classList.remove('hidden');
-    dom.practiceContextEn.textContent = exercise.postReveal.sentence;
-  } else {
-    dom.practiceContextSentenceBox.classList.add('hidden');
+  const safeWord = word || (currentSession && currentSession.currentWord) || { english: 'opportunity', hungarian: 'lehetőség' };
+  const promptWordText = exercise.prompt || (isReverseMode ? (safeWord.hungarian || 'Kérdés') : (safeWord.english || 'Question'));
+  dom.practicePromptWord.textContent = promptWordText;
+
+  dom.practicePromptHint.textContent = isReverseMode
+    ? "Válaszd ki a hiányzó angol szót a mondatba:"
+    : "Válaszd ki a helyes magyar jelentést:";
+
+  // Példamondat kiemelt megjelenítése a 4 opció felett, kitalálandó szó helyén világos "______" résszel
+  dom.practiceContextSentenceBox.classList.remove('hidden');
+  let rawSentence = exercise.sentenceWithBlank;
+  if (!rawSentence && exercise.fullSentence) {
+    const escapedEn = (safeWord.english || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    rawSentence = exercise.fullSentence.replace(new RegExp(`\\b${escapedEn}\\b`, 'gi'), '______');
+  }
+  if (!rawSentence || (!rawSentence.includes('______') && !rawSentence.includes('_____'))) {
+    rawSentence = "We can see a clear ______ in this situation.";
   }
 
-  renderMultipleChoiceOptions(exercise.options);
+  const blankFormatted = escapeHtml(rawSentence).replace(/_{3,}/g, '<span class="blank-slot">______</span>');
+  dom.practiceContextEn.innerHTML = blankFormatted;
+
+  renderMultipleChoiceOptions(exercise.options, exercise.correctAnswer, safeWord);
 }
 
-function renderMultipleChoiceOptions(options) {
+function renderMultipleChoiceOptions(options, correctAnswer, word) {
   if (!dom.containerMultipleChoice) return;
   dom.containerMultipleChoice.innerHTML = '';
 
-  (options || []).forEach((opt, idx) => {
+  const safeWord = word || (currentSession && currentSession.currentWord) || { english: 'opportunity', hungarian: 'lehetőség' };
+  const fallbackTarget = correctAnswer || (isReverseMode ? safeWord.english : safeWord.hungarian);
+
+  // Mindig pontosan 4 opció garantálása
+  let safeOptions = Array.isArray(options) && options.length > 0 ? [...options] : [];
+  if (safeOptions.length < 4) {
+    const defaultPool = isReverseMode
+      ? ['opportunity', 'challenge', 'development', 'solution', 'experience', 'environment']
+      : ['lehetőség', 'kihívás, próbatétel', 'fejlesztés, fejlődés', 'megoldás', 'tapasztalat', 'környezet'];
+
+    if (!safeOptions.some(o => o.text === fallbackTarget)) {
+      safeOptions.unshift({ text: fallbackTarget, isCorrect: true });
+    }
+
+    for (const item of defaultPool) {
+      if (safeOptions.length >= 4) break;
+      if (!safeOptions.some(o => o.text && o.text.toLowerCase() === item.toLowerCase())) {
+        safeOptions.push({ text: item, isCorrect: item === fallbackTarget });
+      }
+    }
+    while (safeOptions.length < 4) {
+      safeOptions.push({ text: `Opció ${safeOptions.length + 1}`, isCorrect: false });
+    }
+  }
+
+  // Konzol naplózás a hiba felderítéséhez és transzparenciához
+  console.log('[Wordly Practice] Aktuális szó:', safeWord, 'Opciók:', safeOptions);
+
+  safeOptions.forEach((opt, idx) => {
     const btn = document.createElement('button');
-    btn.className = 'mc-option-btn p-3.5 rounded-2xl bg-slate-800 hover:bg-slate-750 border border-slate-700 hover:border-brand-500 font-semibold text-xs sm:text-sm text-left transition-all flex items-center justify-between';
+    btn.type = 'button';
+    btn.className = 'mc-option-btn p-3.5 rounded-2xl bg-slate-800 hover:bg-slate-750 border border-slate-700 hover:border-brand-500 font-semibold text-xs sm:text-sm text-left transition-all flex items-center justify-between cursor-pointer select-none';
     btn.dataset.index = idx;
 
     btn.innerHTML = `
-      <span class="option-text text-slate-100">${escapeHtml(opt.text)}</span>
+      <span class="option-text text-slate-100">${escapeHtml(opt.text || '')}</span>
       <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-700 text-slate-300">${idx + 1}</span>
     `;
 
-    btn.addEventListener('click', () => {
+    const clickHandler = (e) => {
+      if (e) e.preventDefault();
       submitPracticeAnswer(opt.text, btn);
-    });
+    };
+
+    btn.onclick = clickHandler;
+    btn.addEventListener('click', clickHandler);
 
     dom.containerMultipleChoice.appendChild(btn);
   });
@@ -687,15 +745,22 @@ function renderFillBlankOptions(options) {
 
   (options || []).forEach((opt, idx) => {
     const btn = document.createElement('button');
-    btn.className = 'mc-option-btn p-3.5 rounded-2xl bg-slate-800 hover:bg-slate-750 border border-slate-700 hover:border-brand-500 font-semibold text-xs sm:text-sm text-left transition-all flex items-center justify-between';
+    btn.type = 'button';
+    btn.className = 'mc-option-btn p-3.5 rounded-2xl bg-slate-800 hover:bg-slate-750 border border-slate-700 hover:border-brand-500 font-semibold text-xs sm:text-sm text-left transition-all flex items-center justify-between cursor-pointer select-none';
     btn.dataset.index = idx;
     btn.innerHTML = `
       <span class="option-text text-slate-100">${escapeHtml(opt.text)}</span>
       <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-700 text-slate-300">${idx + 1}</span>
     `;
-    btn.addEventListener('click', () => {
+
+    const clickHandler = (e) => {
+      if (e) e.preventDefault();
       submitPracticeAnswer(opt.text, btn);
-    });
+    };
+
+    btn.onclick = clickHandler;
+    btn.addEventListener('click', clickHandler);
+
     dom.fillBlankOptions.appendChild(btn);
   });
 }
@@ -933,15 +998,19 @@ function renderListeningExercise(exercise, word) {
     dom.listeningOptions.innerHTML = '';
     (exercise.options || []).forEach((opt, idx) => {
       const btn = document.createElement('button');
-      btn.className = 'mc-option-btn p-3.5 rounded-2xl bg-slate-800 hover:bg-slate-750 border border-slate-700 hover:border-brand-500 font-semibold text-xs sm:text-sm text-left transition-all flex items-center justify-between';
+      btn.type = 'button';
+      btn.className = 'mc-option-btn p-3.5 rounded-2xl bg-slate-800 hover:bg-slate-750 border border-slate-700 hover:border-brand-500 font-semibold text-xs sm:text-sm text-left transition-all flex items-center justify-between cursor-pointer select-none';
       btn.dataset.index = idx;
       btn.innerHTML = `
         <span class="option-text text-slate-100">${escapeHtml(opt.text)}</span>
         <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-700 text-slate-300">${idx + 1}</span>
       `;
-      btn.addEventListener('click', () => {
+      const clickHandler = (e) => {
+        if (e) e.preventDefault();
         submitPracticeAnswer(opt.text, btn);
-      });
+      };
+      btn.onclick = clickHandler;
+      btn.addEventListener('click', clickHandler);
       dom.listeningOptions.appendChild(btn);
     });
   }
@@ -1069,25 +1138,23 @@ async function submitPracticeAnswer(userAnswer, targetBtn = null) {
   dom.practiceStreakCounter.textContent = result.stats.streak;
   dom.practiceCorrectCount.textContent = result.stats.correctCount;
 
-  // Feleletválasztós / Mondatkiegészítés / Hallás utáni gombok színezése
-  const activeOptionsContainer = [
-    dom.containerMultipleChoice,
-    dom.fillBlankOptions,
-    dom.listeningOptions
-  ].find(c => c && !c.classList.contains('hidden') && c.offsetParent !== null);
+  // Feleletválasztós / Mondatkiegészítés / Hallás utáni gombok azonnali vizuális visszajelzése
+  const allOptionBtns = document.querySelectorAll('.mc-option-btn');
+  allOptionBtns.forEach(b => {
+    b.disabled = true;
+    const textSpan = b.querySelector('.option-text');
+    const text = textSpan ? textSpan.textContent.trim() : b.textContent.trim();
+    if (text === result.correctAnswer) {
+      b.classList.add('correct');
+    }
+  });
 
-  if (activeOptionsContainer) {
-    const allBtns = activeOptionsContainer.querySelectorAll('.mc-option-btn');
-    allBtns.forEach(b => {
-      b.disabled = true;
-      const text = b.querySelector('.option-text') ? b.querySelector('.option-text').textContent.trim() : '';
-      if (text === result.correctAnswer) {
-        b.classList.add('correct');
-      }
-    });
-
-    if (targetBtn && !result.isCorrect) {
+  if (targetBtn) {
+    targetBtn.disabled = true;
+    if (!result.isCorrect) {
       targetBtn.classList.add('incorrect');
+    } else {
+      targetBtn.classList.add('correct');
     }
   }
 
@@ -1175,11 +1242,12 @@ async function submitPracticeAnswer(userAnswer, targetBtn = null) {
     nextBtn.addEventListener('click', advanceToNextQuestion);
   }
 
-  // Automatikus továbblépési időzítő
+  // Automatikus továbblépési időzítő (1.0–1.5 másodperc)
   clearTimeout(autoAdvanceTimer);
+  const autoDelay = result.isCorrect ? 1200 : 1500;
   autoAdvanceTimer = setTimeout(() => {
     advanceToNextQuestion();
-  }, result.isCorrect ? 2400 : 4200);
+  }, autoDelay);
 }
 
 /**
