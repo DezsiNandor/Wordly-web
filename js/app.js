@@ -29,7 +29,10 @@ import {
 
 import { 
   PracticeSession, 
-  speakEnglishWord 
+  speakEnglishWord,
+  speakSentenceWithBlank,
+  playBlankBeep,
+  isAudioSpoilerExercise
 } from './practice.js';
 
 import { 
@@ -125,6 +128,7 @@ const dom = {
   practicePromptWord: document.getElementById('practice-prompt-word'),
   practicePromptHint: document.getElementById('practice-prompt-hint'),
   btnSpeakWord: document.getElementById('btn-speak-word'),
+  btnSpeakWordSlow: document.getElementById('btn-speak-word-slow'),
   practiceContextSentenceBox: document.getElementById('practice-context-sentence-box'),
   practiceContextEn: document.getElementById('practice-context-en'),
 
@@ -155,6 +159,7 @@ const dom = {
 
   containerListening: document.getElementById('container-listening'),
   btnListeningReplay: document.getElementById('btn-listening-replay'),
+  btnListeningReplaySlow: document.getElementById('btn-listening-replay-slow'),
   listeningOptions: document.getElementById('listening-options'),
 
   containerWrittenRecall: document.getElementById('container-written-recall'),
@@ -1027,7 +1032,7 @@ function renderWrittenRecallExercise(exercise, word) {
   if (dom.containerWrittenRecall) dom.containerWrittenRecall.classList.remove('hidden');
   if (dom.practicePromptWordWrapper) dom.practicePromptWordWrapper.classList.remove('hidden');
 
-  dom.practicePromptWord.textContent = isReverseMode ? word.english : word.hungarian;
+  dom.practicePromptWord.textContent = isReverseMode ? (word.hungarian || '') : (word.english || '');
   dom.practicePromptHint.textContent = isReverseMode ? 'Írd be az angol megfelelőjét:' : 'Írd be a magyar jelentést:';
 
   if (dom.practiceAnswerInput) {
@@ -1095,6 +1100,19 @@ function renderCurrentQuestion() {
   // Visszajelzés konténer elrejtése
   dom.practiceFeedbackContainer.classList.add('hidden');
   dom.practiceFeedbackContainer.innerHTML = '';
+
+  // Kiejtés gombok állapotának és tooltipjének beállítása (No-Spoiler Audio védelem)
+  const isSpoiler = isAudioSpoilerExercise(exercise, currentSession.options);
+  if (dom.btnSpeakWord) {
+    dom.btnSpeakWord.title = isSpoiler
+      ? "Példamondat meghallgatása (a szó helyén sípolással/szünettel)"
+      : "Normál kiejtés (1.0x)";
+  }
+  if (dom.btnSpeakWordSlow) {
+    dom.btnSpeakWordSlow.title = isSpoiler
+      ? "Lassú példamondat meghallgatása (a szó helyén sípolással/szünettel)"
+      : "Lassú kiejtés (0.55x)";
+  }
 
   // Formátum specifikus felület aktiválása
   switch (exercise.type) {
@@ -1185,10 +1203,22 @@ async function submitPracticeAnswer(userAnswer, targetBtn = null) {
         </span>
         <span class="text-xs text-emerald-400 font-mono font-bold">+1 pont</span>
       </div>
-      <div class="text-sm font-bold text-white mt-1.5 flex items-center gap-2">
-        <span class="text-slate-100">${escapeHtml(currentWord.english || '')}</span>
-        <span class="text-emerald-400 font-medium">➔</span>
-        <span class="text-emerald-300">${escapeHtml(currentWord.hungarian || result.correctAnswer)}</span>
+      <div class="text-sm font-bold text-white mt-1.5 flex items-center justify-between gap-2 flex-wrap">
+        <div class="flex items-center gap-2">
+          <span class="text-slate-100">${escapeHtml(currentWord.english || '')}</span>
+          <span class="text-emerald-400 font-medium">➔</span>
+          <span class="text-emerald-300">${escapeHtml(currentWord.hungarian || result.correctAnswer)}</span>
+        </div>
+        <div class="inline-flex items-center gap-1.5">
+          <button type="button" class="btn-post-speak p-1.5 px-2 rounded-lg bg-emerald-900/80 hover:bg-emerald-800 text-white font-medium transition-all active:scale-95 flex items-center gap-1 text-xs" title="Normál kiejtés (1.0x)">
+            <i data-lucide="volume-2" class="w-3.5 h-3.5"></i>
+            <span class="text-[10px] font-mono">1.0x</span>
+          </button>
+          <button type="button" class="btn-post-speak-slow p-1.5 px-2 rounded-lg bg-emerald-900/80 hover:bg-emerald-800 text-amber-300 font-medium transition-all active:scale-95 flex items-center gap-1 text-xs" title="Lassú kiejtés (0.55x)">
+            <span class="text-xs">🐌</span>
+            <span class="text-[10px] font-mono">0.55x</span>
+          </button>
+        </div>
       </div>
       ${post.sentence ? `
         <div class="mt-2.5 pt-2.5 border-t border-emerald-850/60 bg-emerald-950/50 p-2.5 rounded-xl">
@@ -1216,8 +1246,20 @@ async function submitPracticeAnswer(userAnswer, targetBtn = null) {
       <div class="text-xs sm:text-sm text-slate-200 mt-1.5">
         A helyes megoldás: <strong class="text-white font-extrabold text-sm sm:text-base bg-rose-900/60 px-2.5 py-0.5 rounded-lg border border-rose-700/60">${escapeHtml(result.correctAnswer)}</strong>
       </div>
-      <div class="text-xs text-slate-300 mt-1">
-        ${escapeHtml(currentWord.english || '')} = <strong class="text-emerald-300">${escapeHtml(currentWord.hungarian || '')}</strong>
+      <div class="text-xs text-slate-300 mt-1 flex items-center justify-between gap-2 flex-wrap">
+        <div>
+          ${escapeHtml(currentWord.english || '')} = <strong class="text-emerald-300">${escapeHtml(currentWord.hungarian || '')}</strong>
+        </div>
+        <div class="inline-flex items-center gap-1.5">
+          <button type="button" class="btn-post-speak p-1.5 px-2 rounded-lg bg-rose-900/80 hover:bg-rose-800 text-white font-medium transition-all active:scale-95 flex items-center gap-1 text-xs" title="Normál kiejtés (1.0x)">
+            <i data-lucide="volume-2" class="w-3.5 h-3.5"></i>
+            <span class="text-[10px] font-mono">1.0x</span>
+          </button>
+          <button type="button" class="btn-post-speak-slow p-1.5 px-2 rounded-lg bg-rose-900/80 hover:bg-rose-800 text-amber-300 font-medium transition-all active:scale-95 flex items-center gap-1 text-xs" title="Lassú kiejtés (0.55x)">
+            <span class="text-xs">🐌</span>
+            <span class="text-[10px] font-mono">0.55x</span>
+          </button>
+        </div>
       </div>
       ${post.sentence ? `
         <div class="mt-2.5 pt-2.5 border-t border-rose-850/60 bg-rose-950/50 p-2.5 rounded-xl">
@@ -1235,7 +1277,29 @@ async function submitPracticeAnswer(userAnswer, targetBtn = null) {
     `;
   }
 
+  // Fő kiejtés gombok aktiválása a helyes szó kimondására
+  if (dom.btnSpeakWord) {
+    dom.btnSpeakWord.title = "Normál kiejtés (1.0x)";
+  }
+  if (dom.btnSpeakWordSlow) {
+    dom.btnSpeakWordSlow.title = "Lassú kiejtés (0.55x)";
+  }
+
   if (window.lucide) window.lucide.createIcons();
+
+  const postSpeakBtn = dom.practiceFeedbackContainer.querySelector('.btn-post-speak');
+  if (postSpeakBtn && currentWord.english) {
+    postSpeakBtn.addEventListener('click', () => {
+      speakEnglishWord(currentWord.english, { rate: 1.0 });
+    });
+  }
+
+  const postSpeakSlowBtn = dom.practiceFeedbackContainer.querySelector('.btn-post-speak-slow');
+  if (postSpeakSlowBtn && currentWord.english) {
+    postSpeakSlowBtn.addEventListener('click', () => {
+      speakEnglishWord(currentWord.english, { slow: true, rate: 0.55 });
+    });
+  }
 
   const nextBtn = dom.practiceFeedbackContainer.querySelector('#btn-next-question');
   if (nextBtn) {
@@ -1669,12 +1733,35 @@ function initModalsAndEvents() {
     });
   }
 
-  if (dom.btnSpeakWord) {
-    dom.btnSpeakWord.addEventListener('click', () => {
-      if (currentSession && currentSession.currentWord) {
-        speakEnglishWord(currentSession.currentWord.english);
+  function handleSpeakPromptWord(isSlow = false) {
+    if (!currentSession || !currentSession.currentWord) return;
+    const word = currentSession.currentWord;
+    const exercise = currentSession.currentExercise;
+    const isWaitingInput = currentSession.state === 'WAITING_INPUT';
+
+    // 2. Szabály: Írásos/betűkirakós feladatoknál válaszadás előtt TILOS a szót kimondani!
+    if (isWaitingInput && isAudioSpoilerExercise(exercise, currentSession.options)) {
+      const sentence = exercise?.sentenceWithBlank || (exercise?.fullSentence ? exercise.fullSentence.replace(new RegExp(`\\b${word.english}\\b`, 'gi'), 'blank') : null);
+      if (sentence) {
+        speakSentenceWithBlank(sentence, { slow: isSlow, rate: isSlow ? 0.55 : 0.95 });
+        showToast("💡 Írásos feladat: a szó helyett sípolás / 'blank' hangzik el a megoldás védelméért!", "info");
+      } else {
+        playBlankBeep();
+        showToast("🔒 A szó pontos kiejtése az ellenőrzés után hallgatható meg!", "warning");
       }
-    });
+      return;
+    }
+
+    // Normál vagy ellenőrzés utáni kiejtés (1.0x normál vagy 0.55x lassú)
+    speakEnglishWord(word.english, { slow: isSlow, rate: isSlow ? 0.55 : 1.0 });
+  }
+
+  if (dom.btnSpeakWord) {
+    dom.btnSpeakWord.addEventListener('click', () => handleSpeakPromptWord(false));
+  }
+
+  if (dom.btnSpeakWordSlow) {
+    dom.btnSpeakWordSlow.addEventListener('click', () => handleSpeakPromptWord(true));
   }
 
   // Begépelős feladat beküldése
@@ -1729,13 +1816,21 @@ function initModalsAndEvents() {
     });
   }
 
-  // Hallás utáni (Listening) újrahallgatás gomb
+  // Hallás utáni (Listening) újrahallgatás gombok (normál 1.0x és lassú 0.55x)
   if (dom.btnListeningReplay) {
     dom.btnListeningReplay.addEventListener('click', () => {
-      if (currentSession && currentSession.currentExercise && currentSession.currentExercise.audioWord) {
-        speakEnglishWord(currentSession.currentExercise.audioWord);
-      } else if (currentSession && currentSession.currentWord) {
-        speakEnglishWord(currentSession.currentWord.english);
+      const audioWord = currentSession?.currentExercise?.audioWord || currentSession?.currentWord?.english;
+      if (audioWord) {
+        speakEnglishWord(audioWord, { rate: 1.0 });
+      }
+    });
+  }
+
+  if (dom.btnListeningReplaySlow) {
+    dom.btnListeningReplaySlow.addEventListener('click', () => {
+      const audioWord = currentSession?.currentExercise?.audioWord || currentSession?.currentWord?.english;
+      if (audioWord) {
+        speakEnglishWord(audioWord, { slow: true, rate: 0.55 });
       }
     });
   }
@@ -2131,5 +2226,9 @@ window.__wordly = {
   generateScrambleQuestion,
   generateTrueFalseQuestion,
   generateContextMatchingQuestion,
-  generateListeningQuestion
+  generateListeningQuestion,
+  speakEnglishWord,
+  speakSentenceWithBlank,
+  playBlankBeep,
+  isAudioSpoilerExercise
 };
